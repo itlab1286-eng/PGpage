@@ -3,12 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Elysium PG Resident Hub</title>
+  <title>Elysium PG - Operations Portal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <style>
-    .room-btn.active { background-color: #2563eb; color: #ffffff; border-color: #1d4ed8; }
-  </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen pb-12">
 
@@ -19,15 +16,15 @@
         <i class="fa-solid fa-lock"></i>
       </div>
       <h2 class="text-xl font-bold text-slate-900 mb-1">Staff Access Verification</h2>
-      <p class="text-sm text-slate-500 mb-6">Enter your authorized staff PIN to open the uploader</p>
+      <p class="text-sm text-slate-500 mb-6">Enter your PIN to access Elysium PG Portal</p>
       
-      <div class="flex justify-center gap-3 mb-6">
+      <div class="flex justify-center mb-6">
         <input type="password" maxlength="6" id="staffPinInput" 
                class="w-44 text-center text-3xl tracking-widest font-mono py-2 border-2 border-slate-300 rounded-xl focus:border-blue-600 focus:outline-none" 
                placeholder="••••" autofocus />
       </div>
 
-      <p id="pinErrorMsg" class="text-xs text-red-500 font-semibold mb-4 hidden">Please enter a valid PIN.</p>
+      <p id="pinErrorMsg" class="text-xs text-red-500 font-semibold mb-4 hidden">Invalid Staff PIN.</p>
 
       <button onclick="unlockApp()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition">
         Unlock Portal
@@ -35,359 +32,150 @@
     </div>
   </div>
 
-  <!-- MAIN APP CONTAINER -->
-  <div class="max-w-4xl mx-auto px-4 pt-4 sm:pt-8">
+  <!-- MAIN DASHBOARD -->
+  <div class="max-w-4xl mx-auto px-4 pt-6 sm:pt-10">
     
     <!-- HEADER -->
-    <header class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-4">
+    <header class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-6 flex items-center justify-between">
       <div>
-        <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-          <i class="fa-solid fa-building text-blue-600"></i> Elysium PG Hub
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 mb-2">
+          <i class="fa-solid fa-circle text-[8px] text-emerald-500 animate-pulse"></i> Operational &bull; 42 Rooms
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+          Elysium PG Hub
         </h1>
-        <p class="text-xs sm:text-sm text-slate-500">42 Rooms (Floors 1–6) &bull; Google Drive Auto-Uploader</p>
+        <p class="text-xs sm:text-sm text-slate-500 mt-1">Staff Management & Resident Operations Portal</p>
       </div>
 
-      <div class="flex items-center gap-2">
-        <button onclick="openSettingsModal()" class="px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-2 transition">
-          <i class="fa-solid fa-gear"></i> Drive Endpoint
-        </button>
-        <button onclick="lockApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition" title="Lock App">
-          <i class="fa-solid fa-arrow-right-from-bracket"></i>
-        </button>
-      </div>
+      <button onclick="lockApp()" class="p-3 text-sm font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl transition" title="Log Out / Lock Portal">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+      </button>
     </header>
 
-    <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+    <!-- QUICK STATS BAR -->
+    <div class="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-center">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Rooms</p>
+        <p class="text-xl sm:text-2xl font-black text-slate-800 mt-0.5">42</p>
+      </div>
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-center">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Floors</p>
+        <p class="text-xl sm:text-2xl font-black text-blue-600 mt-0.5">1 – 6</p>
+      </div>
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-center">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">System</p>
+        <p class="text-xl sm:text-2xl font-black text-emerald-600 mt-0.5">Cloud</p>
+      </div>
+    </div>
 
-      <!-- ROOM SELECTOR -->
-      <div class="md:col-span-5 bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center justify-between">
-          <span>1. Select Room</span>
-          <span id="selectedRoomDisplay" class="text-blue-600 font-extrabold text-base">Room 101</span>
-        </h2>
+    <!-- MODULE TILES GRID -->
+    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 px-1">Management Modules</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-        <!-- Floor Navigation -->
-        <div class="grid grid-cols-6 gap-1 bg-slate-100 p-1 rounded-xl mb-4 text-xs font-bold text-center">
-          <button onclick="showFloor(1)" class="floor-tab py-1.5 rounded-lg active bg-white shadow-sm text-blue-600" id="tabFloor1">F1</button>
-          <button onclick="showFloor(2)" class="floor-tab py-1.5 rounded-lg text-slate-600" id="tabFloor2">F2</button>
-          <button onclick="showFloor(3)" class="floor-tab py-1.5 rounded-lg text-slate-600" id="tabFloor3">F3</button>
-          <button onclick="showFloor(4)" class="floor-tab py-1.5 rounded-lg text-slate-600" id="tabFloor4">F4</button>
-          <button onclick="showFloor(5)" class="floor-tab py-1.5 rounded-lg text-slate-600" id="tabFloor5">F5</button>
-          <button onclick="showFloor(6)" class="floor-tab py-1.5 rounded-lg text-slate-600" id="tabFloor6">F6</button>
+      <!-- 1. Document Uploader (Active) -->
+      <a href="aadhar.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-blue-500 hover:shadow-md transition flex items-start gap-4">
+        <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
+          <i class="fa-solid fa-id-card"></i>
         </div>
-
-        <!-- Room Buttons Grid -->
-        <div id="roomsGrid" class="grid grid-cols-4 gap-2"></div>
-      </div>
-
-      <!-- UPLOAD FORM -->
-      <div class="md:col-span-7 bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">2. Resident & Document Details</h2>
-
-        <form id="uploadForm" onsubmit="handleUpload(event)" class="space-y-4">
-          
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Resident Full Name</label>
-            <input type="text" id="residentName" required placeholder="e.g. Rahul Sharma"
-                   class="w-full text-sm px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-slate-800 group-hover:text-blue-600 transition">Document Uploader</h3>
+            <span class="text-[10px] uppercase font-bold tracking-wide bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Active</span>
           </div>
+          <p class="text-xs text-slate-500 mt-1">Upload Aadhaar, PAN, and agreements to Room 101–607 folders.</p>
+        </div>
+      </a>
 
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Document Type</label>
-              <select id="docType" class="w-full text-sm px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="Aadhaar">Aadhaar Card</option>
-                <option value="PAN">PAN Card</option>
-                <option value="RentalAgreement">Rental Agreement</option>
-                <option value="PoliceVerification">Police Verification</option>
-                <option value="OfficeID">Office / College ID</option>
-                <option value="Photo">Resident Photo</option>
-                <option value="Other">Other Document</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Phone Number (Optional)</label>
-              <input type="tel" id="residentPhone" placeholder="10-digit mobile"
-                     class="w-full text-sm px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-          </div>
-
-          <!-- File Upload Zone -->
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Choose or Capture Document</label>
-            <div class="relative border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-4 text-center cursor-pointer transition bg-slate-50">
-              <input type="file" id="fileInput" required accept="image/*,application/pdf" capture="environment" onchange="previewSelectedFile()"
-                     class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
-              <div id="dropPrompt">
-                <i class="fa-solid fa-cloud-arrow-up text-3xl text-blue-500 mb-2"></i>
-                <p class="text-xs font-bold text-slate-700">Tap to snap photo or select file</p>
-                <p class="text-[11px] text-slate-400">PDF, JPG, PNG</p>
-              </div>
-              <div id="fileSelectedDisplay" class="hidden text-xs font-semibold text-blue-700">
-                <i class="fa-solid fa-file-circle-check text-2xl text-emerald-500 mb-1"></i>
-                <p id="fileNamePreview">file_name.pdf</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Drive Destination Preview -->
-          <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
-            <span class="font-bold text-slate-700">Drive Destination: </span>
-            <span class="font-mono text-slate-500 font-semibold">Elysium PG / <span id="previewFolder">101</span> / </span>
-            <span id="previewAutoName" class="font-mono text-blue-600 font-semibold">101_Aadhaar_Resident.pdf</span>
-          </div>
-
-          <!-- Submit Button -->
-          <button type="submit" id="submitBtn" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition">
-            <i class="fa-solid fa-cloud-arrow-up"></i>
-            <span>Upload to Common Drive</span>
-          </button>
-        </form>
-
-        <!-- Status Display -->
-        <div id="statusBox" class="mt-4 p-3 rounded-xl text-xs font-semibold hidden"></div>
-
-      </div>
-    </div>
+      <!-- 2. Rent & Payments Ledger (Roadmap) -->
+      <!-- In index.html: Change the Rent Ledger card to this: -->
+<a href="rent.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-indigo-500 hover:shadow-md transition flex items-start gap-4">
+  <div class="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
+    <i class="fa-solid fa-receipt"></i>
   </div>
-
-  <!-- ENDPOINT SETTINGS MODAL -->
-  <div id="settingsModal" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-base font-bold text-slate-900"><i class="fa-solid fa-link text-blue-600 mr-1"></i> Apps Script Web App URL</h3>
-        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
-      </div>
-      <p class="text-xs text-slate-500 mb-3">Modify active endpoint for this session:</p>
-      
-      <input type="url" id="apiUrlInput" placeholder="https://script.google.com/macros/s/.../exec"
-             class="w-full text-xs font-mono p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4" />
-
-      <div class="flex gap-2">
-        <button onclick="saveApiUrl()" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition">
-          Apply URL
-        </button>
-        <button onclick="closeSettingsModal()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">
-          Close
-        </button>
-      </div>
+  <div class="flex-1">
+    <div class="flex items-center justify-between">
+      <h3 class="text-base font-bold text-slate-800 group-hover:text-indigo-600 transition">Rent & Dues Ledger</h3>
+      <span class="text-[10px] uppercase font-bold tracking-wide bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Active</span>
     </div>
+    <p class="text-xs text-slate-500 mt-1">Select room, choose specific resident, verify rent, and log payments.</p>
+  </div>
+</a>
+
+      <!-- 3. Room & Bed Allocator -->
+      <div onclick="openComingSoon('Room & Bed Allocator')" class="cursor-pointer group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-emerald-500 hover:shadow-md transition flex items-start gap-4">
+        <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
+          <i class="fa-solid fa-bed"></i>
+        </div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-slate-800 group-hover:text-emerald-600 transition">Room Occupancy</h3>
+            <span class="text-[10px] uppercase font-bold tracking-wide bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">Planner</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Quick check for vacant beds, check-ins, check-outs, and room allocations.</p>
+        </div>
+      </div>
+
+      <!-- 4. Resident Issues & Maintenance -->
+      <div onclick="openComingSoon('Maintenance & Complaints Desk')" class="cursor-pointer group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-rose-500 hover:shadow-md transition flex items-start gap-4">
+        <div class="w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
+          <i class="fa-solid fa-screwdriver-wrench"></i>
+        </div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-slate-800 group-hover:text-rose-600 transition">Maintenance & Issues</h3>
+            <span class="text-[10px] uppercase font-bold tracking-wide bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">Tickets</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Log electrical, plumbing, Wi-Fi, and housekeeping requests by room.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- QUICK DRIVE SHORTCUT -->
+    <div class="mt-6 bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <i class="fa-brands fa-google-drive text-2xl text-blue-600"></i>
+        <div>
+          <p class="text-xs font-bold text-slate-800">Master Google Drive Folder</p>
+          <p class="text-[11px] text-slate-500">View centralized Elysium PG folders directly in Google Drive</p>
+        </div>
+      </div>
+      <a href="https://drive.google.com" target="_blank" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition">
+        Open Drive
+      </a>
+    </div>
+
   </div>
 
   <script>
-    // ==========================================
-    // PASTE YOUR GOOGLE APPS SCRIPT URL HERE:
-    // ==========================================
-    let APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNR9EP5FfVODvpxdDUh4s4ciInW1JREY681R0gbb8HlTNBTfRLppwoDZKH5N9Spqc6/exec";
-
-    let currentFloor = 1;
-    let selectedRoom = "101";
-    let activePin = ""; // RAM only (never cached to disk)
+    // Allowed Staff PINs
+    const AUTHORIZED_PINS = ["7032","8842", "7391", "2026"];
 
     window.addEventListener("DOMContentLoaded", () => {
-      buildRoomsGrid(1);
-      updatePreviewName();
-
-      // Clear any legacy storage from previous iterations
-      localStorage.clear();
-      sessionStorage.clear();
-
-      // Show lock screen on every page load
+      // Clear persistent disk credentials on every load
+      localStorage.removeItem("pg_portal_auth");
+      sessionStorage.removeItem("pg_portal_auth");
       document.getElementById("pinLockModal").classList.remove("hidden");
-
-      // Sync input box with default constant
-      document.getElementById("apiUrlInput").value = APPS_SCRIPT_URL;
-
-      document.getElementById("residentName").addEventListener("input", updatePreviewName);
-      document.getElementById("docType").addEventListener("change", updatePreviewName);
     });
 
     function unlockApp() {
-      const pinInput = document.getElementById("staffPinInput");
-      const pin = pinInput.value.trim();
-      if (pin.length >= 4) {
-        activePin = pin;
-        pinInput.value = "";
-        document.getElementById("pinErrorMsg").classList.add("hidden");
+      const pin = document.getElementById("staffPinInput").value.trim();
+      if (AUTHORIZED_PINS.includes(pin)) {
         document.getElementById("pinLockModal").classList.add("hidden");
+        document.getElementById("staffPinInput").value = "";
+        document.getElementById("pinErrorMsg").classList.add("hidden");
       } else {
         document.getElementById("pinErrorMsg").classList.remove("hidden");
       }
     }
 
     function lockApp() {
-      activePin = "";
       document.getElementById("staffPinInput").value = "";
       document.getElementById("pinLockModal").classList.remove("hidden");
     }
 
-    function showFloor(floorNum) {
-      currentFloor = floorNum;
-      document.querySelectorAll(".floor-tab").forEach((tab, idx) => {
-        if (idx + 1 === floorNum) {
-          tab.classList.add("bg-white", "shadow-sm", "text-blue-600");
-          tab.classList.remove("text-slate-600");
-        } else {
-          tab.classList.remove("bg-white", "shadow-sm", "text-blue-600");
-          tab.classList.add("text-slate-600");
-        }
-      });
-      buildRoomsGrid(floorNum);
-    }
-
-    function buildRoomsGrid(floor) {
-      const grid = document.getElementById("roomsGrid");
-      grid.innerHTML = "";
-      for (let i = 1; i <= 7; i++) {
-        const roomNum = `${floor}0${i}`;
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = `room-btn p-3 rounded-xl border text-sm font-bold transition flex flex-col items-center justify-center ${
-          roomNum === selectedRoom ? "active" : "bg-slate-50 border-slate-200 text-slate-700 hover:border-blue-400"
-        }`;
-        btn.innerHTML = `<span class="text-xs text-slate-400 font-normal">Room</span><span>${roomNum}</span>`;
-        btn.onclick = () => selectRoom(roomNum);
-        grid.appendChild(btn);
-      }
-    }
-
-    function selectRoom(roomNum) {
-      selectedRoom = roomNum;
-      document.getElementById("selectedRoomDisplay").innerText = `Room ${roomNum}`;
-      document.getElementById("previewFolder").innerText = roomNum;
-      buildRoomsGrid(currentFloor);
-      updatePreviewName();
-    }
-
-    function updatePreviewName() {
-      const resName = document.getElementById("residentName").value.trim().replace(/[^a-zA-Z0-9]/g, "") || "Resident";
-      const docType = document.getElementById("docType").value;
-      const fileInput = document.getElementById("fileInput");
-      let ext = "pdf";
-      if (fileInput.files.length > 0) {
-        const parts = fileInput.files[0].name.split(".");
-        if (parts.length > 1) ext = parts.pop();
-      }
-      const formatted = `${selectedRoom}_${docType}_${resName}.${ext}`;
-      document.getElementById("previewAutoName").innerText = formatted;
-      return formatted;
-    }
-
-    function previewSelectedFile() {
-      const fileInput = document.getElementById("fileInput");
-      if (fileInput.files.length > 0) {
-        document.getElementById("dropPrompt").classList.add("hidden");
-        document.getElementById("fileSelectedDisplay").classList.remove("hidden");
-        document.getElementById("fileNamePreview").innerText = fileInput.files[0].name;
-        updatePreviewName();
-      }
-    }
-
-    function openSettingsModal() {
-      document.getElementById("apiUrlInput").value = APPS_SCRIPT_URL;
-      document.getElementById("settingsModal").classList.remove("hidden");
-    }
-
-    function closeSettingsModal() {
-      document.getElementById("settingsModal").classList.add("hidden");
-    }
-
-    function saveApiUrl() {
-      const url = document.getElementById("apiUrlInput").value.trim();
-      if (url) {
-        APPS_SCRIPT_URL = url; // Replaces variable in RAM for current session
-        alert("Endpoint updated for this session.");
-      }
-      closeSettingsModal();
-    }
-
-    async function handleUpload(e) {
-      e.preventDefault();
-
-      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes("PASTE_YOUR_EXEC_URL_HERE")) {
-        alert("Please set your valid Google Apps Script URL in APPS_SCRIPT_URL or via Settings.");
-        openSettingsModal();
-        return;
-      }
-
-      const fileInput = document.getElementById("fileInput");
-      if (!fileInput.files || fileInput.files.length === 0) {
-        alert("Please select a file or snap a photo.");
-        return;
-      }
-
-      const file = fileInput.files[0];
-      const resident = document.getElementById("residentName").value.trim();
-      const finalFileName = updatePreviewName();
-      const submitBtn = document.getElementById("submitBtn");
-      const statusBox = document.getElementById("statusBox");
-
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Uploading to Drive...`;
-      statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
-      statusBox.innerText = `Uploading ${finalFileName} to Elysium PG / ${selectedRoom}...`;
-
-      const reader = new FileReader();
-      reader.onload = async function() {
-        const payload = {
-          pin: activePin,
-          roomNumber: selectedRoom,
-          resident: resident,
-          fileName: finalFileName,
-          mimeType: file.type || "application/octet-stream",
-          base64: reader.result
-        };
-
-        try {
-          const response = await fetch(APPS_SCRIPT_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "text/plain;charset=utf-8"
-            },
-            body: JSON.stringify(payload)
-          });
-
-          const rawText = await response.text();
-          let isSuccess = false;
-
-          try {
-            const result = JSON.parse(rawText);
-            if (result.status === "success") {
-              isSuccess = true;
-            } else if (result.status === "error") {
-              throw new Error(result.message || "Upload failed");
-            }
-          } catch (parseErr) {
-            // Google's redirect returns an HTML page (ppConfig) after successfully saving the file
-            if (rawText.includes("<!DOCTYPE") || rawText.includes("ppConfig")) {
-              isSuccess = true;
-            } else {
-              throw new Error(parseErr.message || "Server communication error");
-            }
-          }
-
-          if (isSuccess) {
-            statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
-            statusBox.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1.5"></i> Document uploaded successfully to Room ${selectedRoom}!`;
-
-            setTimeout(() => {
-              statusBox.classList.add("hidden");
-            }, 5000);
-
-            document.getElementById("uploadForm").reset();
-            document.getElementById("dropPrompt").classList.remove("hidden");
-            document.getElementById("fileSelectedDisplay").classList.add("hidden");
-            updatePreviewName();
-          }
-        } catch (err) {
-          statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
-          statusBox.innerText = "Error: " + err.message;
-        } finally {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>Upload to Common Drive</span>`;
-        }
-      };
-      reader.readAsDataURL(file);
+    function openComingSoon(moduleName) {
+      alert(`${moduleName} module is under development and will be connected next!`);
     }
   </script>
 </body>

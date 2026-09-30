@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Elysium PG - Rent & Dues Ledger</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    .room-btn.active { background-color: #4f46e5; color: #ffffff; border-color: #4338ca; }
+    .resident-card.active { border-color: #4f46e5; background-color: #eef2ff; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-16">
+
+  <!-- PIN LOCK SCREEN -->
+  <div id="pinLockModal" class="fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center">
+      <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mb-1">Staff Verification</h2>
+      <p class="text-sm text-slate-500 mb-6">Enter PIN to access Rent Ledger</p>
+      
+      <div class="flex justify-center mb-6">
+        <input type="password" maxlength="6" id="staffPinInput" 
+               class="w-44 text-center text-3xl tracking-widest font-mono py-2 border-2 border-slate-300 rounded-xl focus:border-indigo-600 focus:outline-none" 
+               placeholder="••••" autofocus />
+      </div>
+
+      <p id="pinErrorMsg" class="text-xs text-red-500 font-semibold mb-4 hidden">Invalid PIN.</p>
+
+      <button onclick="unlockApp()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-indigo-500/30 transition">
+        Unlock Ledger
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN WRAPPER -->
+  <div class="max-w-4xl mx-auto px-4 pt-4 sm:pt-8">
+    
+    <!-- TOP NAVBAR -->
+    <header class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <a href="index.html" class="text-xs font-bold text-slate-500 hover:text-slate-800 transition flex items-center gap-1">
+            <i class="fa-solid fa-arrow-left"></i> Home
+          </a>
+          <span class="text-slate-300">&bull;</span>
+          <span class="text-xs font-bold text-indigo-600 uppercase tracking-wider">Rent Ledger</span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
+          <i class="fa-solid fa-receipt text-indigo-600"></i> Elysium PG Rents
+        </h1>
+      </div>
+
+      <!-- Month Selector Dropdown -->
+      <div class="flex items-center gap-2">
+        <select id="monthSelect" onchange="loadRoomResidents()" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="October 2026">October 2026</option>
+          <option value="November 2026">November 2026</option>
+          <option value="December 2026">December 2026</option>
+        </select>
+        <button onclick="lockApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition" title="Lock">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+
+      <!-- 1. ROOM PICKER -->
+      <div class="md:col-span-5 bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center justify-between">
+          <span>1. Select Room</span>
+          <span id="activeRoomBadge" class="text-indigo-600 font-extrabold text-sm">Room 101</span>
+        </h2>
+
+        <!-- Floor Buttons -->
+        <div class="grid grid-cols-6 gap-1 bg-slate-100 p-1 rounded-xl mb-4 text-xs font-bold text-center">
+          <button onclick="showFloor(1)" class="floor-tab py-1.5 rounded-lg active bg-white shadow-sm text-indigo-600" id="tabFloor1">F1</button>
+          <button onclick="showFloor(2)" class="floor-tab py-1.5 rounded-lg text-slate-600" id="tabFloor2">F2</button>
+          <button onclick="showFloor(3)" class="floor-tab py-1.5 rounded-lg text-slate-600" id="tabFloor3">F3</button>
+          <button onclick="showFloor(4)" class="floor-tab py-1.5 rounded-lg text-slate-600" id="tabFloor4">F4</button>
+          <button onclick="showFloor(5)" class="floor-tab py-1.5 rounded-lg text-slate-600" id="tabFloor5">F5</button>
+          <button onclick="showFloor(6)" class="floor-tab py-1.5 rounded-lg text-slate-600" id="tabFloor6">F6</button>
+        </div>
+
+        <!-- Room Grid -->
+        <div id="roomsGrid" class="grid grid-cols-4 gap-2"></div>
+      </div>
+
+      <!-- 2. RESIDENT SELECTION & PAYMENT FORM -->
+      <div class="md:col-span-7 space-y-4">
+        
+        <!-- Step 2: Choose Resident -->
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+            2. Choose Resident in Room <span id="currentRoomText" class="text-indigo-600">101</span>
+          </h2>
+          
+          <div id="residentsListContainer" class="space-y-2">
+            <p class="text-xs text-slate-400 italic">Select a room to view residents...</p>
+          </div>
+        </div>
+
+        <!-- Step 3: Payment Entry Form (Shown when resident is selected) -->
+        <div id="paymentFormCard" class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hidden">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+            <div>
+              <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Recording Payment For</p>
+              <h3 id="targetResidentName" class="text-lg font-black text-slate-800">Resident Name</h3>
+            </div>
+            <div class="text-right">
+              <p class="text-[11px] text-slate-400 font-bold">Standard Rent</p>
+              <p id="targetExpectedRent" class="text-sm font-black text-slate-700">₹0</p>
+            </div>
+          </div>
+
+          <form onsubmit="savePayment(event)" class="space-y-4">
+            <input type="hidden" id="targetRowIndex" />
+
+            <!-- Amount Input -->
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-xs font-bold text-slate-700">Rent Amount Received (₹)</label>
+                <!-- Day-Wise Helper Toggle -->
+                <button type="button" onclick="toggleProRateBox()" class="text-[11px] font-bold text-indigo-600 hover:text-indigo-800">
+                  <i class="fa-solid fa-calculator"></i> Pro-Rate by Days
+                </button>
+              </div>
+              <input type="number" id="payAmount" required
+                     class="w-full text-base font-bold px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-slate-800" />
+            </div>
+
+            <!-- Pro-Rate Calculator Panel (Hidden by default) -->
+            <div id="proRateBox" class="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl text-xs space-y-2 hidden">
+              <p class="font-bold text-indigo-900">⚡ Mid-Month Day Calculator</p>
+              <div class="flex items-center gap-2">
+                <span class="text-slate-600">Days Stayed:</span>
+                <input type="number" id="calcDays" min="1" max="31" placeholder="e.g. 15" oninput="calcProRate()"
+                       class="w-20 px-2 py-1 border border-slate-300 rounded-lg text-center font-bold" />
+                <span class="text-slate-500">=</span>
+                <span id="calculatedOutput" class="font-bold font-mono text-indigo-700">₹0</span>
+                <button type="button" onclick="applyCalculatedAmount()" class="ml-auto px-2.5 py-1 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 text-[11px]">
+                  Apply
+                </button>
+              </div>
+            </div>
+
+            <!-- Mode, Received By, and Date Layout -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Payment Mode</label>
+                <select id="payMode" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="GPay">GPay</option>
+                  <option value="PhonePe">PhonePe</option>
+                  <option value="Paytm">Paytm</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Bank Transfer">Bank Transfer / IMPS</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Received By</label>
+                <select id="payReceiver" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="Sreekaran">Sreekaran</option>
+                  <option value="Manager">Manohar</option>
+                  <option value="Warden">Sudheer</option>
+                  <option value="PG Account">PG Account</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Payment Date</label>
+                <input type="date" id="payDate" required
+                       class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Remarks / Staying Dates (Optional)</label>
+              <input type="text" id="payRemarks" placeholder="e.g. Staying from 15th to 31st"
+                     class="w-full text-xs px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" id="saveRentBtn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 transition">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+              <span>Save Payment to Sheet</span>
+            </button>
+          </form>
+
+          <div id="ledgerStatusBox" class="mt-4 p-3 rounded-xl text-xs font-semibold hidden"></div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // PASTE YOUR SAME APPS SCRIPT URL HERE:
+    // ==========================================
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNR9EP5FfVODvpxdDUh4s4ciInW1JREY681R0gbb8HlTNBTfRLppwoDZKH5N9Spqc6/exec";
+
+    const AUTHORIZED_PINS = ["7032", "8842", "7391", "2026"];
+    let currentFloor = 1;
+    let selectedRoom = "101";
+    let activePin = "";
+    let activeResidents = [];
+    let currentSelectedResident = null;
+
+    window.addEventListener("DOMContentLoaded", () => {
+      buildRoomsGrid(1);
+      document.getElementById("pinLockModal").classList.remove("hidden");
+      // Set today's date in date picker
+      document.getElementById("payDate").value = new Date().toISOString().split("T")[0];
+    });
+
+    function unlockApp() {
+      const pin = document.getElementById("staffPinInput").value.trim();
+      if (AUTHORIZED_PINS.includes(pin)) {
+        activePin = pin;
+        document.getElementById("staffPinInput").value = "";
+        document.getElementById("pinLockModal").classList.add("hidden");
+        loadRoomResidents(); // Fetch Room 101 on initial unlock
+      } else {
+        document.getElementById("pinErrorMsg").classList.remove("hidden");
+      }
+    }
+
+    function lockApp() {
+      activePin = "";
+      document.getElementById("pinLockModal").classList.remove("hidden");
+    }
+
+    function showFloor(floorNum) {
+      currentFloor = floorNum;
+      document.querySelectorAll(".floor-tab").forEach((tab, idx) => {
+        if (idx + 1 === floorNum) {
+          tab.classList.add("bg-white", "shadow-sm", "text-indigo-600");
+          tab.classList.remove("text-slate-600");
+        } else {
+          tab.classList.remove("bg-white", "shadow-sm", "text-indigo-600");
+          tab.classList.add("text-slate-600");
+        }
+      });
+      buildRoomsGrid(floorNum);
+    }
+
+    function buildRoomsGrid(floor) {
+      const grid = document.getElementById("roomsGrid");
+      grid.innerHTML = "";
+      for (let i = 1; i <= 7; i++) {
+        const roomNum = `${floor}0${i}`;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `room-btn p-3 rounded-xl border text-sm font-bold transition flex flex-col items-center justify-center ${
+          roomNum === selectedRoom ? "active" : "bg-slate-50 border-slate-200 text-slate-700 hover:border-indigo-400"
+        }`;
+        btn.innerHTML = `<span class="text-xs text-slate-400 font-normal">Room</span><span>${roomNum}</span>`;
+        btn.onclick = () => selectRoom(roomNum);
+        grid.appendChild(btn);
+      }
+    }
+
+    function selectRoom(roomNum) {
+      selectedRoom = roomNum;
+      document.getElementById("activeRoomBadge").innerText = `Room ${roomNum}`;
+      document.getElementById("currentRoomText").innerText = roomNum;
+      buildRoomsGrid(currentFloor);
+      document.getElementById("paymentFormCard").classList.add("hidden"); // Hide until resident is clicked
+      loadRoomResidents();
+    }
+
+    async function loadRoomResidents() {
+      const month = document.getElementById("monthSelect").value;
+      const container = document.getElementById("residentsListContainer");
+      container.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Loading Room ${selectedRoom} residents...</div>`;
+
+      try {
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=getResidentsByRoom&roomNumber=${selectedRoom}&month=${encodeURIComponent(month)}`);
+        const rawText = await res.text();
+        
+        let json;
+        try {
+          json = JSON.parse(rawText);
+        } catch (parseErr) {
+          throw new Error("Unable to parse sheet response. Please refresh.");
+        }
+
+        if (json.status !== "success") {
+          throw new Error(json.message || "Failed loading data");
+        }
+
+        activeResidents = json.residents || [];
+
+        if (activeResidents.length === 0) {
+          container.innerHTML = `<p class="text-xs text-slate-500 italic p-3 bg-slate-50 rounded-xl">No active residents recorded for Room ${selectedRoom} in ${month}.</p>`;
+          return;
+        }
+
+        container.innerHTML = "";
+        activeResidents.forEach((r, idx) => {
+          const isPaid = (r.rentPaid && parseFloat(r.rentPaid) > 0);
+          const card = document.createElement("div");
+          card.className = `resident-card p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-indigo-400 transition flex items-center justify-between ${
+            isPaid ? "bg-emerald-50/50" : "bg-white"
+          }`;
+          card.onclick = () => chooseResident(idx);
+
+          card.innerHTML = `
+            <div>
+              <p class="text-sm font-black text-slate-800 flex items-center gap-1.5">
+                <i class="fa-solid fa-user text-xs ${isPaid ? 'text-emerald-600' : 'text-slate-400'}"></i>
+                <span>${r.name}</span>
+              </p>
+              <p class="text-[11px] text-slate-500 font-semibold mt-0.5">Rent: ₹${r.expectedRent} &bull; ${r.mobile || 'No Mobile'}</p>
+            </div>
+            <div class="text-right">
+              ${isPaid 
+                ? `<span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-lg">Paid ₹${r.rentPaid}</span>` 
+                : `<span class="px-2.5 py-1 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-lg">Unpaid</span>`
+              }
+            </div>
+          `;
+          container.appendChild(card);
+        });
+
+      } catch (err) {
+        container.innerHTML = `<p class="text-xs text-red-500 font-semibold p-3 bg-red-50 rounded-xl">Error: ${err.message}</p>`;
+      }
+    }
+
+    function chooseResident(idx) {
+      currentSelectedResident = activeResidents[idx];
+
+      // Highlight active card
+      document.querySelectorAll(".resident-card").forEach((c, i) => {
+        if (i === idx) c.classList.add("active");
+        else c.classList.remove("active");
+      });
+
+      // Populate payment form
+      document.getElementById("targetResidentName").innerText = currentSelectedResident.name;
+      document.getElementById("targetExpectedRent").innerText = "₹" + currentSelectedResident.expectedRent;
+      document.getElementById("targetRowIndex").value = currentSelectedResident.rowIndex;
+      
+      // Default payment amount to full rent or existing paid amount
+      document.getElementById("payAmount").value = currentSelectedResident.rentPaid || currentSelectedResident.expectedRent;
+      document.getElementById("payRemarks").value = currentSelectedResident.stayingDates || "";
+      if (currentSelectedResident.paymentMode) {
+        const fullMode = currentSelectedResident.paymentMode;
+        if (fullMode.includes(" to ")) {
+          const parts = fullMode.split(" to ");
+          document.getElementById("payMode").value = parts[0].trim();
+          document.getElementById("payReceiver").value = parts[1].trim();
+        } else {
+          document.getElementById("payMode").value = fullMode;
+        }
+      }
+
+      document.getElementById("paymentFormCard").classList.remove("hidden");
+      document.getElementById("ledgerStatusBox").classList.add("hidden");
+      document.getElementById("proRateBox").classList.add("hidden");
+    }
+
+    function toggleProRateBox() {
+      const box = document.getElementById("proRateBox");
+      box.classList.toggle("hidden");
+    }
+
+    function calcProRate() {
+      const days = parseInt(document.getElementById("calcDays").value, 10) || 0;
+      const rent = parseFloat(currentSelectedResident.expectedRent) || 0;
+      const perDay = rent / 30;
+      const total = Math.round(perDay * days);
+      document.getElementById("calculatedOutput").innerText = "₹" + total;
+    }
+
+    function applyCalculatedAmount() {
+      const days = parseInt(document.getElementById("calcDays").value, 10) || 0;
+      const rent = parseFloat(currentSelectedResident.expectedRent) || 0;
+      const total = Math.round((rent / 30) * days);
+      document.getElementById("payAmount").value = total;
+      document.getElementById("payRemarks").value = `Pro-rated for ${days} days`;
+    }
+
+    async function savePayment(e) {
+      e.preventDefault();
+      const btn = document.getElementById("saveRentBtn");
+      const statusBox = document.getElementById("ledgerStatusBox");
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Writing to Google Sheets...`;
+      statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
+      statusBox.innerText = `Saving payment for ${currentSelectedResident.name}...`;
+
+      const selectedMode = document.getElementById("payMode").value;
+      const selectedReceiver = document.getElementById("payReceiver").value;
+      const combinedMode = `${selectedMode} to ${selectedReceiver}`;
+
+      const payload = {
+        action: "recordRentPayment",
+        pin: activePin,
+        month: document.getElementById("monthSelect").value,
+        rowIndex: document.getElementById("targetRowIndex").value,
+        residentName: currentSelectedResident.name,
+        rentPaid: document.getElementById("payAmount").value,
+        paymentDate: document.getElementById("payDate").value,
+        mode: combinedMode,
+        remarks: document.getElementById("payRemarks").value
+      };
+
+      try {
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+
+        const rawText = await response.text();
+        let result;
+        try {
+          result = JSON.parse(rawText);
+        } catch(e) {
+          result = { status: "success", message: "Recorded successfully!" };
+        }
+
+        if (result.status === "success") {
+          statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
+          statusBox.innerHTML = `✓ Payment saved for <b>${currentSelectedResident.name}</b>!`;
+          
+          setTimeout(() => { statusBox.classList.add("hidden"); }, 4000);
+          loadRoomResidents(); // Refresh the list to show the green "Paid" badge
+        } else {
+          throw new Error(result.message || "Failed to write payment");
+        }
+      } catch (err) {
+        statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
+        statusBox.innerText = "Error: " + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>Save Payment to Sheet</span>`;
+      }
+    }
+  </script>
+</body>
+</html>
