@@ -121,13 +121,21 @@
             <input type="hidden" id="targetRowIndex" />
 
             <!-- Amount Input -->
+            <!-- Amount Input & Split Toggle -->
             <div>
               <div class="flex items-center justify-between mb-1">
-                <label class="text-xs font-bold text-slate-700">Rent Amount Received (₹)</label>
-                <!-- Day-Wise Helper Toggle -->
-                <button type="button" onclick="toggleProRateBox()" class="text-[11px] font-bold text-indigo-600 hover:text-indigo-800">
-                  <i class="fa-solid fa-calculator"></i> Pro-Rate by Days
-                </button>
+                <label class="text-xs font-bold text-slate-700">Total Rent Received (₹)</label>
+                <div class="flex items-center gap-3">
+                  <!-- Split Payment Toggle -->
+                  <label class="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-indigo-600 hover:text-indigo-800">
+                    <input type="checkbox" id="splitPaymentToggle" onchange="toggleSplitPayment()" class="rounded text-indigo-600 focus:ring-0 cursor-pointer" />
+                    <span>Split Payment</span>
+                  </label>
+                  <!-- Pro-Rate Helper -->
+                  <button type="button" onclick="toggleProRateBox()" class="text-[11px] font-bold text-slate-500 hover:text-slate-800">
+                    <i class="fa-solid fa-calculator"></i> Pro-Rate
+                  </button>
+                </div>
               </div>
               <input type="number" id="payAmount" required
                      class="w-full text-base font-bold px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-slate-800" />
@@ -148,26 +156,27 @@
               </div>
             </div>
 
-            <!-- Mode, Received By, and Date Layout -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <!-- SINGLE PAYMENT SECTION (Default) -->
+            <div id="singlePaySection" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label class="block text-xs font-bold text-slate-700 mb-1">Payment Mode</label>
                 <select id="payMode" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                  <option value="GPay">GPay</option>
-                  <option value="PhonePe">PhonePe</option>
-                  <option value="Paytm">Paytm</option>
                   <option value="Cash">Cash</option>
-                  <option value="Bank Transfer">Bank Transfer / IMPS</option>
+                  <option value="PPay">PPay (PhonePe)</option>
+                  <option value="GPay">GPay (Google Pay)</option>
+                  <option value="Paytm">Paytm</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
                 </select>
               </div>
 
               <div>
                 <label class="block text-xs font-bold text-slate-700 mb-1">Received By</label>
                 <select id="payReceiver" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="None">None (Cash)</option>
+                  <option value="Manohar">Manohar</option>
                   <option value="Sreekaran">Sreekaran</option>
-                  <option value="Manager">Manohar</option>
-                  <option value="Warden">Sudheer</option>
-                  <option value="PG Account">PG Account</option>
+                  <option value="Manager">Manager</option>
+                  <option value="Warden">Warden</option>
                 </select>
               </div>
 
@@ -175,6 +184,73 @@
                 <label class="block text-xs font-bold text-slate-700 mb-1">Payment Date</label>
                 <input type="date" id="payDate" required
                        class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+            </div>
+
+            <!-- SPLIT PAYMENT SECTION (Shown when checkbox is checked) -->
+            <div id="splitPaySection" class="p-3 bg-indigo-50/50 border border-indigo-200 rounded-2xl space-y-3 hidden">
+              <p class="text-xs font-black text-indigo-900 flex items-center gap-1">
+                <i class="fa-solid fa-arrows-split-up-and-left"></i> Split Breakdown
+              </p>
+
+              <!-- Part 1 -->
+              <div class="grid grid-cols-3 gap-2">
+                <div>
+                  <span class="text-[10px] font-bold text-slate-500">Part 1 Mode</span>
+                  <select id="splitMode1" onchange="buildSplitSummary()" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
+                    <option value="Cash">Cash</option>
+                    <option value="PPay">PPay</option>
+                    <option value="GPay">GPay</option>
+                    <option value="Bank Transfer">Bank</option>
+                  </select>
+                </div>
+                <div>
+                  <span class="text-[10px] font-bold text-slate-500">Receiver 1</span>
+                  <select id="splitReceiver1" onchange="buildSplitSummary()" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
+                    
+                    <option value="Manohar">Manohar</option>
+                    <option value="Sreekaran">Sreekaran</option>
+                    <option value="Manager">Sudheer</option>
+                  </select>
+                </div>
+                <div>
+                  <span class="text-[10px] font-bold text-slate-500">Amount 1 (₹)</span>
+                  <input type="number" id="splitAmt1" oninput="buildSplitSummary()" placeholder="10000"
+                         class="w-full text-xs font-bold p-2 border border-slate-300 rounded-lg" />
+                </div>
+              </div>
+
+              <!-- Part 2 -->
+              <div class="grid grid-cols-3 gap-2">
+                <div>
+                  <span class="text-[10px] font-bold text-slate-500">Part 2 Mode</span>
+                  <select id="splitMode2" onchange="buildSplitSummary()" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
+                    <option value="PPay">PPay</option>
+                    <option value="Cash">Cash</option>
+                    <option value="GPay">GPay</option>
+                    <option value="Bank Transfer">Bank</option>
+                  </select>
+                </div>
+                <div>
+                  <span class="text-[10px] font-bold text-slate-500">Receiver 2</span>
+                  <select id="splitReceiver2" onchange="buildSplitSummary()" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
+                    <option value="Manohar">Manohar</option>
+                    <option value="Sreekaran">Sreekaran</option>
+                    <option value="Manager">Sudheer</option>
+                    
+                  </select>
+                </div>
+                <div>
+                  <span class="text-[10px] font-bold text-slate-500">Amount 2 (₹)</span>
+                  <input type="number" id="splitAmt2" oninput="buildSplitSummary()" placeholder="500"
+                         class="w-full text-xs font-bold p-2 border border-slate-300 rounded-lg" />
+                </div>
+              </div>
+
+              <!-- Live Sheet Preview -->
+              <div class="text-[11px] p-2 bg-white rounded-lg border border-indigo-100 flex items-center justify-between">
+                <span class="text-slate-500 font-semibold">Mode Preview:</span>
+                <span id="splitStringPreview" class="font-mono font-bold text-indigo-700">Cash (0)+ PPay to Manohar (0)</span>
               </div>
             </div>
 
@@ -362,6 +438,11 @@
         }
       }
 
+      // Reset split toggle to default single mode when switching residents
+      document.getElementById("splitPaymentToggle").checked = false;
+      document.getElementById("singlePaySection").classList.remove("hidden");
+      document.getElementById("splitPaySection").classList.add("hidden");
+
       document.getElementById("paymentFormCard").classList.remove("hidden");
       document.getElementById("ledgerStatusBox").classList.add("hidden");
       document.getElementById("proRateBox").classList.add("hidden");
@@ -387,7 +468,51 @@
       document.getElementById("payAmount").value = total;
       document.getElementById("payRemarks").value = `Pro-rated for ${days} days`;
     }
+	function toggleSplitPayment() {
+      const isSplit = document.getElementById("splitPaymentToggle").checked;
+      const singleSection = document.getElementById("singlePaySection");
+      const splitSection = document.getElementById("splitPaySection");
 
+      if (isSplit) {
+        singleSection.classList.add("hidden");
+        splitSection.classList.remove("hidden");
+        const currentTotal = parseFloat(document.getElementById("payAmount").value) || 0;
+        document.getElementById("splitAmt1").value = currentTotal;
+        document.getElementById("splitAmt2").value = "";
+        buildSplitSummary();
+      } else {
+        singleSection.classList.remove("hidden");
+        splitSection.classList.add("hidden");
+      }
+    }
+
+    function formatPart(mode, receiver, amt) {
+      const a = amt || 0;
+      if (receiver && receiver !== "None" && mode !== "Cash") {
+        return `${mode} to ${receiver} (${a})`;
+      }
+      return `${mode} (${a})`;
+    }
+
+    function buildSplitSummary() {
+      const mode1 = document.getElementById("splitMode1").value;
+      const rec1 = document.getElementById("splitReceiver1").value;
+      const amt1 = parseFloat(document.getElementById("splitAmt1").value) || 0;
+
+      const mode2 = document.getElementById("splitMode2").value;
+      const rec2 = document.getElementById("splitReceiver2").value;
+      const amt2 = parseFloat(document.getElementById("splitAmt2").value) || 0;
+
+      const part1Str = formatPart(mode1, rec1, amt1);
+      const part2Str = formatPart(mode2, rec2, amt2);
+
+      const combined = `${part1Str}+ ${part2Str}`;
+      document.getElementById("splitStringPreview").innerText = combined;
+
+      // Automatically update the total rent input box
+      document.getElementById("payAmount").value = amt1 + amt2;
+      return combined;
+    }
     async function savePayment(e) {
       e.preventDefault();
       const btn = document.getElementById("saveRentBtn");
@@ -398,9 +523,20 @@
       statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
       statusBox.innerText = `Saving payment for ${currentSelectedResident.name}...`;
 
-      const selectedMode = document.getElementById("payMode").value;
-      const selectedReceiver = document.getElementById("payReceiver").value;
-      const combinedMode = `${selectedMode} to ${selectedReceiver}`;
+      const isSplit = document.getElementById("splitPaymentToggle").checked;
+      let finalModeString = "";
+
+      if (isSplit) {
+        finalModeString = buildSplitSummary(); // e.g. "Cash (10000)+ PPay to Manohar (500)"
+      } else {
+        const selectedMode = document.getElementById("payMode").value;
+        const selectedReceiver = document.getElementById("payReceiver").value;
+        if (selectedReceiver && selectedReceiver !== "None" && selectedMode !== "Cash") {
+          finalModeString = `${selectedMode} to ${selectedReceiver}`;
+        } else {
+          finalModeString = selectedMode;
+        }
+      }
 
       const payload = {
         action: "recordRentPayment",
@@ -410,7 +546,7 @@
         residentName: currentSelectedResident.name,
         rentPaid: document.getElementById("payAmount").value,
         paymentDate: document.getElementById("payDate").value,
-        mode: combinedMode,
+        mode: finalModeString,
         remarks: document.getElementById("payRemarks").value
       };
 
