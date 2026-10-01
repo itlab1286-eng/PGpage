@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Elysium PG Resident Hub</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="auth.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     .room-btn.active { background-color: #2563eb; color: #ffffff; border-color: #1d4ed8; }
@@ -46,7 +47,7 @@
         </h1>
         <p class="text-xs sm:text-sm text-slate-500">42 Rooms (Floors 1–6) &bull; Google Drive Auto-Uploader</p>
       </div>
-		<a href="home.html" class="px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-2 transition">
+		<a href="index.html" class="px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-2 transition">
   <i class="fa-solid fa-arrow-left"></i> Home
 </a>
       <div class="flex items-center gap-2">
@@ -190,19 +191,21 @@
       buildRoomsGrid(1);
       updatePreviewName();
 
-      // Clear any legacy storage from previous iterations
-      localStorage.clear();
-      sessionStorage.clear();
-
-      // Show lock screen on every page load
-      document.getElementById("pinLockModal").classList.remove("hidden");
-
-      // Sync input box with default constant
-      document.getElementById("apiUrlInput").value = APPS_SCRIPT_URL;
+      if (isAuthenticated()) {
+        document.getElementById("pinLockModal").classList.add("hidden");
+      } else {
+        document.getElementById("pinLockModal").classList.remove("hidden");
+      }
 
       document.getElementById("residentName").addEventListener("input", updatePreviewName);
       document.getElementById("docType").addEventListener("change", updatePreviewName);
     });
+
+    function unlockApp() {
+      verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
+        document.getElementById("pinLockModal").classList.add("hidden");
+      });
+    }
 
     function unlockApp() {
       const pinInput = document.getElementById("staffPinInput");
@@ -332,7 +335,7 @@
       const reader = new FileReader();
       reader.onload = async function() {
         const payload = {
-          pin: activePin,
+          pin: getStoredPin(),
           roomNumber: selectedRoom,
           resident: resident,
           fileName: finalFileName,

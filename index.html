@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Elysium PG - Operations Portal</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="auth.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen pb-12">
@@ -115,21 +116,19 @@
         </div>
       </div>
 
-      <!-- 4. Resident Issues & Maintenance -->
-      <div onclick="openComingSoon('Maintenance & Complaints Desk')" class="cursor-pointer group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-rose-500 hover:shadow-md transition flex items-start gap-4">
+      <!-- Room Vacancies Module Card -->
+      <a href="vacancies.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-indigo-500 hover:shadow-md transition flex items-start gap-4">
         <div class="w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
-          <i class="fa-solid fa-screwdriver-wrench"></i>
+          <i class="fa-solid fa-door-open"></i>
         </div>
         <div class="flex-1">
           <div class="flex items-center justify-between">
-            <h3 class="text-base font-bold text-slate-800 group-hover:text-rose-600 transition">Maintenance & Issues</h3>
-            <span class="text-[10px] uppercase font-bold tracking-wide bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">Tickets</span>
+            <h3 class="text-base font-bold text-slate-800 group-hover:text-indigo-600 transition">Vacancies & Availability</h3>
+            <span class="text-[10px] uppercase font-bold tracking-wide bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">Live</span>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Log electrical, plumbing, Wi-Fi, and housekeeping requests by room.</p>
+          <p class="text-xs text-slate-500 mt-1">Live beds available now and upcoming vacancies with departure dates.</p>
         </div>
-      </div>
-
-    </div>
+      </a>
 
     <!-- QUICK DRIVE SHORTCUT -->
     <div class="mt-6 bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between">
@@ -149,24 +148,19 @@
 
   <script>
     // Allowed Staff PINs
-    const AUTHORIZED_PINS = ["7032","8842", "7391", "2026"];
-
     window.addEventListener("DOMContentLoaded", () => {
-      // Clear persistent disk credentials on every load
-      localStorage.removeItem("pg_portal_auth");
-      sessionStorage.removeItem("pg_portal_auth");
-      document.getElementById("pinLockModal").classList.remove("hidden");
+      // If already verified, hide modal immediately
+      if (isAuthenticated()) {
+        document.getElementById("pinLockModal").classList.add("hidden");
+      } else {
+        document.getElementById("pinLockModal").classList.remove("hidden");
+      }
     });
 
     function unlockApp() {
-      const pin = document.getElementById("staffPinInput").value.trim();
-      if (AUTHORIZED_PINS.includes(pin)) {
+      verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
         document.getElementById("pinLockModal").classList.add("hidden");
-        document.getElementById("staffPinInput").value = "";
-        document.getElementById("pinErrorMsg").classList.add("hidden");
-      } else {
-        document.getElementById("pinErrorMsg").classList.remove("hidden");
-      }
+      });
     }
 
     function lockApp() {

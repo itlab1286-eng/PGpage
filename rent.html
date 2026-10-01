@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Elysium PG - Rent & Dues Ledger</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="auth.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     .room-btn.active { background-color: #4f46e5; color: #ffffff; border-color: #4338ca; }
@@ -281,30 +282,30 @@
     // ==========================================
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNR9EP5FfVODvpxdDUh4s4ciInW1JREY681R0gbb8HlTNBTfRLppwoDZKH5N9Spqc6/exec";
 
-    const AUTHORIZED_PINS = ["7032", "8842", "7391", "2026"];
     let currentFloor = 1;
     let selectedRoom = "101";
-    let activePin = "";
     let activeResidents = [];
     let currentSelectedResident = null;
 
     window.addEventListener("DOMContentLoaded", () => {
       buildRoomsGrid(1);
-      document.getElementById("pinLockModal").classList.remove("hidden");
-      // Set today's date in date picker
       document.getElementById("payDate").value = new Date().toISOString().split("T")[0];
+
+      // Check if already authenticated via Home
+      if (isAuthenticated()) {
+        document.getElementById("pinLockModal").classList.add("hidden");
+        loadRoomResidents();
+      } else {
+        // Direct link visit: prompt for PIN
+        document.getElementById("pinLockModal").classList.remove("hidden");
+      }
     });
 
     function unlockApp() {
-      const pin = document.getElementById("staffPinInput").value.trim();
-      if (AUTHORIZED_PINS.includes(pin)) {
-        activePin = pin;
-        document.getElementById("staffPinInput").value = "";
+      verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
         document.getElementById("pinLockModal").classList.add("hidden");
-        loadRoomResidents(); // Fetch Room 101 on initial unlock
-      } else {
-        document.getElementById("pinErrorMsg").classList.remove("hidden");
-      }
+        loadRoomResidents();
+      });
     }
 
     function lockApp() {
@@ -540,7 +541,7 @@
 
       const payload = {
         action: "recordRentPayment",
-        pin: activePin,
+        pin: getStoredPin(),
         month: document.getElementById("monthSelect").value,
         rowIndex: document.getElementById("targetRowIndex").value,
         residentName: currentSelectedResident.name,
