@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Elysium PG - New Resident Check-in</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="auth.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-16">
+
+  <!-- PIN LOCK SCREEN -->
+  <div id="pinLockModal" class="fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center">
+      <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mb-1">Staff Verification</h2>
+      <p class="text-sm text-slate-500 mb-6">Enter PIN to access New Check-in</p>
+      
+      <div class="flex justify-center mb-6">
+        <input type="password" maxlength="6" id="staffPinInput" 
+               class="w-44 text-center text-3xl tracking-widest font-mono py-2 border-2 border-slate-300 rounded-xl focus:border-indigo-600 focus:outline-none" 
+               placeholder="••••" autofocus />
+      </div>
+
+      <p id="pinErrorMsg" class="text-xs text-red-500 font-semibold mb-4 hidden">Invalid PIN.</p>
+
+      <button onclick="unlockApp()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-indigo-500/30 transition">
+        Unlock Portal
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN WRAPPER -->
+  <div class="max-w-3xl mx-auto px-4 pt-4 sm:pt-8">
+    
+    <!-- HEADER -->
+    <header class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <a href="index.html" class="text-xs font-bold text-slate-500 hover:text-slate-800 transition flex items-center gap-1">
+            <i class="fa-solid fa-arrow-left"></i> Home
+          </a>
+          <span class="text-slate-300">&bull;</span>
+          <span class="text-xs font-bold text-indigo-600 uppercase tracking-wider">Onboarding</span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
+          <i class="fa-solid fa-user-plus text-indigo-600"></i> New Resident Check-in
+        </h1>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <select id="monthSelect" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700">
+          <option value="October 2026">October 2026</option>
+          <option value="November 2026">November 2026</option>
+        </select>
+        <button onclick="logoutApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition" title="Lock">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- ONBOARDING FORM -->
+    <form id="onboardingForm" onsubmit="submitNewResident(event)" class="space-y-5">
+      
+      <!-- 1. ROOM & PERSONAL DETAILS -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
+          <i class="fa-solid fa-bed"></i> 1. Room & Tenant Information
+        </h2>
+
+        <!-- Floor & Room Selectors -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-2">Select Floor</label>
+          <div class="grid grid-cols-6 gap-1 bg-slate-100 p-1 rounded-xl mb-3 text-xs font-bold text-center">
+            <button type="button" onclick="setFloor(1)" id="btnF1" class="floor-btn py-1.5 rounded-lg active bg-white shadow-sm text-indigo-600 font-bold">F1</button>
+            <button type="button" onclick="setFloor(2)" id="btnF2" class="floor-btn py-1.5 rounded-lg text-slate-600 font-bold">F2</button>
+            <button type="button" onclick="setFloor(3)" id="btnF3" class="floor-btn py-1.5 rounded-lg text-slate-600 font-bold">F3</button>
+            <button type="button" onclick="setFloor(4)" id="btnF4" class="floor-btn py-1.5 rounded-lg text-slate-600 font-bold">F4</button>
+            <button type="button" onclick="setFloor(5)" id="btnF5" class="floor-btn py-1.5 rounded-lg text-slate-600 font-bold">F5</button>
+            <button type="button" onclick="setFloor(6)" id="btnF6" class="floor-btn py-1.5 rounded-lg text-slate-600 font-bold">F6</button>
+          </div>
+
+          <label class="block text-xs font-bold text-slate-700 mb-1">Select Room</label>
+          <div id="roomSelectorGrid" class="grid grid-cols-4 sm:grid-cols-7 gap-2"></div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Resident Full Name *</label>
+            <input type="text" id="resName" required placeholder="e.g. Rahul Sharma"
+                   class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Mobile Number *</label>
+            <input type="tel" id="resMobile" required maxlength="10" placeholder="10-digit mobile"
+                   class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. DATES & RENT -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
+          <i class="fa-solid fa-calendar-days"></i> 2. Stay Dates & Agreed Rent
+        </h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Joining Date *</label>
+            <input type="date" id="resJoiningDate" required
+                   class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Vacated On (Optional)</label>
+            <input type="date" id="resVacatedOn"
+                   class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Agreed Monthly Rent (₹) *</label>
+            <input type="number" id="resRent" required placeholder="e.g. 10000"
+                   class="w-full text-xs font-bold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 font-mono" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Staying Dates / Remarks</label>
+          <input type="text" id="resStayingDates" placeholder="e.g. 15-15 cycle, joining first week"
+                 class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+        </div>
+      </div>
+
+      <!-- 3. ADVANCE & FIRST PAYMENT -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
+          <i class="fa-solid fa-indian-rupee-sign"></i> 3. Advance & Initial Payment
+        </h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Agreed Advance (₹)</label>
+            <input type="number" id="advExpected" placeholder="e.g. 2000"
+                   class="w-full text-xs font-bold px-3 py-2.5 border border-slate-300 rounded-xl font-mono" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Advance Paid (₹)</label>
+            <input type="number" id="advPaid" placeholder="e.g. 2000"
+                   class="w-full text-xs font-bold px-3 py-2.5 border border-slate-300 rounded-xl font-mono text-emerald-700" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Advance Received By</label>
+            <select id="advReceiver" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl">
+              <option value="Sreekaran">Sreekaran</option>
+              <option value="Manohar">Manohar</option>
+              <option value="Sudheer">Sudheer</option>
+              <option value="Office Account">Office Account</option>
+              <option value="Cash">Cash</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100 space-y-3">
+          <!-- Rent Amount & Split Toggle -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-bold text-slate-700">Joining Rent Paid (₹)</label>
+              <label class="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-indigo-600 hover:text-indigo-800">
+                <input type="checkbox" id="splitPaymentToggle" onchange="toggleSplitPayment()" class="rounded text-indigo-600 focus:ring-0 cursor-pointer" />
+                <span>Split Rent Payment</span>
+              </label>
+            </div>
+            <input type="number" id="initialRentPaid" placeholder="0 if deferred"
+                   class="w-full text-xs font-bold px-3 py-2.5 border border-slate-300 rounded-xl font-mono text-emerald-700" />
+          </div>
+
+          <!-- SINGLE PAYMENT MODE (Default) -->
+          <div id="singlePaySection" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Payment Mode</label>
+              <select id="payMode" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="Cash">Cash</option>
+                <option value="PPay">PPay (PhonePe)</option>
+                <option value="GPay">GPay (Google Pay)</option>
+                <option value="Paytm">Paytm</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Received By</label>
+              <select id="payReceiver" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="Sudheer">Sudheer</option>
+                <option value="Manohar">Manohar</option>
+                <option value="Sreekaran">Sreekaran</option>
+                <option value="Manager">Manager</option>
+                <option value="Warden">Warden</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Payment Date</label>
+              <input type="date" id="initialPayDate"
+                     class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+          </div>
+
+          <!-- SPLIT PAYMENT MODE -->
+          <div id="splitPaySection" class="p-3 bg-indigo-50/50 border border-indigo-200 rounded-2xl space-y-3 hidden">
+            <p class="text-xs font-black text-indigo-900 flex items-center gap-1">
+              <i class="fa-solid fa-arrows-split-up-and-left"></i> Split Breakdown
+            </p>
+
+            <!-- Part 1 -->
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <span class="text-[10px] font-bold text-slate-500">Part 1 Mode</span>
+                <select id="splitMode1" onchange="buildSplitSummary()" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
+                  <option value="Cash">Cash</option>
+                  <option value="PPay">PPay</option>
+                  <option value="GPay">GPay</option>
+                  <option value="Bank Transfer">Bank</option>
+                </select>
+              </div>
+              <div>
+                <span class="text-[10px] font-bold text-slate-500">Receiver 1</span>
+                <select id="splitReceiver1" onchange="buildSplitSummary()" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
+                  <option value="Sudheer">Sudheer</option>
+                  <option value="Manohar">Manohar</option>
+                  <option value="Sreekaran">Sreekaran</option>
+                  <option value="Manager">Manager</option>
+                </select>
+              </div>
+              <div>
+                <span class="text-[10px] font-bold text-slate-500">Amount 1 (₹)</span>
+                <input type="number" id="splitAmt1" oninput="buildSplitSummary()" placeholder="10000"
+                       class="w-full text-xs font-bold p-2 border border-slate-300 rounded-lg" />
+              </div>
+            </div>
+
+            <!-- Part 2 -->
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <span class="text-[10px] font-bold text-slate-500">Part 2 Mode</span>
+                <select id="splitMode2" onchange="buildSplitSummary()" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
+                  <option value="PPay">PPay</option>
+                  <option value="Cash">Cash</option>
+                  <option value="GPay">GPay</option>
+                  <option value="Bank Transfer">Bank</option>
+                </select>
+              </div>
+              <div>
+                <span class="text-[10px] font-bold text-slate-500">Receiver 2</span>
+                <select id="splitReceiver2" onchange="buildSplitSummary()" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
+                  <option value="Manohar">Manohar</option>
+                  <option value="Sreekaran">Sreekaran</option>
+                  <option value="Manager">Manager</option>
+                  <option value="Sudheer">Sudheer</option>
+                </select>
+              </div>
+              <div>
+                <span class="text-[10px] font-bold text-slate-500">Amount 2 (₹)</span>
+                <input type="number" id="splitAmt2" oninput="buildSplitSummary()" placeholder="500"
+                       class="w-full text-xs font-bold p-2 border border-slate-300 rounded-lg" />
+              </div>
+            </div>
+
+            <!-- Live Sheet Preview -->
+            <div class="text-[11px] p-2 bg-white rounded-lg border border-indigo-100 flex items-center justify-between">
+              <span class="text-slate-500 font-semibold">Mode Preview:</span>
+              <span id="splitStringPreview" class="font-mono font-bold text-indigo-700">Cash (0)+ PPay to Manohar (0)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. AADHAAR CARD ATTACHMENT -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
+          <i class="fa-solid fa-id-card"></i> 4. Aadhaar Card Upload (Google Drive)
+        </h2>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Select / Snap Aadhaar Document</label>
+          <input type="file" id="aadhaarFileInput" accept="image/*,application/pdf"
+                 class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+          <p class="text-[11px] text-slate-400 mt-1.5">
+            Will be auto-saved to Google Drive in folder: <span id="driveTargetFolderText" class="font-bold text-slate-700">Room 101</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- STATUS NOTIFICATION BOX -->
+      <div id="statusNotification" class="p-4 rounded-xl text-xs font-semibold hidden"></div>
+
+      <!-- SUBMIT BUTTON -->
+      <button type="submit" id="submitOnboardBtn"
+              class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-indigo-500/30 transition flex items-center justify-center gap-2">
+        <i class="fa-solid fa-check-circle"></i>
+        <span>Register Resident & Save to Sheet</span>
+      </button>
+
+    </form>
+  </div>
+
+  <script>
+    let currentFloor = 1;
+    let selectedRoom = "101";
+
+    const ROOMS_CONFIG = {
+      1: ["101", "102", "103", "104", "105", "106", "107"],
+      2: ["201", "202", "203", "204", "205", "206", "207"],
+      3: ["301", "302", "303", "304", "305", "306", "307"],
+      4: ["401", "402", "403", "404", "405", "406", "407"],
+      5: ["501", "502", "503", "504", "505", "506", "507"],
+      6: ["601", "602", "603", "604", "605", "606", "607"]
+    };
+
+    window.addEventListener("DOMContentLoaded", () => {
+      // Set default dates to today
+      const today = new Date().toISOString().split("T")[0];
+      document.getElementById("resJoiningDate").value = today;
+      document.getElementById("initialPayDate").value = today;
+
+      buildRoomsGrid(1);
+
+      // Verify session from Home Page (auth.js)
+      if (typeof isAuthenticated === "function" && isAuthenticated()) {
+        const modal = document.getElementById("pinLockModal");
+        if (modal) modal.classList.add("hidden");
+      } else {
+        const modal = document.getElementById("pinLockModal");
+        if (modal) modal.classList.remove("hidden");
+      }
+    });
+
+    function unlockApp() {
+      verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
+        document.getElementById("pinLockModal").classList.add("hidden");
+      });
+    }
+
+    function setFloor(floor) {
+      currentFloor = floor;
+      document.querySelectorAll(".floor-btn").forEach((btn, idx) => {
+        if (idx + 1 === floor) {
+          btn.className = "floor-btn py-1.5 rounded-lg active bg-white shadow-sm text-indigo-600 font-bold";
+        } else {
+          btn.className = "floor-btn py-1.5 rounded-lg text-slate-600 font-bold";
+        }
+      });
+      buildRoomsGrid(floor);
+    }
+
+    function buildRoomsGrid(floor) {
+      const grid = document.getElementById("roomSelectorGrid");
+      grid.innerHTML = "";
+      const rooms = ROOMS_CONFIG[floor] || [];
+
+      rooms.forEach((rm) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `py-2 rounded-xl text-xs font-bold border transition ${
+          rm === selectedRoom ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+        }`;
+        btn.innerText = rm;
+        btn.onclick = () => {
+          selectedRoom = rm;
+          document.getElementById("driveTargetFolderText").innerText = `Room ${rm}`;
+          buildRoomsGrid(floor);
+        };
+        grid.appendChild(btn);
+      });
+
+      // Default select first room if not matching floor
+      if (!rooms.includes(selectedRoom)) {
+        selectedRoom = rooms[0];
+        document.getElementById("driveTargetFolderText").innerText = `Room ${selectedRoom}`;
+      }
+    }
+
+    function toggleSplitPayment() {
+      const isSplit = document.getElementById("splitPaymentToggle").checked;
+      const singleSection = document.getElementById("singlePaySection");
+      const splitSection = document.getElementById("splitPaySection");
+
+      if (isSplit) {
+        singleSection.classList.add("hidden");
+        splitSection.classList.remove("hidden");
+        const currentTotal = parseFloat(document.getElementById("initialRentPaid").value) || 0;
+        document.getElementById("splitAmt1").value = currentTotal;
+        document.getElementById("splitAmt2").value = "";
+        buildSplitSummary();
+      } else {
+        singleSection.classList.remove("hidden");
+        splitSection.classList.add("hidden");
+      }
+    }
+
+    function formatPart(mode, receiver, amt) {
+      const a = amt || 0;
+      if (receiver && receiver !== "None" && mode !== "Cash") {
+        return `${mode} to ${receiver} (${a})`;
+      }
+      return `${mode} (${a})`;
+    }
+
+    function buildSplitSummary() {
+      const mode1 = document.getElementById("splitMode1").value;
+      const rec1 = document.getElementById("splitReceiver1").value;
+      const amt1 = parseFloat(document.getElementById("splitAmt1").value) || 0;
+
+      const mode2 = document.getElementById("splitMode2").value;
+      const rec2 = document.getElementById("splitReceiver2").value;
+      const amt2 = parseFloat(document.getElementById("splitAmt2").value) || 0;
+
+      const part1Str = formatPart(mode1, rec1, amt1);
+      const part2Str = formatPart(mode2, rec2, amt2);
+
+      const combined = `${part1Str}+ ${part2Str}`;
+      document.getElementById("splitStringPreview").innerText = combined;
+
+      // Update total rent amount automatically
+      document.getElementById("initialRentPaid").value = amt1 + amt2;
+      return combined;
+    }
+
+    async function submitNewResident(e) {
+      e.preventDefault();
+      const btn = document.getElementById("submitOnboardBtn");
+      const statusBox = document.getElementById("statusNotification");
+      const fileInput = document.getElementById("aadhaarFileInput");
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Registering & Uploading...`;
+      statusBox.className = "p-4 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
+      statusBox.innerText = "Writing resident to sheet and uploading Aadhaar to Google Drive...";
+
+      const cleanName = document.getElementById("resName").value.trim();
+      const month = document.getElementById("monthSelect").value;
+
+      // Format Payment Mode (Single vs Split)
+      const isSplit = document.getElementById("splitPaymentToggle").checked;
+      let finalModeString = "";
+
+      if (isSplit) {
+        finalModeString = buildSplitSummary();
+      } else {
+        const selectedMode = document.getElementById("payMode").value;
+        const selectedReceiver = document.getElementById("payReceiver").value;
+        if (selectedReceiver && selectedReceiver !== "None" && selectedMode !== "Cash") {
+          finalModeString = `${selectedMode} to ${selectedReceiver}`;
+        } else {
+          finalModeString = selectedMode;
+        }
+      }
+
+      // Prepare payload cleanly
+      const payload = {
+        action: "onboardNewResident",
+        pin: getStoredPin(),
+        month: month,
+        roomNumber: selectedRoom,
+        name: cleanName,
+        mobile: document.getElementById("resMobile").value.trim(),
+        //sharing: document.getElementById("resSharing").value,
+        //ac: document.getElementById("resAc").value,
+        joiningDate: document.getElementById("resJoiningDate").value,
+        vacatedOn: document.getElementById("resVacatedOn").value,
+        rent: document.getElementById("resRent").value,
+        stayingDates: document.getElementById("resStayingDates").value.trim(),
+        advance: document.getElementById("advExpected").value,
+        advancePaid: document.getElementById("advPaid").value,
+        advanceReceivedBy: document.getElementById("advReceiver").value,
+        rentPaid: document.getElementById("initialRentPaid").value,
+        paymentDate: document.getElementById("initialPayDate").value,
+        paymentMode: finalModeString
+      };
+
+      // Read file if attached
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const ext = file.name.split('.').pop();
+        const formattedFileName = `${selectedRoom}_Aadhaar_${cleanName.replace(/\s+/g, '_')}.${ext}`;
+
+        const base64Data = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(",")[1]);
+          reader.readAsDataURL(file);
+        });
+
+        payload.fileName = formattedFileName;
+        payload.mimeType = file.type;
+        payload.fileData = base64Data;
+      }
+
+      try {
+        const res = await fetch(APPS_SCRIPT_AUTH_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+
+        const json = await res.json();
+
+        if (json.status === "success") {
+          statusBox.className = "p-4 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
+          statusBox.innerHTML = `✓ ${json.message}`;
+          document.getElementById("onboardingForm").reset();
+          document.getElementById("splitPaymentToggle").checked = false;
+          document.getElementById("singlePaySection").classList.remove("hidden");
+          document.getElementById("splitPaySection").classList.add("hidden");
+          const today = new Date().toISOString().split("T")[0];
+          document.getElementById("resJoiningDate").value = today;
+          document.getElementById("initialPayDate").value = today;
+        } else {
+          throw new Error(json.message || "Failed to onboard resident");
+        }
+      } catch (err) {
+        statusBox.className = "p-4 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
+        statusBox.innerText = `Error: ${err.message}`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-check-circle"></i> <span>Register Resident & Save to Sheet</span>`;
+      }
+    }
+  </script>
+</body>
+</html>
