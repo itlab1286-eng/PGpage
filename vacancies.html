@@ -33,6 +33,65 @@
     </div>
   </div>
 
+  <!-- REPORT VACANCY MODAL -->
+  <div id="reportVacancyModal" class="fixed inset-0 z-40 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <div>
+          <h2 class="text-lg font-black text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-calendar-xmark text-rose-600"></i> Report Vacancy Notice
+          </h2>
+          <p class="text-xs text-slate-500">Record a resident's upcoming or past departure</p>
+        </div>
+        <button type="button" onclick="closeReportModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="reportVacancyForm" onsubmit="submitVacancyNotice(event)" class="space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Room No. *</label>
+            <input type="number" id="modalRoomNum" required placeholder="e.g. 101" oninput="onModalRoomChange()"
+                   class="w-full text-xs font-bold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none font-mono" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Resident *</label>
+            <select id="modalResidentSelect" required class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none">
+              <option value="">Type Room No. first...</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Vacating Date (Departure Date) *</label>
+          <input type="date" id="modalVacatingDate" required
+                 class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none" />
+          <p class="text-[10px] text-slate-400 mt-1">Date when the bed will become vacant (e.g. 3 days later, or today).</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Notice / Informed Date *</label>
+          <input type="date" id="modalInformedDate" required
+                 class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none" />
+          <p class="text-[10px] text-slate-400 mt-1">Will be appended to Staying Dates as: <i>"Informed about vacating on &lt;Date&gt;"</i></p>
+        </div>
+
+        <div id="modalStatusBox" class="p-3 rounded-xl text-xs font-semibold hidden"></div>
+
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="closeReportModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+            Cancel
+          </button>
+          <button type="submit" id="modalSubmitBtn" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-lg shadow-rose-500/20 transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-check"></i>
+            <span>Save Notice</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- MAIN WRAPPER -->
   <div class="max-w-4xl mx-auto px-4 pt-4 sm:pt-8">
     
@@ -52,6 +111,11 @@
       </div>
 
       <div class="flex items-center gap-2">
+        <button onclick="openReportModal()" class="px-3 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-sm transition flex items-center gap-1.5">
+          <i class="fa-solid fa-plus"></i>
+          <span>Report Vacancy</span>
+        </button>
+
         <select id="monthSelect" onchange="loadVacancies()" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700">
           <option value="October 2026">October 2026</option>
           <option value="November 2026">November 2026</option>
@@ -121,6 +185,10 @@
     let vacancyData = { currentVacancies: [], futureVacancies: [] };
 
     window.addEventListener("DOMContentLoaded", () => {
+      const today = new Date().toISOString().split("T")[0];
+      document.getElementById("modalInformedDate").value = today;
+      document.getElementById("modalVacatingDate").value = today;
+
       if (isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
         loadVacancies();
@@ -179,7 +247,6 @@
       const currentList = vacancyData.currentVacancies || [];
       const futureList = vacancyData.futureVacancies || [];
 
-      // Calculate total open beds across current rooms
       let totalCurrentBeds = 0;
       currentList.forEach(c => totalCurrentBeds += c.openBeds);
 
@@ -189,7 +256,7 @@
       document.getElementById("tabCountCurrent").innerText = totalCurrentBeds;
       document.getElementById("tabCountFuture").innerText = futureList.length;
 
-      // 1. Render Current Openings
+      // 1. Current Openings
       const currentContainer = document.getElementById("currentCardsList");
       if (currentList.length === 0) {
         currentContainer.innerHTML = `<div class="col-span-2 p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-semibold">🎉 All rooms are completely full! No immediate vacancies.</div>`;
@@ -220,7 +287,7 @@
         });
       }
 
-      // 2. Render Future / Upcoming Departures
+      // 2. Upcoming Departures
       const futureContainer = document.getElementById("futureCardsList");
       if (futureList.length === 0) {
         futureContainer.innerHTML = `<div class="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-semibold">No upcoming vacate notices logged for ${document.getElementById("monthSelect").value}.</div>`;
@@ -230,7 +297,6 @@
           const card = document.createElement("div");
           card.className = "p-4 bg-white rounded-2xl border border-amber-200 bg-amber-50/20 shadow-sm flex flex-wrap items-center justify-between gap-3";
 
-          // Calculate days remaining
           const today = new Date();
           today.setHours(0,0,0,0);
           const vacDate = new Date(item.vacatingDate);
@@ -261,6 +327,113 @@
           `;
           futureContainer.appendChild(card);
         });
+      }
+    }
+
+    // ==========================================
+    // VACANCY REPORTING MODAL LOGIC
+    // ==========================================
+    function openReportModal() {
+      document.getElementById("reportVacancyModal").classList.remove("hidden");
+      document.getElementById("modalRoomNum").focus();
+    }
+
+    function closeReportModal() {
+      document.getElementById("reportVacancyModal").classList.add("hidden");
+      document.getElementById("reportVacancyForm").reset();
+      document.getElementById("modalStatusBox").classList.add("hidden");
+      const today = new Date().toISOString().split("T")[0];
+      document.getElementById("modalInformedDate").value = today;
+      document.getElementById("modalVacatingDate").value = today;
+    }
+
+    // Auto-fetch residents when staff inputs room number
+    let roomFetchTimeout = null;
+    function onModalRoomChange() {
+      clearTimeout(roomFetchTimeout);
+      const roomNum = document.getElementById("modalRoomNum").value.trim();
+      const residentSelect = document.getElementById("modalResidentSelect");
+
+      if (roomNum.length >= 3) {
+        residentSelect.innerHTML = `<option value="">Loading residents...</option>`;
+        roomFetchTimeout = setTimeout(async () => {
+          try {
+            const month = document.getElementById("monthSelect").value;
+            const res = await fetch(`${APPS_SCRIPT_AUTH_URL}?action=getResidentsByRoom&roomNumber=${roomNum}&month=${encodeURIComponent(month)}`);
+            const json = await res.json();
+
+            if (json.status === "success" && json.residents && json.residents.length > 0) {
+              residentSelect.innerHTML = `<option value="">Select resident</option>`;
+              json.residents.forEach(r => {
+                residentSelect.innerHTML += `<option value="${r.name}">${r.name}</option>`;
+              });
+            } else {
+              residentSelect.innerHTML = `<option value="">No residents found in ${roomNum}</option>`;
+            }
+          } catch (e) {
+            residentSelect.innerHTML = `<option value="">Failed loading room residents</option>`;
+          }
+        }, 300);
+      }
+    }
+
+    async function submitVacancyNotice(e) {
+      e.preventDefault();
+      const btn = document.getElementById("modalSubmitBtn");
+      const statusBox = document.getElementById("modalStatusBox");
+
+      const roomNum = document.getElementById("modalRoomNum").value.trim();
+      const residentName = document.getElementById("modalResidentSelect").value;
+      const vacatingDate = document.getElementById("modalVacatingDate").value;
+      const informedDate = document.getElementById("modalInformedDate").value;
+      const month = document.getElementById("monthSelect").value;
+
+      if (!residentName) {
+        alert("Please select a resident");
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...`;
+      statusBox.className = "p-3 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
+      statusBox.innerText = `Saving notice for ${residentName} in Room ${roomNum}...`;
+
+      const payload = {
+        action: "reportVacancy",
+        pin: getStoredPin(),
+        month: month,
+        roomNumber: roomNum,
+        residentName: residentName,
+        vacancyDate: vacatingDate,
+        informedDate: informedDate
+      };
+
+      try {
+        const res = await fetch(APPS_SCRIPT_AUTH_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+
+        const json = await res.json();
+
+        if (json.status === "success") {
+          statusBox.className = "p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
+          statusBox.innerHTML = `✓ ${json.message}`;
+
+          setTimeout(() => {
+            closeReportModal();
+            loadVacancies(); // Re-render live vacancies list
+          }, 1200);
+        } else {
+          throw new Error(json.message || "Failed to record notice");
+        }
+      } catch (err) {
+        statusBox.className = "p-3 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
+        statusBox.innerText = "Error: " + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> <span>Save Notice</span>`;
       }
     }
   </script>

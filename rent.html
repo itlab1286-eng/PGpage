@@ -62,7 +62,7 @@
           <option value="November 2026">November 2026</option>
           <option value="December 2026">December 2026</option>
         </select>
-        <button onclick="lockApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition" title="Lock">
+        <button onclick="logoutApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition" title="Lock">
           <i class="fa-solid fa-arrow-right-from-bracket"></i>
         </button>
       </div>
@@ -70,12 +70,21 @@
 
     <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
 
-      <!-- 1. ROOM PICKER -->
+      <!-- 1. ROOM PICKER & SEARCH -->
       <div class="md:col-span-5 bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center justify-between">
-          <span>1. Select Room</span>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">1. Select Room</h2>
           <span id="activeRoomBadge" class="text-indigo-600 font-extrabold text-sm">Room 101</span>
-        </h2>
+        </div>
+
+        <!-- Quick Search Bar -->
+        <div class="relative mb-3">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </span>
+          <input type="number" id="roomSearchInput" oninput="handleRoomSearch(event)" placeholder="Search room no. (e.g. 406)"
+                 class="w-full pl-8 pr-3 py-2 text-xs font-bold border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+        </div>
 
         <!-- Floor Buttons -->
         <div class="grid grid-cols-6 gap-1 bg-slate-100 p-1 rounded-xl mb-4 text-xs font-bold text-center">
@@ -121,7 +130,6 @@
           <form onsubmit="savePayment(event)" class="space-y-4">
             <input type="hidden" id="targetRowIndex" />
 
-            <!-- Amount Input -->
             <!-- Amount Input & Split Toggle -->
             <div>
               <div class="flex items-center justify-between mb-1">
@@ -142,7 +150,7 @@
                      class="w-full text-base font-bold px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-slate-800" />
             </div>
 
-            <!-- Pro-Rate Calculator Panel (Hidden by default) -->
+            <!-- Pro-Rate Calculator Panel -->
             <div id="proRateBox" class="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl text-xs space-y-2 hidden">
               <p class="font-bold text-indigo-900">⚡ Mid-Month Day Calculator</p>
               <div class="flex items-center gap-2">
@@ -176,8 +184,8 @@
                   <option value="None">None (Cash)</option>
                   <option value="Manohar">Manohar</option>
                   <option value="Sreekaran">Sreekaran</option>
-                  <option value="Manager">Manager</option>
-                  <option value="Warden">Warden</option>
+                  <option value="Manager">Sudheer</option>
+                  <option value="Office Account">Office Account</option>
                 </select>
               </div>
 
@@ -188,7 +196,7 @@
               </div>
             </div>
 
-            <!-- SPLIT PAYMENT SECTION (Shown when checkbox is checked) -->
+            <!-- SPLIT PAYMENT SECTION -->
             <div id="splitPaySection" class="p-3 bg-indigo-50/50 border border-indigo-200 rounded-2xl space-y-3 hidden">
               <p class="text-xs font-black text-indigo-900 flex items-center gap-1">
                 <i class="fa-solid fa-arrows-split-up-and-left"></i> Split Breakdown
@@ -208,7 +216,7 @@
                 <div>
                   <span class="text-[10px] font-bold text-slate-500">Receiver 1</span>
                   <select id="splitReceiver1" onchange="buildSplitSummary()" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
-                    
+                    <option value="None">None (Cash)</option>
                     <option value="Manohar">Manohar</option>
                     <option value="Sreekaran">Sreekaran</option>
                     <option value="Manager">Sudheer</option>
@@ -238,7 +246,7 @@
                     <option value="Manohar">Manohar</option>
                     <option value="Sreekaran">Sreekaran</option>
                     <option value="Manager">Sudheer</option>
-                    
+                    <option value="None">None (Cash)</option>
                   </select>
                 </div>
                 <div>
@@ -277,26 +285,31 @@
   </div>
 
   <script>
-    // ==========================================
-    // PASTE YOUR SAME APPS SCRIPT URL HERE:
-    // ==========================================
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNR9EP5FfVODvpxdDUh4s4ciInW1JREY681R0gbb8HlTNBTfRLppwoDZKH5N9Spqc6/exec";
+    // URL connects from auth.js or defaults to your web app
+    const APPS_SCRIPT_URL = typeof APPS_SCRIPT_AUTH_URL !== "undefined" ? APPS_SCRIPT_AUTH_URL : "https://script.google.com/macros/s/AKfycbwNR9EP5FfVODvpxdDUh4s4ciInW1JREY681R0gbb8HlTNBTfRLppwoDZKH5N9Spqc6/exec";
 
     let currentFloor = 1;
     let selectedRoom = "101";
     let activeResidents = [];
     let currentSelectedResident = null;
 
+    const ROOMS_CONFIG = {
+      1: ["101", "102", "103", "104", "105", "106", "107"],
+      2: ["201", "202", "203", "204", "205", "206", "207"],
+      3: ["301", "302", "303", "304", "305", "306", "307"],
+      4: ["401", "402", "403", "404", "405", "406", "407"],
+      5: ["501", "502", "503", "504", "505", "506", "507"],
+      6: ["601", "602", "603", "604", "605", "606", "607"]
+    };
+
     window.addEventListener("DOMContentLoaded", () => {
       buildRoomsGrid(1);
       document.getElementById("payDate").value = new Date().toISOString().split("T")[0];
 
-      // Check if already authenticated via Home
       if (isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
         loadRoomResidents();
       } else {
-        // Direct link visit: prompt for PIN
         document.getElementById("pinLockModal").classList.remove("hidden");
       }
     });
@@ -305,12 +318,8 @@
       verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
         document.getElementById("pinLockModal").classList.add("hidden");
         loadRoomResidents();
+        startBackgroundPrefetch(currentFloor); // Starts background loading immediately
       });
-    }
-
-    function lockApp() {
-      activePin = "";
-      document.getElementById("pinLockModal").classList.remove("hidden");
     }
 
     function showFloor(floorNum) {
@@ -330,8 +339,9 @@
     function buildRoomsGrid(floor) {
       const grid = document.getElementById("roomsGrid");
       grid.innerHTML = "";
-      for (let i = 1; i <= 7; i++) {
-        const roomNum = `${floor}0${i}`;
+      const rooms = ROOMS_CONFIG[floor] || [];
+
+      rooms.forEach((roomNum) => {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = `room-btn p-3 rounded-xl border text-sm font-bold transition flex flex-col items-center justify-center ${
@@ -340,19 +350,34 @@
         btn.innerHTML = `<span class="text-xs text-slate-400 font-normal">Room</span><span>${roomNum}</span>`;
         btn.onclick = () => selectRoom(roomNum);
         grid.appendChild(btn);
+      });
+    }
+
+    // Direct room search input handler
+    function handleRoomSearch(e) {
+      const query = (e.target.value || "").trim();
+      if (query.length >= 3) {
+        const floor = parseInt(query[0], 10);
+        if (floor >= 1 && floor <= 6) {
+          // Switch floor if needed
+          if (floor !== currentFloor) {
+            showFloor(floor);
+          }
+          selectRoom(query);
+        }
       }
     }
 
     function selectRoom(roomNum) {
-      selectedRoom = roomNum;
-      document.getElementById("activeRoomBadge").innerText = `Room ${roomNum}`;
-      document.getElementById("currentRoomText").innerText = roomNum;
+      selectedRoom = String(roomNum);
+      document.getElementById("activeRoomBadge").innerText = `Room ${selectedRoom}`;
+      document.getElementById("currentRoomText").innerText = selectedRoom;
       buildRoomsGrid(currentFloor);
-      document.getElementById("paymentFormCard").classList.add("hidden"); // Hide until resident is clicked
+      document.getElementById("paymentFormCard").classList.add("hidden");
       loadRoomResidents();
     }
 
-    async function loadRoomResidents() {
+    async function loadRoomResidents(retries = 2) {
       const month = document.getElementById("monthSelect").value;
       const container = document.getElementById("residentsListContainer");
       container.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Loading Room ${selectedRoom} residents...</div>`;
@@ -365,14 +390,27 @@
         try {
           json = JSON.parse(rawText);
         } catch (parseErr) {
-          throw new Error("Unable to parse sheet response. Please refresh.");
+          // If Google Apps Script returned an HTML error page, retry automatically once
+          if (retries > 0) {
+            console.warn("Apps Script warm-up delay encountered. Retrying request...");
+            await new Promise(resolve => setTimeout(resolve, 800));
+            return loadRoomResidents(retries - 1);
+          }
+          throw new Error("Server warming up. Please tap the room again.");
         }
 
         if (json.status !== "success") {
           throw new Error(json.message || "Failed loading data");
         }
 
-        activeResidents = json.residents || [];
+        const rawList = json.residents || [];
+        const todayStr = new Date().toISOString().split("T")[0];
+
+        // Double safety check: Filter out any residents where vacatedOn < today
+        activeResidents = rawList.filter(r => {
+          if (!r.vacatedOn) return true;
+          return r.vacatedOn >= todayStr;
+        });
 
         if (activeResidents.length === 0) {
           container.innerHTML = `<p class="text-xs text-slate-500 italic p-3 bg-slate-50 rounded-xl">No active residents recorded for Room ${selectedRoom} in ${month}.</p>`;
@@ -388,11 +426,18 @@
           }`;
           card.onclick = () => chooseResident(idx);
 
+          // Tag if tenant has an upcoming departure notice
+          let noticeTag = "";
+          if (r.vacatedOn) {
+            noticeTag = `<span class="text-[10px] text-amber-600 font-bold ml-1.5">(Leaving: ${r.vacatedOn})</span>`;
+          }
+
           card.innerHTML = `
             <div>
               <p class="text-sm font-black text-slate-800 flex items-center gap-1.5">
                 <i class="fa-solid fa-user text-xs ${isPaid ? 'text-emerald-600' : 'text-slate-400'}"></i>
                 <span>${r.name}</span>
+                ${noticeTag}
               </p>
               <p class="text-[11px] text-slate-500 font-semibold mt-0.5">Rent: ₹${r.expectedRent} &bull; ${r.mobile || 'No Mobile'}</p>
             </div>
@@ -414,35 +459,36 @@
     function chooseResident(idx) {
       currentSelectedResident = activeResidents[idx];
 
-      // Highlight active card
       document.querySelectorAll(".resident-card").forEach((c, i) => {
         if (i === idx) c.classList.add("active");
         else c.classList.remove("active");
       });
 
-      // Populate payment form
       document.getElementById("targetResidentName").innerText = currentSelectedResident.name;
       document.getElementById("targetExpectedRent").innerText = "₹" + currentSelectedResident.expectedRent;
       document.getElementById("targetRowIndex").value = currentSelectedResident.rowIndex;
       
-      // Default payment amount to full rent or existing paid amount
       document.getElementById("payAmount").value = currentSelectedResident.rentPaid || currentSelectedResident.expectedRent;
       document.getElementById("payRemarks").value = currentSelectedResident.stayingDates || "";
+
       if (currentSelectedResident.paymentMode) {
         const fullMode = currentSelectedResident.paymentMode;
-        if (fullMode.includes(" to ")) {
+        if (fullMode.includes("+ ")) {
+          // Split mode detected in sheet
+          document.getElementById("splitPaymentToggle").checked = true;
+          toggleSplitPayment();
+        } else if (fullMode.includes(" to ")) {
           const parts = fullMode.split(" to ");
           document.getElementById("payMode").value = parts[0].trim();
           document.getElementById("payReceiver").value = parts[1].trim();
         } else {
           document.getElementById("payMode").value = fullMode;
         }
+      } else {
+        document.getElementById("splitPaymentToggle").checked = false;
+        document.getElementById("singlePaySection").classList.remove("hidden");
+        document.getElementById("splitPaySection").classList.add("hidden");
       }
-
-      // Reset split toggle to default single mode when switching residents
-      document.getElementById("splitPaymentToggle").checked = false;
-      document.getElementById("singlePaySection").classList.remove("hidden");
-      document.getElementById("splitPaySection").classList.add("hidden");
 
       document.getElementById("paymentFormCard").classList.remove("hidden");
       document.getElementById("ledgerStatusBox").classList.add("hidden");
@@ -450,15 +496,13 @@
     }
 
     function toggleProRateBox() {
-      const box = document.getElementById("proRateBox");
-      box.classList.toggle("hidden");
+      document.getElementById("proRateBox").classList.toggle("hidden");
     }
 
     function calcProRate() {
       const days = parseInt(document.getElementById("calcDays").value, 10) || 0;
       const rent = parseFloat(currentSelectedResident.expectedRent) || 0;
-      const perDay = rent / 30;
-      const total = Math.round(perDay * days);
+      const total = Math.round((rent / 30) * days);
       document.getElementById("calculatedOutput").innerText = "₹" + total;
     }
 
@@ -469,7 +513,8 @@
       document.getElementById("payAmount").value = total;
       document.getElementById("payRemarks").value = `Pro-rated for ${days} days`;
     }
-	function toggleSplitPayment() {
+
+    function toggleSplitPayment() {
       const isSplit = document.getElementById("splitPaymentToggle").checked;
       const singleSection = document.getElementById("singlePaySection");
       const splitSection = document.getElementById("splitPaySection");
@@ -509,11 +554,10 @@
 
       const combined = `${part1Str}+ ${part2Str}`;
       document.getElementById("splitStringPreview").innerText = combined;
-
-      // Automatically update the total rent input box
       document.getElementById("payAmount").value = amt1 + amt2;
       return combined;
     }
+
     async function savePayment(e) {
       e.preventDefault();
       const btn = document.getElementById("saveRentBtn");
@@ -528,7 +572,7 @@
       let finalModeString = "";
 
       if (isSplit) {
-        finalModeString = buildSplitSummary(); // e.g. "Cash (10000)+ PPay to Manohar (500)"
+        finalModeString = buildSplitSummary();
       } else {
         const selectedMode = document.getElementById("payMode").value;
         const selectedReceiver = document.getElementById("payReceiver").value;
@@ -571,7 +615,7 @@
           statusBox.innerHTML = `✓ Payment saved for <b>${currentSelectedResident.name}</b>!`;
           
           setTimeout(() => { statusBox.classList.add("hidden"); }, 4000);
-          loadRoomResidents(); // Refresh the list to show the green "Paid" badge
+          loadRoomResidents();
         } else {
           throw new Error(result.message || "Failed to write payment");
         }
@@ -583,6 +627,44 @@
         btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>Save Payment to Sheet</span>`;
       }
     }
+	
+	// ============================================================
+    // STRATEGY 4: BACKGROUND PREFETCHING (PRE-WARMS SERVER & CACHE)
+    // ============================================================
+    let prefetchQueue = [];
+
+    function startBackgroundPrefetch(floorNum) {
+      const month = document.getElementById("monthSelect").value;
+      const roomsOnFloor = ROOMS_CONFIG[floorNum] || [];
+
+      // Avoid prefetching the currently active room since it's already loading
+      prefetchQueue = roomsOnFloor.filter(rm => rm !== selectedRoom);
+
+      // Fire off requests sequentially in the background with small delays
+      runPrefetchWorker(month);
+    }
+
+    async function runPrefetchWorker(month) {
+      if (prefetchQueue.length === 0) return;
+      const nextRoom = prefetchQueue.shift();
+
+      try {
+        // Fire request to warm Apps Script cache in the background
+        fetch(`${APPS_SCRIPT_URL}?action=getResidentsByRoom&roomNumber=${nextRoom}&month=${encodeURIComponent(month)}`);
+      } catch (e) {
+        // Background task fails silently without interrupting user
+      }
+
+      // Schedule next room prefetch after 300ms
+      setTimeout(() => runPrefetchWorker(month), 300);
+    }
+
+    // Trigger prefetch whenever floor is changed or app is unlocked
+    const originalShowFloor = showFloor;
+    showFloor = function(floorNum) {
+      originalShowFloor(floorNum);
+      startBackgroundPrefetch(floorNum);
+    };
   </script>
 </body>
 </html>
