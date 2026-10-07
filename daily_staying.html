@@ -406,6 +406,7 @@
         <select id="monthSelect" onchange="loadDailyGuests()" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700">
           <option value="October 2026">October 2026</option>
           <option value="November 2026">November 2026</option>
+          <option value="December 2026">December 2026</option>
         </select>
         <button onclick="logoutApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition" title="Lock">
           <i class="fa-solid fa-arrow-right-from-bracket"></i>
@@ -449,7 +450,8 @@
     let currentFilter = 'active';
 
     window.addEventListener("DOMContentLoaded", () => {
-      const today = new Date().toISOString().split("T")[0];
+      
+	  const today = new Date().toISOString().split("T")[0];
       const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
       
       document.getElementById("inJoinedDate").value = today;
@@ -462,6 +464,18 @@
       } else {
         document.getElementById("pinLockModal").classList.remove("hidden");
       }
+	  // Auto-open check-in modal if room passed from Vacancies page
+    const urlParams = new URLSearchParams(window.location.search);
+    const prefillRoom = urlParams.get('room');
+    const prefillSharing = urlParams.get('sharing');
+
+    if (prefillRoom) {
+      openCheckInModal();
+      document.getElementById("inRoom").value = prefillRoom;
+      if (prefillSharing) {
+        document.getElementById("inSharing").value = `${prefillSharing} sharing`;
+      }
+    }
     });
 
     function unlockApp() {
@@ -486,13 +500,14 @@
       renderGuests();
     }
 
-    async function loadDailyGuests(retries = 2) {
+    async function loadDailyGuests(retries = 2, forceRefresh = false) {
       const month = document.getElementById("monthSelect").value;
       const container = document.getElementById("guestsListContainer");
       container.innerHTML = `<div class="text-center py-12 text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Loading daily guests...</div>`;
 
       try {
-        const res = await fetch(`${APPS_SCRIPT_AUTH_URL}?action=getDailyGuests&month=${encodeURIComponent(month)}`);
+        const refreshParam = forceRefresh ? "&forceRefresh=true" : "";
+        const res = await fetch(`${APPS_SCRIPT_AUTH_URL}?action=getDailyGuests&month=${encodeURIComponent(month)}${refreshParam}`);
         const rawText = await res.text();
 
         let json;
@@ -501,7 +516,7 @@
         } catch(e) {
           if (retries > 0) {
             await new Promise(r => setTimeout(r, 800));
-            return loadDailyGuests(retries - 1);
+            return loadDailyGuests(retries - 1, forceRefresh);
           }
           throw new Error("Server warming up. Please reload.");
         }
@@ -951,7 +966,7 @@
         statusBox.innerHTML = `✓ ${result.message}`;
         setTimeout(() => {
           closeCheckInModal();
-          loadDailyGuests();
+          loadDailyGuests(2, true);
         }, 1000);
       } catch (err) {
         statusBox.className = "p-3 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
@@ -1012,7 +1027,7 @@
         statusBox.innerHTML = `✓ ${result.message}`;
         setTimeout(() => {
           closeExtendModal();
-          loadDailyGuests();
+          loadDailyGuests(2, true);
         }, 1000);
       } catch (err) {
         statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
@@ -1050,7 +1065,7 @@
         statusBox.innerHTML = `✓ ${result.message}`;
         setTimeout(() => {
           closeCheckOutModal();
-          loadDailyGuests();
+          loadDailyGuests(2, true);
         }, 1000);
       } catch (err) {
         statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";

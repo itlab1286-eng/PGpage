@@ -54,7 +54,12 @@
           <i class="fa-solid fa-receipt text-indigo-600"></i> Elysium PG Rents
         </h1>
       </div>
-
+	
+	<!-- Add Refresh Icon Button -->
+      <button onclick="loadRoomResidents(2, true)" class="p-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition" title="Force Refresh">
+        <i class="fa-solid fa-arrows-rotate"></i>
+      </button>
+	
       <!-- Month Selector Dropdown -->
       <div class="flex items-center gap-2">
         <select id="monthSelect" onchange="loadRoomResidents()" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -377,24 +382,23 @@
       loadRoomResidents();
     }
 
-    async function loadRoomResidents(retries = 2) {
+    async function loadRoomResidents(retries = 2, forceRefresh = false) {
       const month = document.getElementById("monthSelect").value;
       const container = document.getElementById("residentsListContainer");
       container.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Loading Room ${selectedRoom} residents...</div>`;
 
       try {
-        const res = await fetch(`${APPS_SCRIPT_URL}?action=getResidentsByRoom&roomNumber=${selectedRoom}&month=${encodeURIComponent(month)}`);
+        const refreshQuery = forceRefresh ? "&forceRefresh=true" : "";
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=getResidentsByRoom&roomNumber=${selectedRoom}&month=${encodeURIComponent(month)}${refreshQuery}`);
         const rawText = await res.text();
         
         let json;
         try {
           json = JSON.parse(rawText);
         } catch (parseErr) {
-          // If Google Apps Script returned an HTML error page, retry automatically once
           if (retries > 0) {
-            console.warn("Apps Script warm-up delay encountered. Retrying request...");
             await new Promise(resolve => setTimeout(resolve, 800));
-            return loadRoomResidents(retries - 1);
+            return loadRoomResidents(retries - 1, forceRefresh);
           }
           throw new Error("Server warming up. Please tap the room again.");
         }
@@ -406,7 +410,6 @@
         const rawList = json.residents || [];
         const todayStr = new Date().toISOString().split("T")[0];
 
-        // Double safety check: Filter out any residents where vacatedOn < today
         activeResidents = rawList.filter(r => {
           if (!r.vacatedOn) return true;
           return r.vacatedOn >= todayStr;
@@ -426,7 +429,6 @@
           }`;
           card.onclick = () => chooseResident(idx);
 
-          // Tag if tenant has an upcoming departure notice
           let noticeTag = "";
           if (r.vacatedOn) {
             noticeTag = `<span class="text-[10px] text-amber-600 font-bold ml-1.5">(Leaving: ${r.vacatedOn})</span>`;
@@ -587,6 +589,7 @@
         action: "recordRentPayment",
         pin: getStoredPin(),
         month: document.getElementById("monthSelect").value,
+        roomNumber: selectedRoom, // <--- Add this property
         rowIndex: document.getElementById("targetRowIndex").value,
         residentName: currentSelectedResident.name,
         rentPaid: document.getElementById("payAmount").value,
@@ -615,7 +618,7 @@
           statusBox.innerHTML = `✓ Payment saved for <b>${currentSelectedResident.name}</b>!`;
           
           setTimeout(() => { statusBox.classList.add("hidden"); }, 4000);
-          loadRoomResidents();
+          loadRoomResidents(2, true); // <--- 'true' forces a cache bypass and fetches the newly updated row immediately
         } else {
           throw new Error(result.message || "Failed to write payment");
         }
