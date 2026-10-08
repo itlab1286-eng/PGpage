@@ -1,11 +1,11 @@
 // auth.js - Shared Authentication & URL Helper
 const APPS_SCRIPT_AUTH_URL = "https://script.google.com/macros/s/AKfycbwNR9EP5FfVODvpxdDUh4s4ciInW1JREY681R0gbb8HlTNBTfRLppwoDZKH5N9Spqc6/exec";
-const APPS_SCRIPT_URL = APPS_SCRIPT_AUTH_URL; // Single source of truth for all pages
+const APPS_SCRIPT_URL = APPS_SCRIPT_AUTH_URL;
 
+// Checks if current browser session is unlocked
 function isAuthenticated() {
-  const token = sessionStorage.getItem("elysium_session_token");
   const pin = sessionStorage.getItem("elysium_staff_pin");
-  return Boolean(token && pin);
+  return Boolean(pin && pin.length >= 4);
 }
 
 function getStoredPin() {
@@ -21,39 +21,48 @@ async function verifyStaffPin(pinInputId, errorMsgId, onSuccess) {
 
   if (errorMsg) errorMsg.classList.add("hidden");
 
-  try {
-    const res = await fetch(APPS_SCRIPT_AUTH_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "verifyPin", pin: pin })
-    });
+  // Immediate local bypass if this session already validated this exact PIN
+  if (getStoredPin() === pin) {
+    if (typeof onSuccess === "function") onSuccess();
+    return;
+  }
 
+  // Prevent double submissions while checking
+  if (pinInput) pinInput.disabled = true;
+
+  try {
+    // Ultra-fast GET endpoint (bypasses heavy POST container spins and redirects)
+    const res = await fetch(`${APPS_SCRIPT_AUTH_URL}?action=verifyPinFast&pin=${encodeURIComponent(pin)}`);
     const rawText = await res.text();
-    let data;
+    let data = null;
+
     try {
       data = JSON.parse(rawText);
     } catch (e) {
-      // In case Google returns HTML redirect
-      if (rawText.includes("<!DOCTYPE") || rawText.includes("<html")) {
-        data = { status: "success", sessionToken: "session_valid" };
-      } else {
-        throw new Error("Invalid response format");
+      if (rawText.includes("<!DOCTYPE") || rawText.includes("<html") || res.ok) {
+        data = { status: "success" };
       }
     }
 
-    if (data.status === "success") {
-      sessionStorage.setItem("elysium_session_token", data.sessionToken || "session_valid");
+    if (data && data.status === "success") {
+      // Retained in sessionStorage so tabs share the session, but it clears on window/browser exit
       sessionStorage.setItem("elysium_staff_pin", pin);
+      sessionStorage.setItem("elysium_session_token", data.sessionToken || "session_valid");
 
-      if (pinInput) pinInput.value = "";
+      if (pinInput) {
+        pinInput.value = "";
+        pinInput.disabled = false;
+      }
       if (typeof onSuccess === "function") onSuccess();
     } else {
+      if (pinInput) pinInput.disabled = false;
       if (errorMsg) {
-        errorMsg.innerText = data.message || "Invalid Staff PIN";
+        errorMsg.innerText = (data && data.message) || "Invalid Staff PIN";
         errorMsg.classList.remove("hidden");
       }
     }
   } catch (err) {
+    if (pinInput) pinInput.disabled = false;
     if (errorMsg) {
       errorMsg.innerText = "Connection error. Please try again.";
       errorMsg.classList.remove("hidden");
@@ -61,12 +70,14 @@ async function verifyStaffPin(pinInputId, errorMsgId, onSuccess) {
   }
 }
 
+// Clears session storage and redirects to portal home
 function logoutApp() {
+  sessionStorage.removeItem("elysium_staff_pin");
+  sessionStorage.removeItem("elysium_session_token");
   sessionStorage.clear();
   window.location.href = "index.html";
 }
 
-// Alias so pages calling lockApp() safely clear storage
 function lockApp() {
   logoutApp();
 }
@@ -75,7 +86,7 @@ function lockApp() {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     const pinBox = document.getElementById("staffPinInput");
-    if (pinBox && !pinBox.closest("#pinLockModal").classList.contains("hidden")) {
+    if (pinBox && !pinBox.closest("#pinLockModal")?.classList.contains("hidden")) {
       if (typeof unlockApp === "function") unlockApp();
     }
   }

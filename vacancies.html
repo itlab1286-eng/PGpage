@@ -284,9 +284,7 @@
 
   <script>
     // URL fallback to match auth.js and your Apps Script deployment
-    const APPS_SCRIPT_URL = typeof APPS_SCRIPT_AUTH_URL !== "undefined" 
-      ? APPS_SCRIPT_AUTH_URL 
-      : "https://script.google.com/macros/s/AKfycbwNR9EP5FfVODvpxdDUh4s4ciInW1JREY681R0gbb8HlTNBTfRLppwoDZKH5N9Spqc6/exec";
+   
 
     let vacancyData = { currentVacancies: [], futureVacancies: [] };
     let selectedRoomForFill = null;
@@ -314,25 +312,6 @@
         document.getElementById("pinLockModal").classList.remove("hidden");
       }
     });
-
-    function unlockApp() {
-      if (typeof verifyStaffPin === "function") {
-        verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
-          document.getElementById("pinLockModal").classList.add("hidden");
-          loadVacancies();
-        });
-      } else {
-        // Fallback if auth.js failed to load
-        const enteredPin = document.getElementById("staffPinInput").value.trim();
-        if (enteredPin.length >= 4) {
-          sessionStorage.setItem("elysium_staff_pin", enteredPin);
-          document.getElementById("pinLockModal").classList.add("hidden");
-          loadVacancies();
-        } else {
-          document.getElementById("pinErrorMsg").classList.remove("hidden");
-        }
-      }
-    }
 
     function unlockApp() {
       verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
