@@ -45,7 +45,7 @@
         <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
           Elysium PG Hub
         </h1>
-        <p class="text-xs sm:text-sm text-slate-500 mt-1">Staff Management & Resident Operations Portal</p>
+        <p class="text-xs sm:text-sm text-slate-500 mt-1">Staff Management &amp; Resident Operations Portal</p>
       </div>
 
       <button onclick="lockApp()" class="p-3 text-sm font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl transition" title="Log Out / Lock Portal">
@@ -73,75 +73,92 @@
     <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 px-1">Management Modules</h2>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-      <!-- 1. Document Uploader (Active) -->
+      <!-- 1. Document Uploader -->
       <a href="aadhar.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-blue-500 hover:shadow-md transition flex items-start gap-4">
         <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
           <i class="fa-solid fa-id-card"></i>
         </div>
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
           <div class="flex items-center justify-between">
             <h3 class="text-base font-bold text-slate-800 group-hover:text-blue-600 transition">Document Uploader</h3>
-            <span class="text-[10px] uppercase font-bold tracking-wide bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Active</span>
+            <span class="text-[10px] uppercase font-bold tracking-wide bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">Active</span>
           </div>
           <p class="text-xs text-slate-500 mt-1">Upload Aadhaar, PAN, and agreements to Room 101–607 folders.</p>
         </div>
       </a>
 
-      <!-- 2. Rent & Payments Ledger (Roadmap) -->
-      <!-- In index.html: Change the Rent Ledger card to this: -->
-<a href="rent.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-indigo-500 hover:shadow-md transition flex items-start gap-4">
-  <div class="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
-    <i class="fa-solid fa-receipt"></i>
-  </div>
-  <div class="flex-1">
-    <div class="flex items-center justify-between">
-      <h3 class="text-base font-bold text-slate-800 group-hover:text-indigo-600 transition">Rent & Dues Ledger</h3>
-      <span class="text-[10px] uppercase font-bold tracking-wide bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Active</span>
-    </div>
-    <p class="text-xs text-slate-500 mt-1">Select room, choose specific resident, verify rent, and log payments.</p>
-  </div>
-</a>
+      <!-- 2. Rent & Dues Ledger -->
+      <a href="rent.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-indigo-500 hover:shadow-md transition flex items-start gap-4">
+        <div class="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
+          <i class="fa-solid fa-receipt"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-slate-800 group-hover:text-indigo-600 transition">Rent &amp; Dues Ledger</h3>
+            <span class="text-[10px] uppercase font-bold tracking-wide bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">Active</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Select room, choose specific resident, verify rent, and log payments.</p>
+        </div>
+      </a>
 
-      <!-- New Resident Onboarding Card -->
+      <!-- 3. New Resident Check-in -->
       <a href="new_resident.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-indigo-500 hover:shadow-md transition flex items-start gap-4">
         <div class="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
           <i class="fa-solid fa-user-plus"></i>
         </div>
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
           <div class="flex items-center justify-between">
             <h3 class="text-base font-bold text-slate-800 group-hover:text-indigo-600 transition">New Resident Check-in</h3>
-            <span class="text-[10px] uppercase font-bold tracking-wide bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">New</span>
+            <span class="text-[10px] uppercase font-bold tracking-wide bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full shrink-0">New</span>
           </div>
           <p class="text-xs text-slate-500 mt-1">Register new tenants, capture advance/rent, and upload Aadhaar to Drive.</p>
         </div>
       </a>
 
-      <!-- Room Vacancies Module Card -->
-      <a href="vacancies.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-indigo-500 hover:shadow-md transition flex items-start gap-4">
+      <!-- 4. Vacancies & Availability -->
+      <a href="vacancies.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-rose-500 hover:shadow-md transition flex items-start gap-4">
         <div class="w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
           <i class="fa-solid fa-door-open"></i>
         </div>
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
           <div class="flex items-center justify-between">
-            <h3 class="text-base font-bold text-slate-800 group-hover:text-indigo-600 transition">Vacancies & Availability</h3>
-            <span class="text-[10px] uppercase font-bold tracking-wide bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">Live</span>
+            <h3 class="text-base font-bold text-slate-800 group-hover:text-rose-600 transition">Vacancies &amp; Availability</h3>
+            <span class="text-[10px] uppercase font-bold tracking-wide bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full shrink-0">Live</span>
           </div>
           <p class="text-xs text-slate-500 mt-1">Live beds available now and upcoming vacancies with departure dates.</p>
         </div>
       </a>
-	<!-- Daily Staying Card -->
+
+      <!-- 5. Daily Staying -->
       <a href="daily_staying.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-emerald-500 hover:shadow-md transition flex items-start gap-4">
         <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
           <i class="fa-solid fa-clock-rotate-left"></i>
         </div>
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
           <div class="flex items-center justify-between">
             <h3 class="text-base font-bold text-slate-800 group-hover:text-emerald-600 transition">Daily Staying</h3>
-            <span class="text-[10px] uppercase font-bold tracking-wide bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Short Stay</span>
+            <span class="text-[10px] uppercase font-bold tracking-wide bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">Short Stay</span>
           </div>
           <p class="text-xs text-slate-500 mt-1">Manage day-wise guests, auto-calculate stay duration, extend dates, and process deposit refunds.</p>
         </div>
       </a>
+
+      <!-- 6. Operational Expenses -->
+      <a href="expenses.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-teal-500 hover:shadow-md transition flex items-start gap-4">
+        <div class="w-12 h-12 rounded-xl bg-teal-100 text-teal-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
+          <i class="fa-solid fa-receipt"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-slate-800 group-hover:text-teal-600 transition">Expenses</h3>
+            <span class="text-[10px] uppercase font-bold tracking-wide bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full shrink-0">Expenses</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Track groceries, utilities, and partner cash outflow.</p>
+        </div>
+      </a>
+
+    </div>
+
     <!-- QUICK DRIVE SHORTCUT -->
     <div class="mt-6 bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
@@ -176,8 +193,13 @@
     }
 
     function lockApp() {
-      document.getElementById("staffPinInput").value = "";
-      document.getElementById("pinLockModal").classList.remove("hidden");
+      if (typeof logoutApp === "function") {
+        logoutApp();
+      } else {
+        sessionStorage.clear();
+        document.getElementById("staffPinInput").value = "";
+        document.getElementById("pinLockModal").classList.remove("hidden");
+      }
     }
 
     function openComingSoon(moduleName) {

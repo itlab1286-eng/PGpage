@@ -41,7 +41,7 @@
   <div class="max-w-4xl mx-auto px-4 pt-4 sm:pt-8">
     
     <!-- TOP NAVBAR -->
-    <header class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-4">
+    <header class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 mb-4 flex flex-wrap items-center justify-between gap-4">
       <div>
         <div class="flex items-center gap-2">
           <a href="index.html" class="text-xs font-bold text-slate-500 hover:text-slate-800 transition flex items-center gap-1">
@@ -54,15 +54,13 @@
           <i class="fa-solid fa-receipt text-indigo-600"></i> Elysium PG Rents
         </h1>
       </div>
-	
-	<!-- Add Refresh Icon Button -->
-      <button onclick="loadRoomResidents(2, true)" class="p-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition" title="Force Refresh">
-        <i class="fa-solid fa-arrows-rotate"></i>
-      </button>
-	
-      <!-- Month Selector Dropdown -->
+
+      <!-- Month Selector Dropdown & Header Actions -->
       <div class="flex items-center gap-2">
-        <select id="monthSelect" onchange="loadRoomResidents()" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <button onclick="handleHeaderRefresh()" class="p-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition" title="Force Refresh">
+          <i class="fa-solid fa-arrows-rotate"></i>
+        </button>
+        <select id="monthSelect" onchange="handleMonthChange()" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
           <option value="October 2026">October 2026</option>
           <option value="November 2026">November 2026</option>
           <option value="December 2026">December 2026</option>
@@ -73,7 +71,20 @@
       </div>
     </header>
 
-    <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+    <!-- NAVIGATION TABS -->
+    <div class="flex gap-2 mb-6 bg-slate-200/70 p-1 rounded-2xl">
+      <button type="button" onclick="switchView('roomView')" id="tabBtnRooms" 
+              class="flex-1 py-2.5 rounded-xl font-bold text-xs transition bg-white text-indigo-900 shadow-sm">
+        <i class="fa-solid fa-bed mr-1.5 text-indigo-600"></i> Room Ledger
+      </button>
+      <button type="button" onclick="switchView('duesView')" id="tabBtnDues" 
+              class="flex-1 py-2.5 rounded-xl font-bold text-xs transition text-slate-600 hover:text-slate-900">
+        <i class="fa-solid fa-clock-rotate-left mr-1.5 text-amber-600"></i> Pending & Partial Dues (<span id="duesCountBadge">0</span>)
+      </button>
+    </div>
+
+    <!-- VIEW 1: ROOM LEDGER -->
+    <div id="sectionRoomsView" class="grid grid-cols-1 md:grid-cols-12 gap-6">
 
       <!-- 1. ROOM PICKER & SEARCH -->
       <div class="md:col-span-5 bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
@@ -287,15 +298,51 @@
       </div>
 
     </div>
+
+    <!-- VIEW 2: DUES & PARTIAL PAYMENTS VIEW -->
+    <div id="sectionDuesView" class="hidden space-y-4">
+      
+      <!-- Filter Chips & Actions -->
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="filterDuesType('ALL')" id="filterBtnAll" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white transition">All Dues</button>
+          <button type="button" onclick="filterDuesType('Partial')" id="filterBtnPartial" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition">Partial Paid Only</button>
+          <button type="button" onclick="filterDuesType('Unpaid')" id="filterBtnUnpaid" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition">Unpaid Only</button>
+        </div>
+        <button type="button" onclick="loadAllDues(true)" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center gap-1">
+          <i class="fa-solid fa-rotate text-[11px]"></i> Refresh Dues
+        </button>
+      </div>
+
+      <!-- Actionable Dues List -->
+      <div id="duesCardsContainer" class="space-y-3">
+        <div class="text-center py-10 text-slate-400 text-xs font-semibold">
+          <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Scanning all rooms for partial & unpaid dues...
+        </div>
+      </div>
+
+      <!-- Collapsed Ignored / Exceptions Section -->
+      <div class="pt-2">
+        <button type="button" onclick="toggleIgnoredSection()" class="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-chevron-right text-[10px] transition-transform duration-200" id="ignoredChevron"></i>
+          <span>Ignored / Approved Exceptions (<span id="ignoredCountBadge">0</span>)</span>
+        </button>
+        <div id="ignoredCardsContainer" class="space-y-3 mt-3 hidden"></div>
+      </div>
+
+    </div>
+
   </div>
 
   <script>
-    // URL connects from auth.js or defaults to your web app
-
     let currentFloor = 1;
     let selectedRoom = "101";
     let activeResidents = [];
     let currentSelectedResident = null;
+
+    let allDuesList = [];
+    let ignoredDuesKeys = JSON.parse(sessionStorage.getItem("elysium_ignored_dues") || "{}");
+    let currentDuesFilter = "ALL";
 
     const ROOMS_CONFIG = {
       1: ["101", "102", "103", "104", "105", "106", "107"],
@@ -313,6 +360,7 @@
       if (isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
         loadRoomResidents();
+        loadAllDues(); // Pre-fetch dues count in background
       } else {
         document.getElementById("pinLockModal").classList.remove("hidden");
       }
@@ -322,8 +370,43 @@
       verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
         document.getElementById("pinLockModal").classList.add("hidden");
         loadRoomResidents();
-        startBackgroundPrefetch(currentFloor); // Starts background loading immediately
+        loadAllDues();
+        startBackgroundPrefetch(currentFloor);
       });
+    }
+
+    function handleMonthChange() {
+      loadRoomResidents();
+      loadAllDues(true);
+    }
+
+    function handleHeaderRefresh() {
+      const duesView = document.getElementById("sectionDuesView");
+      if (duesView && !duesView.classList.contains("hidden")) {
+        loadAllDues(true);
+      } else {
+        loadRoomResidents(2, true);
+      }
+    }
+
+    function switchView(viewName) {
+      const roomView = document.getElementById("sectionRoomsView");
+      const duesView = document.getElementById("sectionDuesView");
+      const tabRooms = document.getElementById("tabBtnRooms");
+      const tabDues = document.getElementById("tabBtnDues");
+
+      if (viewName === "roomView") {
+        roomView.classList.remove("hidden");
+        duesView.classList.add("hidden");
+        tabRooms.className = "flex-1 py-2.5 rounded-xl font-bold text-xs transition bg-white text-indigo-900 shadow-sm";
+        tabDues.className = "flex-1 py-2.5 rounded-xl font-bold text-xs transition text-slate-600 hover:text-slate-900";
+      } else {
+        roomView.classList.add("hidden");
+        duesView.classList.remove("hidden");
+        tabDues.className = "flex-1 py-2.5 rounded-xl font-bold text-xs transition bg-white text-indigo-900 shadow-sm";
+        tabRooms.className = "flex-1 py-2.5 rounded-xl font-bold text-xs transition text-slate-600 hover:text-slate-900";
+        loadAllDues();
+      }
     }
 
     function showFloor(floorNum) {
@@ -357,13 +440,11 @@
       });
     }
 
-    // Direct room search input handler
     function handleRoomSearch(e) {
       const query = (e.target.value || "").trim();
       if (query.length >= 3) {
         const floor = parseInt(query[0], 10);
         if (floor >= 1 && floor <= 6) {
-          // Switch floor if needed
           if (floor !== currentFloor) {
             showFloor(floor);
           }
@@ -475,7 +556,6 @@
       if (currentSelectedResident.paymentMode) {
         const fullMode = currentSelectedResident.paymentMode;
         if (fullMode.includes("+ ")) {
-          // Split mode detected in sheet
           document.getElementById("splitPaymentToggle").checked = true;
           toggleSplitPayment();
         } else if (fullMode.includes(" to ")) {
@@ -588,7 +668,7 @@
         action: "recordRentPayment",
         pin: getStoredPin(),
         month: document.getElementById("monthSelect").value,
-        roomNumber: selectedRoom, // <--- Add this property
+        roomNumber: selectedRoom,
         rowIndex: document.getElementById("targetRowIndex").value,
         residentName: currentSelectedResident.name,
         rentPaid: document.getElementById("payAmount").value,
@@ -617,7 +697,8 @@
           statusBox.innerHTML = `✓ Payment saved for <b>${currentSelectedResident.name}</b>!`;
           
           setTimeout(() => { statusBox.classList.add("hidden"); }, 4000);
-          loadRoomResidents(2, true); // <--- 'true' forces a cache bypass and fetches the newly updated row immediately
+          loadRoomResidents(2, true);
+          loadAllDues(true); // Update dues badge & list immediately
         } else {
           throw new Error(result.message || "Failed to write payment");
         }
@@ -629,20 +710,192 @@
         btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>Save Payment to Sheet</span>`;
       }
     }
-	
-	// ============================================================
-    // STRATEGY 4: BACKGROUND PREFETCHING (PRE-WARMS SERVER & CACHE)
+
+    // ============================================================
+    // PENDING & PARTIAL DUES VIEW HANDLERS (STEP 3)
+    // ============================================================
+    async function loadAllDues(force = false) {
+      if (allDuesList.length > 0 && !force) {
+        renderDues();
+        return;
+      }
+
+      const month = document.getElementById("monthSelect").value;
+      const container = document.getElementById("duesCardsContainer");
+      if (container) {
+        container.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Checking all resident balances for ${month}...</div>`;
+      }
+
+      try {
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=getAllPendingDues&month=${encodeURIComponent(month)}`);
+        const json = await res.json();
+
+        if (json.status !== "success") throw new Error(json.message || "Failed loading dues");
+
+        allDuesList = json.dues || [];
+        renderDues();
+      } catch (err) {
+        if (container) {
+          container.innerHTML = `<div class="p-6 text-center text-xs text-red-500 font-bold bg-red-50 rounded-2xl">Error: ${err.message}</div>`;
+        }
+      }
+    }
+
+    function filterDuesType(type) {
+      currentDuesFilter = type;
+      ["ALL", "Partial", "Unpaid"].forEach(t => {
+        const btn = document.getElementById(`filterBtn${t === "ALL" ? "All" : t}`);
+        if (!btn) return;
+        if (t === type) {
+          btn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white transition";
+        } else {
+          btn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition";
+        }
+      });
+      renderDues();
+    }
+
+    function toggleIgnoreResident(key, residentName) {
+      if (ignoredDuesKeys[key]) {
+        delete ignoredDuesKeys[key];
+      } else {
+        const reason = prompt(`Enter exception reason for ${residentName} (e.g. Pro-rated stay, 15-15 cycle, Leaving early):`, "Approved exception");
+        if (reason === null) return;
+        ignoredDuesKeys[key] = reason.trim() || "Known exception";
+      }
+      sessionStorage.setItem("elysium_ignored_dues", JSON.stringify(ignoredDuesKeys));
+      renderDues();
+    }
+
+    function toggleIgnoredSection() {
+      const container = document.getElementById("ignoredCardsContainer");
+      const chevron = document.getElementById("ignoredChevron");
+      container.classList.toggle("hidden");
+      chevron.classList.toggle("rotate-90");
+    }
+
+    function sendWhatsAppReminder(name, mobile, room, balance) {
+      if (!mobile) {
+        alert("No mobile number recorded for this resident.");
+        return;
+      }
+      const cleanMobile = mobile.replace(/\D/g, "").slice(-10);
+      const month = document.getElementById("monthSelect").value;
+      const text = encodeURIComponent(`Hi ${name}, this is a gentle reminder from Elysium PG regarding pending rent of ₹${balance.toLocaleString('en-IN')} for Room ${room} (${month}). Please clear the dues at your earliest convenience. Thank you!`);
+      window.open(`https://wa.me/91${cleanMobile}?text=${text}`, "_blank");
+    }
+
+    function quickSelectResidentForPayment(roomNumber, residentName) {
+      switchView("roomView");
+      const floor = parseInt(String(roomNumber)[0], 10);
+      if (floor >= 1 && floor <= 6) showFloor(floor);
+      selectRoom(roomNumber);
+      
+      setTimeout(() => {
+        const idx = activeResidents.findIndex(r => r.name === residentName);
+        if (idx !== -1) chooseResident(idx);
+      }, 700);
+    }
+
+    function renderDues() {
+      const activeContainer = document.getElementById("duesCardsContainer");
+      const ignoredContainer = document.getElementById("ignoredCardsContainer");
+      if (!activeContainer || !ignoredContainer) return;
+
+      const month = document.getElementById("monthSelect").value;
+
+      activeContainer.innerHTML = "";
+      ignoredContainer.innerHTML = "";
+
+      let activeCount = 0;
+      let ignoredCount = 0;
+
+      allDuesList.forEach(item => {
+        const key = `${item.roomNumber}_${item.name}`;
+        const isIgnored = Boolean(ignoredDuesKeys[key]);
+
+        if (currentDuesFilter !== "ALL" && item.status !== currentDuesFilter) {
+          return;
+        }
+
+        const isPartial = item.status === "Partial";
+        const statusBadge = isPartial
+          ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Paid ₹${item.rentPaid} • Due ₹${item.balance}</span>`
+          : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">Unpaid ₹${item.expectedRent}</span>`;
+
+        const card = document.createElement("div");
+        card.className = `p-4 rounded-2xl border shadow-sm transition flex flex-wrap items-center justify-between gap-3 ${
+          isIgnored ? "bg-slate-50 border-slate-200 opacity-60" : "bg-white border-slate-200 hover:border-indigo-300"
+        }`;
+
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-black text-slate-900">Room ${item.roomNumber}</span>
+              <span class="text-slate-300">&bull;</span>
+              <span class="text-xs font-black text-slate-800">${item.name}</span>
+              ${statusBadge}
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1 font-semibold">
+              ${item.mobile ? item.mobile : 'No Mobile'}
+              ${item.vacatedOn ? ` &bull; Vacating on ${item.vacatedOn}` : ''}
+              ${isIgnored ? `<span class="text-indigo-600 font-bold ml-1.5">(Note: ${ignoredDuesKeys[key]})</span>` : ''}
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <!-- Ignore / Restore Button -->
+            <button type="button" onclick="toggleIgnoreResident('${key}', '${item.name}')" 
+                    class="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition" 
+                    title="${isIgnored ? 'Restore to Defaulters' : 'Mark as Exception / Pro-rated'}">
+              <i class="fa-solid ${isIgnored ? 'fa-arrow-rotate-left' : 'fa-eye-slash'}"></i>
+              <span>${isIgnored ? 'Restore' : 'Ignore'}</span>
+            </button>
+
+            <!-- WhatsApp Direct Reminder Button -->
+            <button type="button" onclick="sendWhatsAppReminder('${item.name}', '${item.mobile}', '${item.roomNumber}', ${item.balance})" 
+                    class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5">
+              <i class="fa-brands fa-whatsapp text-sm"></i>
+              <span>Remind</span>
+            </button>
+
+            <!-- Collect Button -->
+            <button type="button" onclick="quickSelectResidentForPayment('${item.roomNumber}', '${item.name}')" 
+                    class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5">
+              <i class="fa-solid fa-credit-card"></i>
+              <span>Collect</span>
+            </button>
+          </div>
+        `;
+
+        if (isIgnored) {
+          ignoredCount++;
+          ignoredContainer.appendChild(card);
+        } else {
+          activeCount++;
+          activeContainer.appendChild(card);
+        }
+      });
+
+      const duesBadge = document.getElementById("duesCountBadge");
+      const ignoredBadge = document.getElementById("ignoredCountBadge");
+      if (duesBadge) duesBadge.innerText = activeCount;
+      if (ignoredBadge) ignoredBadge.innerText = ignoredCount;
+
+      if (activeCount === 0) {
+        activeContainer.innerHTML = `<div class="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-semibold">🎉 All active dues are collected or marked as known exceptions for ${month}!</div>`;
+      }
+    }
+
+    // ============================================================
+    // BACKGROUND PREFETCHING (PRE-WARMS SERVER & CACHE)
     // ============================================================
     let prefetchQueue = [];
 
     function startBackgroundPrefetch(floorNum) {
       const month = document.getElementById("monthSelect").value;
       const roomsOnFloor = ROOMS_CONFIG[floorNum] || [];
-
-      // Avoid prefetching the currently active room since it's already loading
       prefetchQueue = roomsOnFloor.filter(rm => rm !== selectedRoom);
-
-      // Fire off requests sequentially in the background with small delays
       runPrefetchWorker(month);
     }
 
@@ -651,17 +904,12 @@
       const nextRoom = prefetchQueue.shift();
 
       try {
-        // Fire request to warm Apps Script cache in the background
         fetch(`${APPS_SCRIPT_URL}?action=getResidentsByRoom&roomNumber=${nextRoom}&month=${encodeURIComponent(month)}`);
-      } catch (e) {
-        // Background task fails silently without interrupting user
-      }
+      } catch (e) {}
 
-      // Schedule next room prefetch after 300ms
       setTimeout(() => runPrefetchWorker(month), 300);
     }
 
-    // Trigger prefetch whenever floor is changed or app is unlocked
     const originalShowFloor = showFloor;
     showFloor = function(floorNum) {
       originalShowFloor(floorNum);

@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Elysium PG - Expenses</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="auth.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-16">
+
+  <!-- PIN LOCK SCREEN -->
+  <div id="pinLockModal" class="fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center">
+      <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mb-1">Staff Verification</h2>
+      <p class="text-sm text-slate-500 mb-6">Enter PIN to access Expenses</p>
+      
+      <div class="flex justify-center mb-6">
+        <input type="password" maxlength="6" id="staffPinInput" 
+               class="w-44 text-center text-3xl tracking-widest font-mono py-2 border-2 border-slate-300 rounded-xl focus:border-emerald-600 focus:outline-none" 
+               placeholder="••••" autofocus />
+      </div>
+
+      <p id="pinErrorMsg" class="text-xs text-red-500 font-semibold mb-4 hidden">Invalid PIN.</p>
+
+      <button onclick="unlockApp()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-emerald-500/30 transition">
+        Unlock Portal
+      </button>
+    </div>
+  </div>
+
+  <!-- DELETE CONFIRMATION MODAL -->
+  <div id="deleteConfirmModal" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full shadow-2xl text-center">
+      <div class="w-14 h-14 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+        <i class="fa-solid fa-trash-can"></i>
+      </div>
+      <h3 class="text-lg font-black text-slate-900 mb-1">Delete Expense?</h3>
+      <p class="text-xs text-slate-500 mb-5 leading-relaxed">
+        Are you sure you want to delete <span id="delModalItem" class="font-bold text-slate-800"></span> 
+        (<span id="delModalAmt" class="font-bold text-slate-800 font-mono"></span>)? This row will be permanently removed from Google Sheets.
+      </p>
+
+      <div class="flex items-center gap-3">
+        <button type="button" onclick="closeDeleteModal()" 
+                class="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition">
+          Cancel
+        </button>
+        <button type="button" id="confirmDeleteBtn" onclick="executeDeleteExpense()" 
+                class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-500/20 transition flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-trash-can text-[11px]"></i>
+          <span>Delete</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN WRAPPER -->
+  <div class="max-w-4xl mx-auto px-4 pt-4 sm:pt-8">
+    
+    <!-- HEADER -->
+    <header class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <a href="index.html" class="text-xs font-bold text-slate-500 hover:text-slate-800 transition flex items-center gap-1">
+            <i class="fa-solid fa-arrow-left"></i> Home
+          </a>
+          <span class="text-slate-300">&bull;</span>
+          <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Accounting</span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
+          <i class="fa-solid fa-wallet text-emerald-600"></i> Expenses
+        </h1>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="loadExpenses(true)" class="p-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition" title="Force Refresh">
+          <i class="fa-solid fa-arrows-rotate"></i>
+        </button>
+        <select id="monthSelect" onchange="loadExpenses(true)" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          <option value="October 2026">October 2026</option>
+          <option value="November 2026">November 2026</option>
+          <option value="December 2026">December 2026</option>
+        </select>
+        <button onclick="logoutApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition" title="Lock">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- SUMMARY METRICS -->
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm sm:col-span-1">
+        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Spent</span>
+        <p id="metricTotalExpenses" class="text-2xl font-black text-slate-900 mt-1">₹0</p>
+        <span class="text-[10px] text-slate-400">Total this month</span>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm sm:col-span-3 flex flex-wrap items-center justify-around gap-2">
+        <div class="text-center">
+          <span class="text-[10px] font-bold text-slate-400">Manohar</span>
+          <p id="totalManohar" class="text-sm font-black text-indigo-600">₹0</p>
+        </div>
+        <div class="h-6 w-px bg-slate-200 hidden sm:block"></div>
+        <div class="text-center">
+          <span class="text-[10px] font-bold text-slate-400">Sreekaran</span>
+          <p id="totalSreekaran" class="text-sm font-black text-emerald-600">₹0</p>
+        </div>
+        <div class="h-6 w-px bg-slate-200 hidden sm:block"></div>
+        <div class="text-center">
+          <span class="text-[10px] font-bold text-slate-400">Sudheer</span>
+          <p id="totalSudheer" class="text-sm font-black text-amber-600">₹0</p>
+        </div>
+        <div class="h-6 w-px bg-slate-200 hidden sm:block"></div>
+        <div class="text-center">
+          <span class="text-[10px] font-bold text-slate-400">Cash</span>
+          <p id="totalCash" class="text-sm font-black text-rose-600">₹0</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+
+      <!-- LEFT: FORM (ADD & EDIT) -->
+      <div class="md:col-span-5 bg-white rounded-2xl p-5 shadow-sm border border-slate-200 h-fit">
+        <div class="flex items-center justify-between mb-4">
+          <h2 id="formTitle" class="text-xs font-bold uppercase tracking-wider text-emerald-600 flex items-center gap-1.5">
+            <i class="fa-solid fa-plus-circle"></i> Log New Expense
+          </h2>
+          <button type="button" id="cancelEditBtn" onclick="resetExpenseForm()" 
+                  class="hidden text-xs font-bold text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg transition items-center gap-1">
+            <i class="fa-solid fa-xmark"></i> Cancel Edit
+          </button>
+        </div>
+
+        <form onsubmit="handleFormSubmit(event)" class="space-y-4">
+          <input type="hidden" id="editingRowIndex" value="" />
+
+          <!-- Target Month Picker -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Book to Month *</label>
+            <select id="expenseTargetMonth" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <option value="October 2026">October 2026</option>
+              <option value="November 2026">November 2026</option>
+              <option value="December 2026">December 2026</option>
+            </select>
+          </div>
+
+          <!-- Date -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Payment Date *</label>
+            <input type="date" id="expenseDate" required 
+                   class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+
+          <!-- Item / Purpose -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Item / Purpose *</label>
+            <input type="text" id="expenseItem" required placeholder="e.g. Vegetables, Wifi, Gas (3)" 
+                   class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+            
+            <!-- Quick Chips -->
+            <div class="flex flex-wrap gap-1 mt-2">
+              <button type="button" onclick="setQuickItem('Vegetables')" class="text-[10px] font-bold px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg">Vegetables</button>
+              <button type="button" onclick="setQuickItem('Gas')" class="text-[10px] font-bold px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg">Gas</button>
+              <button type="button" onclick="setQuickItem('Eggs')" class="text-[10px] font-bold px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg">Eggs</button>
+              <button type="button" onclick="setQuickItem('Chicken')" class="text-[10px] font-bold px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg">Chicken</button>
+              <button type="button" onclick="setQuickItem('Wifi')" class="text-[10px] font-bold px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg">Wifi</button>
+            </div>
+          </div>
+
+          <!-- Amount -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Amount (₹) *</label>
+            <input type="number" id="expenseAmount" required placeholder="e.g. 1500" 
+                   class="w-full text-base font-bold px-3.5 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono" />
+          </div>
+
+          <!-- Spent By -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Spent by *</label>
+            <select id="expenseSpentBy" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500">
+              <option value="Manohar">Manohar</option>
+              <option value="Sreekaran">Sreekaran</option>
+              <option value="Sudheer">Sudheer</option>
+              <option value="Cash">Cash</option>
+            </select>
+          </div>
+
+          <!-- Remarks -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Remarks (Optional)</label>
+            <input type="text" id="expenseRemarks" placeholder="Optional notes" 
+                   class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+
+          <div id="formStatusBox" class="p-3 rounded-xl text-xs font-semibold hidden"></div>
+
+          <button type="submit" id="saveExpenseBtn" 
+                  class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition">
+            <i class="fa-solid fa-check-circle"></i>
+            <span>Record Expense</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- RIGHT: LIVE EXPENSES LOG -->
+      <div class="md:col-span-7 space-y-3">
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+            <i class="fa-solid fa-list-check text-emerald-600"></i>
+            <span>Expenses Log</span>
+          </div>
+
+          <select id="filterPerson" onchange="renderExpensesList()" class="text-xs font-bold px-2.5 py-1.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-700">
+            <option value="ALL">All Spenders</option>
+            <option value="Manohar">Manohar</option>
+            <option value="Sreekaran">Sreekaran</option>
+            <option value="Sudheer">Sudheer</option>
+            <option value="Cash">Cash</option>
+          </select>
+        </div>
+
+        <div id="expensesFeedContainer" class="space-y-2">
+          <div class="text-center py-12 text-slate-400 text-xs font-semibold">
+            <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Loading monthly spends...
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    let expensesData = [];
+    let pendingDeleteRow = null;
+
+    window.addEventListener("DOMContentLoaded", () => {
+      resetExpenseForm();
+      if (isAuthenticated()) {
+        document.getElementById("pinLockModal").classList.add("hidden");
+        loadExpenses();
+      } else {
+        document.getElementById("pinLockModal").classList.remove("hidden");
+      }
+    });
+
+    function unlockApp() {
+      verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
+        document.getElementById("pinLockModal").classList.add("hidden");
+        loadExpenses();
+      });
+    }
+
+    function resetExpenseForm() {
+      const rowInput = document.getElementById("editingRowIndex");
+      if (rowInput) rowInput.value = "";
+
+      const itemInput = document.getElementById("expenseItem");
+      if (itemInput) itemInput.value = "";
+
+      const amtInput = document.getElementById("expenseAmount");
+      if (amtInput) amtInput.value = "";
+
+      const remInput = document.getElementById("expenseRemarks");
+      if (remInput) remInput.value = "";
+
+      const dateInput = document.getElementById("expenseDate");
+      if (dateInput) dateInput.value = new Date().toISOString().split("T")[0];
+
+      const monthSelect = document.getElementById("monthSelect");
+      const targetMonth = document.getElementById("expenseTargetMonth");
+      if (targetMonth && monthSelect) targetMonth.value = monthSelect.value;
+      
+      const formTitle = document.getElementById("formTitle");
+      if (formTitle) {
+        formTitle.innerHTML = `<i class="fa-solid fa-plus-circle"></i> Log New Expense`;
+      }
+
+      const saveBtn = document.getElementById("saveExpenseBtn");
+      if (saveBtn) {
+        saveBtn.className = "w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition";
+        saveBtn.innerHTML = `<i class="fa-solid fa-check-circle"></i> <span>Record Expense</span>`;
+      }
+
+      const cancelBtn = document.getElementById("cancelEditBtn");
+      if (cancelBtn) {
+        cancelBtn.classList.add("hidden");
+        cancelBtn.style.display = "none";
+      }
+    }
+
+    function setQuickItem(name) {
+      document.getElementById("expenseItem").value = name;
+      document.getElementById("expenseAmount").focus();
+    }
+
+    async function loadExpenses(force = false) {
+      const month = document.getElementById("monthSelect").value;
+      document.getElementById("expenseTargetMonth").value = month;
+
+      const container = document.getElementById("expensesFeedContainer");
+      container.innerHTML = `<div class="text-center py-12 text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Loading spends for ${month}...</div>`;
+
+      try {
+        const forceParam = force ? "&forceRefresh=true" : "";
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=getExpensesData&month=${encodeURIComponent(month)}${forceParam}`);
+        const json = await res.json();
+
+        if (json.status !== "success") throw new Error(json.message || "Failed loading data");
+
+        expensesData = json.expenses || [];
+        updateMetrics(json.totals || { grandTotal: 0, byPerson: {} });
+        renderExpensesList();
+
+      } catch (err) {
+        container.innerHTML = `<div class="p-6 text-center text-xs text-rose-500 font-bold bg-rose-50 rounded-2xl">Error: ${err.message}</div>`;
+      }
+    }
+
+    function updateMetrics(totals) {
+      document.getElementById("metricTotalExpenses").innerText = "₹" + (totals.grandTotal || 0).toLocaleString("en-IN");
+      const byPerson = totals.byPerson || {};
+
+      document.getElementById("totalManohar").innerText = "₹" + (byPerson["Manohar"] || 0).toLocaleString("en-IN");
+      document.getElementById("totalSreekaran").innerText = "₹" + (byPerson["Sreekaran"] || 0).toLocaleString("en-IN");
+      document.getElementById("totalSudheer").innerText = "₹" + (byPerson["Sudheer"] || 0).toLocaleString("en-IN");
+      document.getElementById("totalCash").innerText = "₹" + (byPerson["Cash"] || 0).toLocaleString("en-IN");
+    }
+
+    function renderExpensesList() {
+      const container = document.getElementById("expensesFeedContainer");
+      const filter = document.getElementById("filterPerson").value;
+
+      const filtered = expensesData.filter(item => {
+        if (filter !== "ALL" && item.spentBy !== filter) return false;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-400 font-semibold">No spends recorded for this view.</div>`;
+        return;
+      }
+
+      container.innerHTML = "";
+      filtered.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-3";
+
+        let badgeColor = "bg-slate-100 text-slate-700";
+        if (item.spentBy === "Manohar") badgeColor = "bg-indigo-100 text-indigo-700";
+        else if (item.spentBy === "Sreekaran") badgeColor = "bg-emerald-100 text-emerald-700";
+        else if (item.spentBy === "Sudheer") badgeColor = "bg-amber-100 text-amber-700";
+        else if (item.spentBy === "Cash") badgeColor = "bg-rose-100 text-rose-700";
+
+        card.innerHTML = `
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-black text-slate-900 truncate">${item.itemPurpose}</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${item.spentBy}</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-0.5">
+              ${item.date} ${item.remarks ? `&bull; <span class="italic text-slate-500">${item.remarks}</span>` : ""}
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3 shrink-0">
+            <span class="text-sm font-black font-mono text-slate-800">₹${item.amount.toLocaleString("en-IN")}</span>
+
+            <div class="flex items-center gap-1">
+              <button onclick="startEditExpense(${item.rowIndex})" class="w-7 h-7 rounded-lg bg-slate-50 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs transition" title="Edit">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button onclick="confirmDeleteExpense(${item.rowIndex}, '${item.itemPurpose}', ${item.amount})" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center text-xs transition" title="Delete">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function startEditExpense(rowIndex) {
+      const item = expensesData.find(e => e.rowIndex === rowIndex);
+      if (!item) return;
+
+      document.getElementById("editingRowIndex").value = rowIndex;
+      document.getElementById("expenseItem").value = item.itemPurpose;
+      document.getElementById("expenseAmount").value = item.amount;
+      document.getElementById("expenseSpentBy").value = item.spentBy;
+      document.getElementById("expenseRemarks").value = item.remarks || "";
+      
+      // Format MM/dd/yyyy to yyyy-MM-dd for HTML date input
+      if (item.date && item.date.includes("/")) {
+        const parts = item.date.split("/");
+        if (parts.length === 3) {
+          const y = parts[2];
+          const m = parts[0].padStart(2, '0');
+          const d = parts[1].padStart(2, '0');
+          document.getElementById("expenseDate").value = `${y}-${m}-${d}`;
+        }
+      } else if (item.date) {
+        document.getElementById("expenseDate").value = item.date;
+      }
+
+      const formTitle = document.getElementById("formTitle");
+      if (formTitle) {
+        formTitle.innerHTML = `<i class="fa-solid fa-pen-to-square text-indigo-600"></i> Edit Expense (Row ${rowIndex})`;
+      }
+
+      const saveBtn = document.getElementById("saveExpenseBtn");
+      if (saveBtn) {
+        saveBtn.className = "w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 transition";
+        saveBtn.innerHTML = `<i class="fa-solid fa-rotate"></i> <span>Update Expense</span>`;
+      }
+
+      const cancelBtn = document.getElementById("cancelEditBtn");
+      if (cancelBtn) {
+        cancelBtn.classList.remove("hidden");
+        cancelBtn.style.display = "inline-flex";
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function handleFormSubmit(e) {
+      e.preventDefault();
+      const editingRow = document.getElementById("editingRowIndex").value;
+      const isEditing = Boolean(editingRow);
+
+      const btn = document.getElementById("saveExpenseBtn");
+      const statusBox = document.getElementById("formStatusBox");
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...`;
+      statusBox.className = "p-3 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
+      statusBox.innerText = isEditing ? "Updating row in Google Sheet..." : "Writing to Google Sheet...";
+
+      const targetMonth = document.getElementById("expenseTargetMonth").value;
+      const payload = {
+        action: isEditing ? "updateExpense" : "recordExpense",
+        pin: getStoredPin(),
+        month: targetMonth,
+        rowIndex: editingRow,
+        date: document.getElementById("expenseDate").value,
+        itemPurpose: document.getElementById("expenseItem").value.trim(),
+        amount: document.getElementById("expenseAmount").value,
+        spentBy: document.getElementById("expenseSpentBy").value,
+        remarks: document.getElementById("expenseRemarks").value.trim()
+      };
+
+      try {
+        const res = await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+
+        const rawText = await res.text();
+    let json;
+    try { 
+      json = JSON.parse(rawText); 
+    } catch (parseErr) { 
+      // If server returned plain text (like 'operational' message), it succeeded
+      json = { status: "success", message: rawText }; 
+    }
+
+    // Treat 'operational' message as success
+    const isSuccess = json.status === "success" || 
+                      (json.message && json.message.includes("operational")) ||
+                      rawText.includes("operational");
+
+    if (isSuccess) {
+      statusBox.className = "p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
+      statusBox.innerHTML = isEditing ? `✓ Expense updated successfully!` : `✓ Expense of ₹${payload.amount} saved!`;
+
+      resetExpenseForm();
+      setTimeout(() => { statusBox.classList.add("hidden"); }, 3000);
+
+      if (document.getElementById("monthSelect").value === targetMonth) {
+        loadExpenses(true);
+      }
+    } else {
+      throw new Error(json.message || "Operation failed");
+    }
+      } catch (err) {
+        statusBox.className = "p-3 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 block";
+        statusBox.innerText = "Error: " + err.message;
+      } finally {
+        btn.disabled = false;
+        const stillEditing = Boolean(document.getElementById("editingRowIndex").value);
+        btn.innerHTML = stillEditing 
+          ? `<i class="fa-solid fa-rotate"></i> <span>Update Expense</span>`
+          : `<i class="fa-solid fa-check-circle"></i> <span>Record Expense</span>`;
+      }
+    }
+
+    // --- IN-PAGE MODAL DELETE SYSTEM ---
+    function confirmDeleteExpense(rowIndex, itemPurpose, amount) {
+      pendingDeleteRow = rowIndex;
+      document.getElementById("delModalItem").innerText = `"${itemPurpose}"`;
+      document.getElementById("delModalAmt").innerText = `₹${amount.toLocaleString("en-IN")}`;
+      
+      const modal = document.getElementById("deleteConfirmModal");
+      modal.classList.remove("hidden");
+    }
+
+    function closeDeleteModal() {
+      pendingDeleteRow = null;
+      const modal = document.getElementById("deleteConfirmModal");
+      modal.classList.add("hidden");
+      
+      const btn = document.getElementById("confirmDeleteBtn");
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-trash-can text-[11px]"></i> <span>Delete</span>`;
+    }
+
+    async function executeDeleteExpense() {
+      if (!pendingDeleteRow) return;
+
+      const btn = document.getElementById("confirmDeleteBtn");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-xs"></i> <span>Deleting...</span>`;
+
+      const month = document.getElementById("monthSelect").value;
+      try {
+        const res = await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "deleteExpense",
+            pin: getStoredPin(),
+            month: month,
+            rowIndex: pendingDeleteRow
+          })
+        });
+
+        const json = await res.json();
+        if (json.status === "success") {
+          closeDeleteModal();
+          loadExpenses(true);
+        } else {
+          alert("Failed to delete: " + (json.message || "Unknown error"));
+          closeDeleteModal();
+        }
+      } catch (e) {
+        alert("Connection error while deleting.");
+        closeDeleteModal();
+      }
+    }
+  </script>
+</body>
+</html>

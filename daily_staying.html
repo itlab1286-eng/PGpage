@@ -33,7 +33,7 @@
     </div>
   </div>
 
-  <!-- CHECK-IN MODAL (WITH SPLIT PAYMENT) -->
+  <!-- CHECK-IN MODAL (WITH DATE + TIME & SPLIT PAYMENT) -->
   <div id="checkInModal" class="fixed inset-0 z-40 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -41,7 +41,7 @@
           <h2 class="text-lg font-black text-slate-900 flex items-center gap-2">
             <i class="fa-solid fa-user-clock text-emerald-600"></i> New Daily Guest Check-In
           </h2>
-          <p class="text-xs text-slate-500">Record a short-stay guest and calculate days automatically</p>
+          <p class="text-xs text-slate-500">Record a short-stay guest with exact check-in &amp; check-out time</p>
         </div>
         <button type="button" onclick="closeCheckInModal()" class="text-slate-400 hover:text-slate-600 p-1">
           <i class="fa-solid fa-xmark text-lg"></i>
@@ -79,21 +79,29 @@
           </div>
         </div>
 
-        <!-- Dates & Days Calculation -->
+        <!-- Dates & Times Calculation -->
         <div class="bg-emerald-50/60 p-3.5 rounded-2xl border border-emerald-100 space-y-3">
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Joined Date *</label>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Check-in Date &amp; Time *</label>
+            <div class="grid grid-cols-5 gap-2">
               <input type="date" id="inJoinedDate" required onchange="recalculateCheckInDays()"
-                     class="w-full text-xs font-semibold px-3 py-2 bg-white border border-slate-300 rounded-xl focus:outline-none" />
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Vacated Date *</label>
-              <input type="date" id="inVacatedDate" required onchange="recalculateCheckInDays()"
-                     class="w-full text-xs font-semibold px-3 py-2 bg-white border border-slate-300 rounded-xl focus:outline-none" />
+                     class="col-span-3 text-xs font-semibold px-3 py-2 bg-white border border-slate-300 rounded-xl focus:outline-none" />
+              <input type="time" id="inJoinedTime" required
+                     class="col-span-2 text-xs font-semibold px-2.5 py-2 bg-white border border-slate-300 rounded-xl focus:outline-none" />
             </div>
           </div>
-          <div class="flex items-center justify-between text-xs pt-1">
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Expected Vacating Date &amp; Time *</label>
+            <div class="grid grid-cols-5 gap-2">
+              <input type="date" id="inVacatedDate" required onchange="recalculateCheckInDays()"
+                     class="col-span-3 text-xs font-semibold px-3 py-2 bg-white border border-slate-300 rounded-xl focus:outline-none" />
+              <input type="time" id="inVacatedTime" required
+                     class="col-span-2 text-xs font-semibold px-2.5 py-2 bg-white border border-slate-300 rounded-xl focus:outline-none" />
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between text-xs pt-1 border-t border-emerald-100">
             <span class="font-bold text-slate-600">Calculated Duration:</span>
             <span id="calculatedDaysBadge" class="font-mono font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-lg text-sm">1 Day</span>
           </div>
@@ -129,13 +137,13 @@
           <div class="flex items-center justify-between">
             <label class="text-xs font-bold text-slate-700">Payment Breakdown</label>
             <label class="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-emerald-700 hover:text-emerald-900">
-              <input type="checkbox" id="splitPaymentToggle" onchange="toggleSplitPayment()" class="rounded text-emerald-600 focus:ring-0 cursor-pointer" />
+              <input type="checkbox" id="splitPaymentToggle" onchange="toggleSplitPayment('in')" class="rounded text-emerald-600 focus:ring-0 cursor-pointer" />
               <span>Split Rent Payment</span>
             </label>
           </div>
 
           <!-- SINGLE PAYMENT -->
-          <div id="singlePaySection" class="grid grid-cols-2 gap-3">
+          <div id="inSinglePaySection" class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-[11px] font-bold text-slate-600 mb-1">Mode</label>
               <select id="payMode" class="w-full text-xs font-semibold px-3 py-2 border border-slate-300 rounded-xl">
@@ -158,16 +166,15 @@
           </div>
 
           <!-- SPLIT PAYMENT -->
-          <div id="splitPaySection" class="p-3 bg-emerald-50/50 border border-emerald-200 rounded-2xl space-y-3 hidden">
+          <div id="inSplitPaySection" class="p-3 bg-emerald-50/50 border border-emerald-200 rounded-2xl space-y-3 hidden">
             <p class="text-xs font-black text-emerald-900 flex items-center gap-1">
               <i class="fa-solid fa-arrows-split-up-and-left"></i> Split Breakdown
             </p>
 
-            <!-- Part 1 -->
             <div class="grid grid-cols-3 gap-2">
               <div>
                 <span class="text-[10px] font-bold text-slate-500">Part 1 Mode</span>
-                <select id="splitMode1" onchange="buildSplitSummary()" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
+                <select id="splitMode1" onchange="buildSplitSummary('in')" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
                   <option value="Cash">Cash</option>
                   <option value="PPay">PPay</option>
                   <option value="GPay">GPay</option>
@@ -176,7 +183,7 @@
               </div>
               <div>
                 <span class="text-[10px] font-bold text-slate-500">Receiver 1</span>
-                <select id="splitReceiver1" onchange="buildSplitSummary()" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
+                <select id="splitReceiver1" onchange="buildSplitSummary('in')" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
                   <option value="None">None (Cash)</option>
                   <option value="Manohar">Manohar</option>
                   <option value="Sreekaran">Sreekaran</option>
@@ -185,16 +192,15 @@
               </div>
               <div>
                 <span class="text-[10px] font-bold text-slate-500">Amount 1 (₹)</span>
-                <input type="number" id="splitAmt1" oninput="buildSplitSummary()" placeholder="1000"
+                <input type="number" id="splitAmt1" oninput="buildSplitSummary('in')" placeholder="1000"
                        class="w-full text-xs font-bold p-2 border border-slate-300 rounded-lg" />
               </div>
             </div>
 
-            <!-- Part 2 -->
             <div class="grid grid-cols-3 gap-2">
               <div>
                 <span class="text-[10px] font-bold text-slate-500">Part 2 Mode</span>
-                <select id="splitMode2" onchange="buildSplitSummary()" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
+                <select id="splitMode2" onchange="buildSplitSummary('in')" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
                   <option value="PPay">PPay</option>
                   <option value="Cash">Cash</option>
                   <option value="GPay">GPay</option>
@@ -203,7 +209,7 @@
               </div>
               <div>
                 <span class="text-[10px] font-bold text-slate-500">Receiver 2</span>
-                <select id="splitReceiver2" onchange="buildSplitSummary()" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
+                <select id="splitReceiver2" onchange="buildSplitSummary('in')" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg">
                   <option value="Manohar">Manohar</option>
                   <option value="Sreekaran">Sreekaran</option>
                   <option value="Sudheer">Sudheer</option>
@@ -212,7 +218,7 @@
               </div>
               <div>
                 <span class="text-[10px] font-bold text-slate-500">Amount 2 (₹)</span>
-                <input type="number" id="splitAmt2" oninput="buildSplitSummary()" placeholder="500"
+                <input type="number" id="splitAmt2" oninput="buildSplitSummary('in')" placeholder="500"
                        class="w-full text-xs font-bold p-2 border border-slate-300 rounded-lg" />
               </div>
             </div>
@@ -245,9 +251,9 @@
     </div>
   </div>
 
-  <!-- EXTEND STAY MODAL -->
+  <!-- EXTEND STAY MODAL (WITH DYNAMIC MODE SELECTOR & SPLITTER) -->
   <div id="extendModal" class="fixed inset-0 z-40 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
         <div>
           <h2 class="text-base font-black text-slate-900 flex items-center gap-2">
@@ -267,9 +273,13 @@
         <input type="hidden" id="extExistingBalance" />
 
         <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">New Vacated Date *</label>
-          <input type="date" id="extNewVacatedDate" required onchange="recalculateExtendDays()"
-                 class="w-full text-xs font-semibold px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+          <label class="block text-xs font-bold text-slate-700 mb-1">New Vacated Date &amp; Time *</label>
+          <div class="grid grid-cols-5 gap-2">
+            <input type="date" id="extNewVacatedDate" required onchange="recalculateExtendDays()"
+                   class="col-span-3 text-xs font-semibold px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+            <input type="time" id="extNewVacatedTime" required
+                   class="col-span-2 text-xs font-semibold px-2 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+          </div>
         </div>
 
         <div class="bg-indigo-50 p-2.5 rounded-xl border border-indigo-100 flex items-center justify-between text-xs">
@@ -277,7 +287,7 @@
           <span id="extTotalDaysBadge" class="font-mono font-black text-indigo-700 text-sm">--</span>
         </div>
 
-		<!-- CAUTION DEPOSIT ADJUSTMENT BOX -->
+        <!-- CAUTION DEPOSIT ADJUSTMENT BOX -->
         <div id="extDepositAdjustBox" class="p-3 bg-amber-50 rounded-2xl border border-amber-200 space-y-2 hidden">
           <div class="flex items-center justify-between">
             <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-amber-900">
@@ -290,23 +300,84 @@
             ✓ Deposit will be converted to rent paid.
           </p>
         </div>
-		
+
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Additional Rent Collected (₹)</label>
-          <input type="number" id="extAdditionalPaid" placeholder="0 if deferred"
+          <input type="number" id="extAdditionalPaid" oninput="onExtPaidChange()" placeholder="0 if deferred"
                  class="w-full text-xs font-bold px-3 py-2 border border-slate-300 rounded-xl font-mono text-emerald-700" />
+        </div>
+
+        <!-- EXTENSION PAYMENT MODE BOX (SINGLE VS SPLIT) -->
+        <div id="extPaymentModeBox" class="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 hidden">
+          <div class="flex items-center justify-between">
+            <label class="text-[11px] font-bold text-slate-700">Collection Mode</label>
+            <label class="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-indigo-700">
+              <input type="checkbox" id="extSplitToggle" onchange="toggleSplitPayment('ext')" class="rounded text-indigo-600 focus:ring-0 cursor-pointer" />
+              <span>Split Payment</span>
+            </label>
+          </div>
+
+          <!-- Single Mode -->
+          <div id="extSinglePaySection" class="grid grid-cols-2 gap-2">
+            <div>
+              <span class="text-[10px] font-bold text-slate-500">Mode</span>
+              <select id="extPayMode" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg bg-white">
+                <option value="Cash">Cash</option>
+                <option value="PPay">PPay (PhonePe)</option>
+                <option value="GPay">GPay (Google Pay)</option>
+                <option value="Paytm">Paytm</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+              </select>
+            </div>
+            <div>
+              <span class="text-[10px] font-bold text-slate-500">Received By</span>
+              <select id="extPayReceiver" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg bg-white">
+                <option value="None">None (Cash)</option>
+                <option value="Manohar">Manohar</option>
+                <option value="Sreekaran">Sreekaran</option>
+                <option value="Sudheer">Sudheer</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Split Mode -->
+          <div id="extSplitPaySection" class="space-y-2 hidden">
+            <div class="grid grid-cols-3 gap-1.5">
+              <select id="extSplitMode1" onchange="buildSplitSummary('ext')" class="text-xs p-1.5 border border-slate-300 rounded bg-white">
+                <option value="Cash">Cash</option>
+                <option value="PPay">PPay</option>
+                <option value="GPay">GPay</option>
+              </select>
+              <select id="extSplitReceiver1" onchange="buildSplitSummary('ext')" class="text-xs p-1.5 border border-slate-300 rounded bg-white">
+                <option value="None">None</option>
+                <option value="Manohar">Manohar</option>
+                <option value="Sreekaran">Sreekaran</option>
+                <option value="Sudheer">Sudheer</option>
+              </select>
+              <input type="number" id="extSplitAmt1" oninput="buildSplitSummary('ext')" placeholder="Amt" class="text-xs p-1.5 border border-slate-300 rounded font-bold" />
+            </div>
+            <div class="grid grid-cols-3 gap-1.5">
+              <select id="extSplitMode2" onchange="buildSplitSummary('ext')" class="text-xs p-1.5 border border-slate-300 rounded bg-white">
+                <option value="PPay">PPay</option>
+                <option value="Cash">Cash</option>
+                <option value="GPay">GPay</option>
+              </select>
+              <select id="extSplitReceiver2" onchange="buildSplitSummary('ext')" class="text-xs p-1.5 border border-slate-300 rounded bg-white">
+                <option value="Manohar">Manohar</option>
+                <option value="Sreekaran">Sreekaran</option>
+                <option value="Sudheer">Sudheer</option>
+                <option value="None">None</option>
+              </select>
+              <input type="number" id="extSplitAmt2" oninput="buildSplitSummary('ext')" placeholder="Amt" class="text-xs p-1.5 border border-slate-300 rounded font-bold" />
+            </div>
+            <p id="extSplitPreview" class="text-[10px] font-mono text-indigo-600 font-bold truncate"></p>
+          </div>
         </div>
 
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Additional Balance Added (₹)</label>
           <input type="number" id="extAdditionalBalance" placeholder="0 if settled"
                  class="w-full text-xs font-bold px-3 py-2 border border-slate-300 rounded-xl font-mono text-amber-700" />
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Payment Mode (for addition)</label>
-          <input type="text" id="extPaymentMode" placeholder="e.g. Cash, GPay to Manohar"
-                 class="w-full text-xs font-semibold px-3 py-2 border border-slate-300 rounded-xl" />
         </div>
 
         <div id="extendStatusBox" class="p-2.5 rounded-xl text-xs font-semibold hidden"></div>
@@ -321,15 +392,15 @@
     </div>
   </div>
 
-  <!-- CHECKOUT / RETURN DEPOSIT MODAL -->
+  <!-- CHECKOUT / RETURN DEPOSIT MODAL (WITH BALANCE SETTLEMENT COLLECTION) -->
   <div id="checkOutModal" class="fixed inset-0 z-40 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
         <div>
           <h2 class="text-base font-black text-slate-900 flex items-center gap-2">
             <i class="fa-solid fa-right-from-bracket text-rose-600"></i> Guest Checkout
           </h2>
-          <p id="checkoutGuestSubtitle" class="text-xs text-slate-500">Complete stay & return deposit</p>
+          <p id="checkoutGuestSubtitle" class="text-xs text-slate-500">Settle balance &amp; return deposit</p>
         </div>
         <button type="button" onclick="closeCheckOutModal()" class="text-slate-400 hover:text-slate-600 p-1">
           <i class="fa-solid fa-xmark"></i>
@@ -340,15 +411,56 @@
         <input type="hidden" id="coRowIndex" />
 
         <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Actual Vacated Date *</label>
-          <input type="date" id="coVacatedDate" required
-                 class="w-full text-xs font-semibold px-3 py-2 border border-slate-300 rounded-xl focus:outline-none" />
+          <label class="block text-xs font-bold text-slate-700 mb-1">Actual Vacated Date &amp; Time *</label>
+          <div class="grid grid-cols-5 gap-2">
+            <input type="date" id="coVacatedDate" required
+                   class="col-span-3 text-xs font-semibold px-3 py-2 border border-slate-300 rounded-xl focus:outline-none" />
+            <input type="time" id="coVacatedTime" required
+                   class="col-span-2 text-xs font-semibold px-2 py-2 border border-slate-300 rounded-xl focus:outline-none" />
+          </div>
         </div>
 
-        <div id="depositRefundSection" class="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-2">
+        <!-- PENDING BALANCE COLLECTION BOX -->
+        <div id="coBalanceSection" class="p-3 bg-amber-50 rounded-2xl border border-amber-200 space-y-2 hidden">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-amber-900">Caution Deposit:</span>
-            <span id="coCautionDepositText" class="font-mono font-black text-amber-800">₹0</span>
+            <span class="text-xs font-bold text-amber-900">Pending Dues:</span>
+            <span id="coPendingDuesBadge" class="font-mono font-black text-amber-800 text-sm">₹0</span>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">Collect Balance (₹) *</label>
+            <input type="number" id="coCollectedAmount" required placeholder="0"
+                   class="w-full text-xs font-bold px-3 py-2 border border-slate-300 rounded-xl font-mono text-emerald-700 bg-white" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-500 mb-1">Payment Mode</label>
+              <select id="coPayMode" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg bg-white">
+                <option value="Cash">Cash</option>
+                <option value="PPay">PPay (PhonePe)</option>
+                <option value="GPay">GPay (Google Pay)</option>
+                <option value="Paytm">Paytm</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-500 mb-1">Received By</label>
+              <select id="coPayReceiver" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg bg-white">
+                <option value="None">None (Cash)</option>
+                <option value="Manohar">Manohar</option>
+                <option value="Sreekaran">Sreekaran</option>
+                <option value="Sudheer">Sudheer</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- CAUTION DEPOSIT REFUND BOX -->
+        <div id="depositRefundSection" class="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-700">Caution Deposit:</span>
+            <span id="coCautionDepositText" class="font-mono font-black text-slate-800">₹0</span>
           </div>
           <div>
             <label class="block text-[11px] font-bold text-slate-600 mb-1">Deposit Returned By *</label>
@@ -363,7 +475,7 @@
 
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Checkout Note</label>
-          <input type="text" id="coNote" placeholder="e.g. Key received, deposit refunded"
+          <input type="text" id="coNote" placeholder="e.g. Key received, balance settled"
                  class="w-full text-xs font-semibold px-3 py-2 border border-slate-300 rounded-xl" />
         </div>
 
@@ -426,7 +538,6 @@
         </button>
       </div>
 
-      <!-- Quick Room Search -->
       <div class="relative w-full sm:w-48">
         <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400 text-xs">
           <i class="fa-solid fa-magnifying-glass"></i>
@@ -449,13 +560,28 @@
     let allGuests = [];
     let currentFilter = 'active';
 
+    function getCurrentTimeHHMM() {
+      const now = new Date();
+      return String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    }
+
+    function formatTime12h(timeStr) {
+      if (!timeStr) return "";
+      const [h, m] = timeStr.split(":");
+      let hour = parseInt(h, 10);
+      const ampm = hour >= 12 ? "PM" : "AM";
+      hour = hour % 12 || 12;
+      return `${hour}:${m} ${ampm}`;
+    }
+
     window.addEventListener("DOMContentLoaded", () => {
-      
-	  const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0];
       const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
       
       document.getElementById("inJoinedDate").value = today;
+      document.getElementById("inJoinedTime").value = getCurrentTimeHHMM();
       document.getElementById("inVacatedDate").value = tomorrow;
+      document.getElementById("inVacatedTime").value = "11:00";
       recalculateCheckInDays();
 
       if (isAuthenticated()) {
@@ -464,18 +590,18 @@
       } else {
         document.getElementById("pinLockModal").classList.remove("hidden");
       }
-	  // Auto-open check-in modal if room passed from Vacancies page
-    const urlParams = new URLSearchParams(window.location.search);
-    const prefillRoom = urlParams.get('room');
-    const prefillSharing = urlParams.get('sharing');
 
-    if (prefillRoom) {
-      openCheckInModal();
-      document.getElementById("inRoom").value = prefillRoom;
-      if (prefillSharing) {
-        document.getElementById("inSharing").value = `${prefillSharing} sharing`;
+      const urlParams = new URLSearchParams(window.location.search);
+      const prefillRoom = urlParams.get('room');
+      const prefillSharing = urlParams.get('sharing');
+
+      if (prefillRoom) {
+        openCheckInModal();
+        document.getElementById("inRoom").value = prefillRoom;
+        if (prefillSharing) {
+          document.getElementById("inSharing").value = `${prefillSharing} sharing`;
+        }
       }
-    }
     });
 
     function unlockApp() {
@@ -530,37 +656,38 @@
       }
     }
 
-    // ==========================================
-    // ACTIVE VS COMPLETED FILTER WITH 3-DAY GRACE
-    // ==========================================
+    function parseSafeDate(dateString) {
+      if (!dateString) return null;
+      const cleanDatePart = String(dateString).trim().split(" ")[0];
+      const parsed = new Date(cleanDatePart);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
     function isGuestActive(g, today) {
       const actionItem = (g.actionItem || "").toLowerCase();
       const returnedBy = (g.returnedBy || "").trim();
 
-      // RULE 1: If staff explicitly used the Check-out button, hide immediately
       if (actionItem.includes("manually ended stay")) {
         return false;
       }
 
-      // RULE 2: If deposit was returned to staff/cash (and NOT just adjusted to rent), hide immediately
       if (returnedBy !== "" && returnedBy !== "Adjusted to Rent") {
         return false;
       }
 
-      // RULE 3: Ongoing stay without checkout
       if (g.vacatedDate) {
-        const vacDate = new Date(g.vacatedDate);
-        vacDate.setHours(0, 0, 0, 0);
+        const vacDate = parseSafeDate(g.vacatedDate);
+        if (vacDate) {
+          vacDate.setHours(0, 0, 0, 0);
 
-        // If today is strictly before or on vacDate, stay is actively in progress
-        if (today <= vacDate) {
-          return true;
+          if (today <= vacDate) {
+            return true;
+          }
+
+          const cutoffDate = new Date(vacDate);
+          cutoffDate.setDate(cutoffDate.getDate() + 3);
+          return today <= cutoffDate;
         }
-
-        // 3-day grace period for unconfirmed departures (allows time to extend or verify)
-        const cutoffDate = new Date(vacDate);
-        cutoffDate.setDate(cutoffDate.getDate() + 3);
-        return today <= cutoffDate;
       }
 
       return true;
@@ -602,13 +729,14 @@
         const hasBalance = g.balance > 0;
         const depositText = g.cautionDeposit > 0 ? `Deposit: ₹${g.cautionDeposit}` : `No Deposit`;
 
-        // Check if staying in the 3-day grace window
         let graceTag = "";
         if (!g.returnedBy && g.vacatedDate) {
-          const vDate = new Date(g.vacatedDate);
-          vDate.setHours(0, 0, 0, 0);
-          if (today > vDate) {
-            graceTag = `<span class="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">Vacate Overdue</span>`;
+          const vDate = parseSafeDate(g.vacatedDate);
+          if (vDate) {
+            vDate.setHours(0, 0, 0, 0);
+            if (today > vDate) {
+              graceTag = `<span class="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">Vacate Overdue</span>`;
+            }
           }
         }
 
@@ -644,8 +772,11 @@
               <i class="fa-solid fa-user text-slate-400 text-xs"></i> ${g.name}
               <span class="text-[11px] text-slate-400 font-normal">(${g.mobile})</span>
             </p>
-            <p class="text-[11px] text-slate-500 mt-0.5">
-              <span>${g.joinedDate} &rarr; <b>${g.vacatedDate}</b></span> &bull; 
+            <p class="text-[11px] text-slate-500 mt-0.5 flex flex-wrap items-center gap-1.5">
+              <span class="font-medium text-slate-700">${g.joinedDate}</span>
+              <span class="text-slate-400">&rarr;</span>
+              <span class="font-bold text-slate-900">${g.vacatedDate}</span>
+              <span class="text-slate-300">&bull;</span>
               <span class="text-slate-400">${depositText}</span>
             </p>
             ${g.actionItem ? `<p class="text-[10px] text-slate-400 italic mt-1">${g.actionItem}</p>` : ''}
@@ -656,7 +787,7 @@
               <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-black rounded-lg">Paid: ₹${g.paid}</span>
               ${hasBalance 
                 ? `<span class="px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-black rounded-lg">Bal: ₹${g.balance}</span>`
-                : `<span class="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-lg">Cleared</span>`
+                : `<span class="px-2.5 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-lg">Cleared</span>`
               }
             </div>
             ${actionButtons}
@@ -694,7 +825,7 @@
     }
 
     function recalculateExtendDays() {
-      const joined = document.getElementById("extJoinedDate").value;
+      const joined = (document.getElementById("extJoinedDate").value || "").split(" ")[0];
       const newVacated = document.getElementById("extNewVacatedDate").value;
       const totalDays = calculateDaysBetween(joined, newVacated);
       document.getElementById("extTotalDaysBadge").innerText = `${totalDays} Days`;
@@ -702,20 +833,20 @@
     }
 
     // ==========================================
-    // SPLIT PAYMENT TECHNIQUE
+    // SPLIT PAYMENT TECHNIQUE (GENERIC)
     // ==========================================
-    function toggleSplitPayment() {
-      const isSplit = document.getElementById("splitPaymentToggle").checked;
-      const singleSection = document.getElementById("singlePaySection");
-      const splitSection = document.getElementById("splitPaySection");
+    function toggleSplitPayment(prefix) {
+      const isSplit = document.getElementById(prefix === 'in' ? "splitPaymentToggle" : "extSplitToggle").checked;
+      const singleSection = document.getElementById(prefix === 'in' ? "inSinglePaySection" : "extSinglePaySection");
+      const splitSection = document.getElementById(prefix === 'in' ? "inSplitPaySection" : "extSplitPaySection");
 
       if (isSplit) {
         singleSection.classList.add("hidden");
         splitSection.classList.remove("hidden");
-        const currentPaid = parseFloat(document.getElementById("inPaid").value) || 0;
-        document.getElementById("splitAmt1").value = currentPaid;
-        document.getElementById("splitAmt2").value = "";
-        buildSplitSummary();
+        const currentPaid = parseFloat(document.getElementById(prefix === 'in' ? "inPaid" : "extAdditionalPaid").value) || 0;
+        document.getElementById(prefix === 'in' ? "splitAmt1" : "extSplitAmt1").value = currentPaid;
+        document.getElementById(prefix === 'in' ? "splitAmt2" : "extSplitAmt2").value = "";
+        buildSplitSummary(prefix);
       } else {
         singleSection.classList.remove("hidden");
         splitSection.classList.add("hidden");
@@ -730,25 +861,42 @@
       return `${mode} (${a})`;
     }
 
-    function buildSplitSummary() {
-      const mode1 = document.getElementById("splitMode1").value;
-      const rec1 = document.getElementById("splitReceiver1").value;
-      const amt1 = parseFloat(document.getElementById("splitAmt1").value) || 0;
+    function buildSplitSummary(prefix) {
+      const p = prefix === 'in' ? '' : 'ext';
+      const mode1 = document.getElementById(prefix === 'in' ? "splitMode1" : "extSplitMode1").value;
+      const rec1 = document.getElementById(prefix === 'in' ? "splitReceiver1" : "extSplitReceiver1").value;
+      const amt1 = parseFloat(document.getElementById(prefix === 'in' ? "splitAmt1" : "extSplitAmt1").value) || 0;
 
-      const mode2 = document.getElementById("splitMode2").value;
-      const rec2 = document.getElementById("splitReceiver2").value;
-      const amt2 = parseFloat(document.getElementById("splitAmt2").value) || 0;
+      const mode2 = document.getElementById(prefix === 'in' ? "splitMode2" : "extSplitMode2").value;
+      const rec2 = document.getElementById(prefix === 'in' ? "splitReceiver2" : "extSplitReceiver2").value;
+      const amt2 = parseFloat(document.getElementById(prefix === 'in' ? "splitAmt2" : "extSplitAmt2").value) || 0;
 
       const part1Str = formatPart(mode1, rec1, amt1);
       const part2Str = formatPart(mode2, rec2, amt2);
 
       const combined = `${part1Str}+ ${part2Str}`;
-      document.getElementById("splitStringPreview").innerText = combined;
 
-      // Automatically update the Paid input box and balance
-      document.getElementById("inPaid").value = amt1 + amt2;
-      recalculateBalance();
+      if (prefix === 'in') {
+        document.getElementById("splitStringPreview").innerText = combined;
+        document.getElementById("inPaid").value = amt1 + amt2;
+        recalculateBalance();
+      } else {
+        document.getElementById("extSplitPreview").innerText = combined;
+        document.getElementById("extAdditionalPaid").value = amt1 + amt2;
+      }
       return combined;
+    }
+
+    function onExtPaidChange() {
+      const amt = parseFloat(document.getElementById("extAdditionalPaid").value) || 0;
+      const box = document.getElementById("extPaymentModeBox");
+      const isDepositChecked = document.getElementById("extAdjustDepositToggle").checked;
+
+      if (amt > 0 && !isDepositChecked) {
+        box.classList.remove("hidden");
+      } else {
+        box.classList.add("hidden");
+      }
     }
 
     // ==========================================
@@ -756,6 +904,7 @@
     // ==========================================
     function openCheckInModal() {
       document.getElementById("checkInModal").classList.remove("hidden");
+      document.getElementById("inJoinedTime").value = getCurrentTimeHHMM();
       document.getElementById("inRoom").focus();
     }
 
@@ -764,12 +913,14 @@
       document.getElementById("checkInForm").reset();
       document.getElementById("checkInStatusBox").classList.add("hidden");
       document.getElementById("splitPaymentToggle").checked = false;
-      document.getElementById("singlePaySection").classList.remove("hidden");
-      document.getElementById("splitPaySection").classList.add("hidden");
+      document.getElementById("inSinglePaySection").classList.remove("hidden");
+      document.getElementById("inSplitPaySection").classList.add("hidden");
       const today = new Date().toISOString().split("T")[0];
       const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
       document.getElementById("inJoinedDate").value = today;
+      document.getElementById("inJoinedTime").value = getCurrentTimeHHMM();
       document.getElementById("inVacatedDate").value = tomorrow;
+      document.getElementById("inVacatedTime").value = "11:00";
       recalculateCheckInDays();
     }
 
@@ -782,9 +933,8 @@
       document.getElementById("extExistingPaid").value = guest.paid;
       document.getElementById("extExistingBalance").value = guest.balance;
 
-      document.getElementById("extendGuestSubtitle").innerText = `Room ${guest.roomNumber} - ${guest.name} (Current Checkout: ${guest.vacatedDate})`;
+      document.getElementById("extendGuestSubtitle").innerText = `Room ${guest.roomNumber} - ${guest.name} (Current: ${guest.vacatedDate})`;
 
-      // Configure Caution Deposit Adjuster
       const depositBox = document.getElementById("extDepositAdjustBox");
       const depositToggle = document.getElementById("extAdjustDepositToggle");
       depositToggle.checked = false;
@@ -799,15 +949,23 @@
         depositBox.dataset.availableDeposit = "0";
       }
 
-      // Restrict minimum date to strictly after previous checkout
-      const currentVacDate = new Date(guest.vacatedDate);
-      const minDateObj = new Date(currentVacDate.getTime() + 86400000);
+      const baseVacDate = parseSafeDate(guest.vacatedDate) || new Date();
+      const minDateObj = new Date(baseVacDate.getTime() + 86400000);
       const minDateStr = minDateObj.toISOString().split("T")[0];
 
       const dateInput = document.getElementById("extNewVacatedDate");
       dateInput.min = minDateStr;
       dateInput.value = minDateStr;
+      document.getElementById("extNewVacatedTime").value = "11:00";
       dateInput.dataset.previousVacated = guest.vacatedDate;
+
+      // Reset payment fields
+      document.getElementById("extAdditionalPaid").value = "";
+      document.getElementById("extAdditionalBalance").value = "";
+      document.getElementById("extSplitToggle").checked = false;
+      document.getElementById("extSinglePaySection").classList.remove("hidden");
+      document.getElementById("extSplitPaySection").classList.add("hidden");
+      document.getElementById("extPaymentModeBox").classList.add("hidden");
 
       recalculateExtendDays();
       document.getElementById("extendModal").classList.remove("hidden");
@@ -817,17 +975,17 @@
       const isChecked = document.getElementById("extAdjustDepositToggle").checked;
       const available = parseFloat(document.getElementById("extDepositAdjustBox").dataset.availableDeposit) || 0;
       const additionalPaidInput = document.getElementById("extAdditionalPaid");
-      const modeInput = document.getElementById("extPaymentMode");
       const note = document.getElementById("extDepositNote");
+      const modeBox = document.getElementById("extPaymentModeBox");
 
       if (isChecked) {
         additionalPaidInput.value = available;
-        modeInput.value = "Deposit Adjusted";
+        modeBox.classList.add("hidden");
         note.classList.remove("hidden");
       } else {
         additionalPaidInput.value = "";
-        modeInput.value = "";
         note.classList.add("hidden");
+        onExtPaidChange();
       }
     }
 
@@ -844,12 +1002,25 @@
       document.getElementById("coRowIndex").value = guest.rowIndex;
       document.getElementById("checkoutGuestSubtitle").innerText = `Room ${guest.roomNumber} - ${guest.name}`;
       document.getElementById("coVacatedDate").value = new Date().toISOString().split("T")[0];
+      document.getElementById("coVacatedTime").value = getCurrentTimeHHMM();
 
+      // Configure Balance Section
+      const balSection = document.getElementById("coBalanceSection");
+      const guestBal = Number(guest.balance) || 0;
+
+      if (guestBal > 0) {
+        balSection.classList.remove("hidden");
+        document.getElementById("coPendingDuesBadge").innerText = `₹${guestBal}`;
+        document.getElementById("coCollectedAmount").value = guestBal;
+      } else {
+        balSection.classList.add("hidden");
+        document.getElementById("coCollectedAmount").value = "0";
+      }
+
+      // Configure Deposit Section
       const retSelect = document.getElementById("coReturnedBy");
-
-      // If deposit was already adjusted to rent or is 0
       if (guest.returnedBy === "Adjusted to Rent" || Number(guest.cautionDeposit) === 0) {
-        document.getElementById("coCautionDepositText").innerText = `₹0 (Deposit already adjusted to rent)`;
+        document.getElementById("coCautionDepositText").innerText = `₹0 (Deposit already adjusted)`;
         retSelect.innerHTML = `
           <option value="Deposit Adjusted">Deposit Adjusted</option>
           <option value="No Deposit to Refund">No Deposit to Refund</option>
@@ -875,11 +1046,8 @@
     }
 
     // ==========================================
-    // FORM SUBMISSIONS
+    // SAFE FETCH HELPER
     // ==========================================
-    // ============================================================
-    // UNIVERSAL SAFE FETCH HELPER (Protects against <!DOCTYPE HTML)
-    // ============================================================
     async function safePostToSheet(payload, defaultSuccessMessage) {
       const res = await fetch(APPS_SCRIPT_AUTH_URL, {
         method: "POST",
@@ -893,9 +1061,7 @@
       try {
         json = JSON.parse(rawText);
       } catch (e) {
-        // If Google Apps Script returned an HTML redirect page (starts with '<!DOCTYPE' or '<html')
-        // but the HTTP status is 200/redirect, the script DID execute and write to the sheet.
-        if (rawText.includes("<!DOCTYPE") || rawText.includes("<html") || rawText.includes("Google Drive")) {
+        if (rawText.includes("<!DOCTYPE") || rawText.includes("<html") || rawText.includes("Google Drive") || rawText.includes("operational")) {
           return { status: "success", message: defaultSuccessMessage };
         }
         throw new Error("Unable to parse server response.");
@@ -909,7 +1075,7 @@
     }
 
     // ==========================================
-    // BULLETPROOF SUBMISSION HANDLERS
+    // FORM SUBMISSIONS
     // ==========================================
     async function submitCheckIn(e) {
       e.preventDefault();
@@ -917,19 +1083,18 @@
       const statusBox = document.getElementById("checkInStatusBox");
       const days = recalculateCheckInDays();
 
-      // Format payment mode (Single vs Split)
       const isSplit = document.getElementById("splitPaymentToggle").checked;
       let finalModeString = "";
 
       if (isSplit) {
-        finalModeString = buildSplitSummary();
+        finalModeString = buildSplitSummary('in');
       } else {
         const selectedMode = document.getElementById("payMode").value;
         const selectedReceiver = document.getElementById("payReceiver").value;
         if (selectedReceiver && selectedReceiver !== "None" && selectedMode !== "Cash") {
-          finalModeString = `${selectedMode} to ${selectedReceiver}`;
+          finalModeString = `${selectedMode} to ${selectedReceiver} (${document.getElementById("inPaid").value})`;
         } else {
-          finalModeString = selectedMode;
+          finalModeString = `${selectedMode} (${document.getElementById("inPaid").value})`;
         }
       }
 
@@ -940,6 +1105,14 @@
 
       const guestName = document.getElementById("inName").value.trim();
       const roomNum = document.getElementById("inRoom").value.trim();
+
+      const joinDate = document.getElementById("inJoinedDate").value;
+      const joinTime = formatTime12h(document.getElementById("inJoinedTime").value);
+      const vacDate = document.getElementById("inVacatedDate").value;
+      const vacTime = formatTime12h(document.getElementById("inVacatedTime").value);
+
+      const fullJoined = joinTime ? `${joinDate} ${joinTime}` : joinDate;
+      const fullVacated = vacTime ? `${vacDate} ${vacTime}` : vacDate;
 
       const payload = {
         action: "checkInDailyGuest",
@@ -952,8 +1125,8 @@
         days: days,
         paid: document.getElementById("inPaid").value,
         balance: document.getElementById("inBalance").value,
-        joinedDate: document.getElementById("inJoinedDate").value,
-        vacatedDate: document.getElementById("inVacatedDate").value,
+        joinedDate: fullJoined,
+        vacatedDate: fullVacated,
         cautionDeposit: document.getElementById("inCaution").value || 0,
         mode: finalModeString,
         actionItem: document.getElementById("inActionItem").value.trim()
@@ -985,10 +1158,10 @@
       const newVacDate = dateInput.value;
       const prevVacDate = dateInput.dataset.previousVacated;
 
-      // STRICT EXTENSION VALIDATION
-      if (newVacDate <= prevVacDate) {
+      const cleanPrevDate = (prevVacDate || "").split(" ")[0];
+      if (newVacDate <= cleanPrevDate) {
         statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
-        statusBox.innerText = `Invalid date! New vacating date must be after ${prevVacDate}.`;
+        statusBox.innerText = `Invalid date! New vacating date must be after ${cleanPrevDate}.`;
         return;
       }
 
@@ -1003,25 +1176,46 @@
       const existingBalance = parseFloat(document.getElementById("extExistingBalance").value) || 0;
       const additionalBalance = parseFloat(document.getElementById("extAdditionalBalance").value) || 0;
 
-      // Check if caution deposit was adjusted
       const isDepositAdjusted = document.getElementById("extAdjustDepositToggle").checked;
       const depositAdjustAmt = isDepositAdjusted ? (parseFloat(document.getElementById("extDepositAdjustBox").dataset.availableDeposit) || 0) : 0;
+
+      const newVacTime = formatTime12h(document.getElementById("extNewVacatedTime").value);
+      const fullNewVacated = newVacTime ? `${newVacDate} ${newVacTime}` : newVacDate;
+
+      // Determine Extension Payment Mode
+      let additionalModeStr = "";
+      if (isDepositAdjusted) {
+        additionalModeStr = "Deposit Adjusted";
+      } else if (additionalPaid > 0) {
+        const isSplit = document.getElementById("extSplitToggle").checked;
+        if (isSplit) {
+          additionalModeStr = buildSplitSummary('ext');
+        } else {
+          const mode = document.getElementById("extPayMode").value;
+          const rec = document.getElementById("extPayReceiver").value;
+          if (rec && rec !== "None" && mode !== "Cash") {
+            additionalModeStr = `${mode} to ${rec} (${additionalPaid})`;
+          } else {
+            additionalModeStr = `${mode} (${additionalPaid})`;
+          }
+        }
+      }
 
       const payload = {
         action: "extendDailyStay",
         pin: getStoredPin(),
         month: document.getElementById("monthSelect").value,
         rowIndex: document.getElementById("extRowIndex").value,
-        newVacatedDate: newVacDate,
+        newVacatedDate: fullNewVacated,
         newDays: totalDays,
         newPaid: existingPaid + additionalPaid,
         newBalance: existingBalance + additionalBalance,
-        additionalMode: document.getElementById("extPaymentMode").value.trim(),
+        additionalMode: additionalModeStr,
         depositAdjustedAmount: depositAdjustAmt
       };
 
       try {
-        const result = await safePostToSheet(payload, `Stay extended till ${newVacDate}!`);
+        const result = await safePostToSheet(payload, `Stay extended till ${fullNewVacated}!`);
 
         statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
         statusBox.innerHTML = `✓ ${result.message}`;
@@ -1046,20 +1240,39 @@
       btn.disabled = true;
       btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Settling...`;
       statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
-      statusBox.innerText = "Recording checkout in sheet...";
+      statusBox.innerText = "Recording checkout and balance collection...";
+
+      const vacDate = document.getElementById("coVacatedDate").value;
+      const vacTime = formatTime12h(document.getElementById("coVacatedTime").value);
+      const fullVacated = vacTime ? `${vacDate} ${vacTime}` : vacDate;
+
+      // Handle Collected Balance
+      const balCollected = parseFloat(document.getElementById("coCollectedAmount").value) || 0;
+      let balModeStr = "";
+      if (balCollected > 0) {
+        const mode = document.getElementById("coPayMode").value;
+        const rec = document.getElementById("coPayReceiver").value;
+        if (rec && rec !== "None" && mode !== "Cash") {
+          balModeStr = `${mode} to ${rec} (${balCollected})`;
+        } else {
+          balModeStr = `${mode} (${balCollected})`;
+        }
+      }
 
       const payload = {
         action: "checkOutDailyGuest",
         pin: getStoredPin(),
         month: document.getElementById("monthSelect").value,
         rowIndex: document.getElementById("coRowIndex").value,
-        vacatedDate: document.getElementById("coVacatedDate").value,
+        vacatedDate: fullVacated,
+        balanceCollected: balCollected,
+        balancePaymentMode: balModeStr,
         returnedBy: document.getElementById("coReturnedBy").value,
         checkoutNote: document.getElementById("coNote").value.trim()
       };
 
       try {
-        const result = await safePostToSheet(payload, "Guest checked out successfully!");
+        const result = await safePostToSheet(payload, "Guest checkout & balance settled successfully!");
 
         statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
         statusBox.innerHTML = `✓ ${result.message}`;
