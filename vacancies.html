@@ -33,7 +33,7 @@
     </div>
   </div>
 
-  <!-- FILL BED SELECTION MODAL (OPTION B) -->
+  <!-- FILL BED SELECTION MODAL -->
   <div id="fillBedModal" class="fixed inset-0 z-40 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -53,7 +53,6 @@
       </p>
 
       <div class="space-y-3">
-        <!-- Monthly Resident Option -->
         <button type="button" onclick="goToMonthlyOnboarding()" 
                 class="w-full p-4 rounded-2xl border-2 border-slate-200 hover:border-indigo-600 hover:bg-indigo-50/50 transition flex items-center gap-3 text-left group">
           <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-lg group-hover:scale-105 transition">
@@ -66,7 +65,6 @@
           <i class="fa-solid fa-chevron-right ml-auto text-xs text-slate-400 group-hover:text-indigo-600 transition"></i>
         </button>
 
-        <!-- Daily Short Stay Option -->
         <button type="button" onclick="goToDailyCheckIn()" 
                 class="w-full p-4 rounded-2xl border-2 border-slate-200 hover:border-emerald-600 hover:bg-emerald-50/50 transition flex items-center gap-3 text-left group">
           <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-lg group-hover:scale-105 transition">
@@ -86,7 +84,7 @@
     </div>
   </div>
 
-  <!-- REPORT VACANCY NOTICE MODAL -->
+  <!-- REPORT VACANCY NOTICE MODAL (FEATURE 1: EDITABLE PRO-RATED RENT) -->
   <div id="reportVacancyModal" class="fixed inset-0 z-40 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -94,7 +92,7 @@
           <h2 class="text-lg font-black text-slate-900 flex items-center gap-2">
             <i class="fa-solid fa-calendar-xmark text-rose-600"></i> Report Vacancy Notice
           </h2>
-          <p class="text-xs text-slate-500">Record a resident's upcoming or past departure</p>
+          <p class="text-xs text-slate-500">Record departure & adjust pro-rated rent</p>
         </div>
         <button type="button" onclick="closeReportModal()" class="text-slate-400 hover:text-slate-600 p-1">
           <i class="fa-solid fa-xmark text-lg"></i>
@@ -102,6 +100,8 @@
       </div>
 
       <form id="reportVacancyForm" onsubmit="submitVacancyNotice(event)" class="space-y-4">
+        <input type="hidden" id="vacSelectedResidentRent" value="0" />
+
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Room No. *</label>
@@ -110,7 +110,7 @@
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Resident *</label>
-            <select id="modalResidentSelect" required class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none">
+            <select id="modalResidentSelect" required onchange="onModalResidentPicked()" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none">
               <option value="">Type Room No. first...</option>
             </select>
           </div>
@@ -118,16 +118,33 @@
 
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Vacating Date (Departure Date) *</label>
-          <input type="date" id="modalVacatingDate" required
+          <input type="date" id="modalVacatingDate" required onchange="calculateVacProRatedRent()"
                  class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none" />
-          <p class="text-[10px] text-slate-400 mt-1">Date when the bed will become vacant.</p>
+        </div>
+
+        <!-- Rent Adjustment Component -->
+        <div class="bg-rose-50/60 p-3.5 rounded-2xl border border-rose-100 space-y-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-slate-500 font-bold">Standard Room Rent:</span>
+            <span id="vacStandardRentBadge" class="font-mono font-black text-slate-800">₹0</span>
+          </div>
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-slate-500 font-bold">Days Stayed:</span>
+            <span id="vacDaysStayedBadge" class="font-mono font-bold text-rose-700">--</span>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold text-slate-800 mb-1">Agreed Departure Month Rent (₹) *</label>
+            <input type="number" id="modalAdjustedRent" required
+                   class="w-full text-sm font-black px-3.5 py-2 border border-rose-200 bg-white rounded-xl font-mono text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500" />
+            <p class="text-[10px] text-slate-400 mt-1">Suggested pro-rated rent shown. Modify or round off as agreed.</p>
+          </div>
         </div>
 
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Notice / Informed Date *</label>
           <input type="date" id="modalInformedDate" required
                  class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none" />
-          <p class="text-[10px] text-slate-400 mt-1">Will be appended to Staying Dates as: <i>"Informed about vacating on &lt;Date&gt;"</i></p>
         </div>
 
         <div id="modalStatusBox" class="p-3 rounded-xl text-xs font-semibold hidden"></div>
@@ -214,17 +231,15 @@
         <i class="fa-solid fa-calendar-days text-amber-500 mr-1.5"></i> Upcoming Vacancies (<span id="tabCountFuture">0</span>)
       </button>
     </div>
-	<!-- QUICK FILTERS TOOLBAR -->
+
+    <!-- QUICK FILTERS TOOLBAR -->
     <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm mb-4">
       <div class="flex flex-wrap items-center justify-between gap-2.5">
-        
-        <!-- Filter Controls -->
         <div class="flex flex-wrap items-center gap-2">
           <span class="text-xs font-bold text-slate-400 flex items-center gap-1">
             <i class="fa-solid fa-filter text-[10px]"></i> Filters:
           </span>
 
-          <!-- AC Filter -->
           <select id="filterAC" onchange="applyFilters()" 
                   class="text-xs font-bold px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:ring-1 focus:ring-rose-500">
             <option value="ALL">All Room Types</option>
@@ -232,7 +247,6 @@
             <option value="No">Non-AC Only</option>
           </select>
 
-          <!-- Sharing Filter -->
           <select id="filterSharing" onchange="applyFilters()" 
                   class="text-xs font-bold px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:ring-1 focus:ring-rose-500">
             <option value="ALL">All Sharings</option>
@@ -241,7 +255,6 @@
             <option value="4">4-Sharing</option>
           </select>
 
-          <!-- Floor Filter -->
           <select id="filterFloor" onchange="applyFilters()" 
                   class="text-xs font-bold px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:ring-1 focus:ring-rose-500">
             <option value="ALL">All Floors</option>
@@ -254,14 +267,13 @@
           </select>
         </div>
 
-        <!-- Reset Button -->
         <button type="button" onclick="resetFilters()" 
                 class="text-xs font-bold text-rose-600 hover:text-rose-800 transition flex items-center gap-1">
           <i class="fa-solid fa-rotate-left text-[10px]"></i> Reset
         </button>
-
       </div>
     </div>
+
     <!-- TAB 1: CURRENT AVAILABLE BEDS -->
     <div id="sectionCurrent" class="space-y-3">
       <div id="currentCardsList" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -283,11 +295,9 @@
   </div>
 
   <script>
-    // URL fallback to match auth.js and your Apps Script deployment
-   
-
     let vacancyData = { currentVacancies: [], futureVacancies: [] };
     let selectedRoomForFill = null;
+    let roomResidentCache = [];
 
     window.addEventListener("DOMContentLoaded", () => {
       const today = new Date().toISOString().split("T")[0];
@@ -296,7 +306,6 @@
       if (informedEl) informedEl.value = today;
       if (vacatingEl) vacatingEl.value = today;
 
-      // Allow pressing Enter directly inside the PIN box
       const pinBox = document.getElementById("staffPinInput");
       if (pinBox) {
         pinBox.addEventListener("keydown", (e) => {
@@ -304,9 +313,9 @@
         });
       }
 
-      // Check existing session
       if (typeof isAuthenticated === "function" && isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
+        initDynamicMonthSelect("monthSelect");
         loadVacancies();
       } else {
         document.getElementById("pinLockModal").classList.remove("hidden");
@@ -389,21 +398,17 @@
       const selectedSharing = document.getElementById("filterSharing").value;
       const selectedFloor = document.getElementById("filterFloor").value;
 
-      // Filter function matching AC, Sharing, and Floor
       function matchesFilter(item) {
-        // AC filter: item.ac is 'Yes' or 'No'
         if (selectedAC !== "ALL") {
           const itemAc = (item.ac || "No").toString().trim();
           if (itemAc.toLowerCase() !== selectedAC.toLowerCase()) return false;
         }
 
-        // Sharing filter: match capacity
         if (selectedSharing !== "ALL") {
           const cap = String(item.capacity || "").trim();
           if (cap !== selectedSharing) return false;
         }
 
-        // Floor filter: match first digit of roomNumber
         if (selectedFloor !== "ALL") {
           const floor = String(item.floor || item.roomNumber[0] || "").trim();
           if (floor !== selectedFloor) return false;
@@ -415,11 +420,9 @@
       const filteredCurrent = currentListRaw.filter(matchesFilter);
       const filteredFuture = futureListRaw.filter(matchesFilter);
 
-      // Calculate bed count for current openings
       let totalCurrentBeds = 0;
       filteredCurrent.forEach(c => totalCurrentBeds += c.openBeds);
 
-      // Update counter badges
       document.getElementById("metricCurrentOpen").innerText = totalCurrentBeds;
       document.getElementById("metricFutureOpen").innerText = filteredFuture.length;
       document.getElementById("tabCountCurrent").innerText = totalCurrentBeds;
@@ -537,9 +540,6 @@
       }
     }
 
-    // ==========================================
-    // FILL BED MODAL HANDLERS (OPTION B)
-    // ==========================================
     function openFillBedModal(roomNumber, capacity, ac) {
       selectedRoomForFill = {
         roomNumber: roomNumber,
@@ -574,7 +574,7 @@
     }
 
     // ==========================================
-    // VACANCY REPORTING MODAL LOGIC
+    // VACANCY REPORTING MODAL LOGIC (FEATURE 1)
     // ==========================================
     function openReportModal() {
       document.getElementById("reportVacancyModal").classList.remove("hidden");
@@ -588,6 +588,8 @@
       const today = new Date().toISOString().split("T")[0];
       document.getElementById("modalInformedDate").value = today;
       document.getElementById("modalVacatingDate").value = today;
+      document.getElementById("vacStandardRentBadge").innerText = "₹0";
+      document.getElementById("vacDaysStayedBadge").innerText = "--";
     }
 
     let roomFetchTimeout = null;
@@ -605,17 +607,46 @@
             const json = await res.json();
 
             if (json.status === "success" && json.residents && json.residents.length > 0) {
+              roomResidentCache = json.residents;
               residentSelect.innerHTML = `<option value="">Select resident</option>`;
               json.residents.forEach(r => {
-                residentSelect.innerHTML += `<option value="${r.name}">${r.name}</option>`;
+                residentSelect.innerHTML += `<option value="${r.name}">${r.name} (Rent: ₹${r.expectedRent})</option>`;
               });
             } else {
+              roomResidentCache = [];
               residentSelect.innerHTML = `<option value="">No residents found in ${roomNum}</option>`;
             }
           } catch (e) {
             residentSelect.innerHTML = `<option value="">Failed loading room residents</option>`;
           }
         }, 300);
+      }
+    }
+
+    function onModalResidentPicked() {
+      const selectedName = document.getElementById("modalResidentSelect").value;
+      const res = roomResidentCache.find(r => r.name === selectedName);
+      const standardRent = res ? Number(res.expectedRent) || 0 : 0;
+
+      document.getElementById("vacSelectedResidentRent").value = standardRent;
+      document.getElementById("vacStandardRentBadge").innerText = `₹${standardRent.toLocaleString("en-IN")}`;
+      calculateVacProRatedRent();
+    }
+
+    function calculateVacProRatedRent() {
+      const vacDateStr = document.getElementById("modalVacatingDate").value;
+      const fullRent = parseFloat(document.getElementById("vacSelectedResidentRent").value) || 0;
+      if (!vacDateStr) return;
+
+      const dateObj = new Date(vacDateStr);
+      const day = dateObj.getDate();
+      const totalDaysInMonth = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate();
+
+      document.getElementById("vacDaysStayedBadge").innerText = `${day} of ${totalDaysInMonth} Days`;
+
+      if (fullRent > 0) {
+        const suggested = Math.round((fullRent / totalDaysInMonth) * day);
+        document.getElementById("modalAdjustedRent").value = suggested;
       }
     }
 
@@ -628,6 +659,7 @@
       const residentName = document.getElementById("modalResidentSelect").value;
       const vacatingDate = document.getElementById("modalVacatingDate").value;
       const informedDate = document.getElementById("modalInformedDate").value;
+      const adjustedRent = document.getElementById("modalAdjustedRent").value;
       const month = document.getElementById("monthSelect").value;
 
       if (!residentName) {
@@ -647,7 +679,8 @@
         roomNumber: roomNum,
         residentName: residentName,
         vacancyDate: vacatingDate,
-        informedDate: informedDate
+        informedDate: informedDate,
+        adjustedRent: adjustedRent
       };
 
       try {
@@ -663,7 +696,7 @@
         try {
           json = JSON.parse(rawText);
         } catch (e) {
-          if (rawText.includes("<!DOCTYPE") || rawText.includes("<html") || rawText.includes("Google Drive")) {
+          if (rawText.includes("<!DOCTYPE") || rawText.includes("<html") || rawText.includes("Google Drive") || rawText.includes("operational")) {
             json = { status: "success", message: `Vacancy notice saved for ${residentName} in Room ${roomNum}!` };
           } else {
             throw new Error("Unable to parse server response.");

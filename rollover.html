@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Elysium PG - Monthly Rollover</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="auth.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-16">
+
+  <!-- PIN LOCK SCREEN -->
+  <div id="pinLockModal" class="fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center">
+      <div class="w-16 h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mb-1">Owner Verification</h2>
+      <p class="text-sm text-slate-500 mb-6">Enter Staff PIN for Rollover</p>
+      
+      <div class="flex justify-center mb-6">
+        <input type="password" maxlength="6" id="staffPinInput" 
+               class="w-44 text-center text-3xl tracking-widest font-mono py-2 border-2 border-slate-300 rounded-xl focus:border-purple-600 focus:outline-none" 
+               placeholder="••••" autofocus />
+      </div>
+
+      <p id="pinErrorMsg" class="text-xs text-red-500 font-semibold mb-4 hidden">Invalid PIN.</p>
+      <button onclick="unlockApp()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-purple-500/30 transition">
+        Unlock Rollover Console
+      </button>
+    </div>
+  </div>
+
+  <div class="max-w-4xl mx-auto px-4 pt-4 sm:pt-8">
+    
+    <!-- HEADER -->
+    <header class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <a href="index.html" class="text-xs font-bold text-slate-500 hover:text-slate-800 transition flex items-center gap-1">
+            <i class="fa-solid fa-arrow-left"></i> Home
+          </a>
+          <span class="text-slate-300">&bull;</span>
+          <span class="text-xs font-bold text-purple-600 uppercase tracking-wider">System Operations</span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
+          <i class="fa-solid fa-calendar-plus text-purple-600"></i> Monthly Sheet Rollover
+        </h1>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-bold px-3 py-1.5 bg-purple-50 text-purple-700 rounded-xl border border-purple-200">
+          Target: &lt;Month&gt;&lt;Year&gt; Elysium PG
+        </span>
+      </div>
+    </header>
+
+    <!-- STEP 1: CONFIGURATION & EARLY WARNING -->
+    <div id="setupCard" class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-6">
+      <h2 class="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+        <span class="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs">1</span>
+        Select Month Transition
+      </h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Source Month (Current)</label>
+          <select id="sourceMonthSelect" class="w-full text-xs font-bold px-3 py-2.5 border border-slate-300 rounded-xl bg-slate-50">
+            <option value="October 2026">October 2026</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Target Month (To Generate)</label>
+          <input type="text" id="targetMonthInput" value="November 2026" 
+                 class="w-full text-xs font-bold px-3 py-2.5 border border-slate-300 rounded-xl font-mono text-purple-700" />
+        </div>
+      </div>
+
+      <div id="earlyDateAlert" class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-semibold mb-4 flex items-center gap-2 hidden">
+        <i class="fa-solid fa-triangle-exclamation text-amber-500 text-sm"></i>
+        <span>Notice: Today is not month-end. You can review and preview the rollover safely without generating the workbook yet.</span>
+      </div>
+
+      <button onclick="loadRolloverPreview()" id="previewBtn" class="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-lg shadow-purple-500/20 transition flex items-center justify-center gap-2 text-xs">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <span>Scan &amp; Preview Rollover Data</span>
+      </button>
+    </div>
+
+    <!-- STEP 2: INTERACTIVE REVIEW BOARD -->
+    <div id="reviewBoard" class="space-y-4 hidden">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-black text-slate-900 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs">2</span>
+          Review &amp; Edit Alerted Details
+        </h2>
+        <span id="activeOccupantBadge" class="text-xs font-bold bg-slate-200 px-2.5 py-1 rounded-lg text-slate-700">-- Total Active</span>
+      </div>
+
+      <!-- Category 1: Scheduled Departures -->
+      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100 mb-3">
+          <h3 class="text-xs font-black text-slate-800 flex items-center gap-1.5">
+            <i class="fa-solid fa-calendar-xmark text-rose-500"></i> Next-Month Departures (Pro-Rated Rents)
+          </h3>
+          <span id="departuresCount" class="text-[10px] font-bold px-2 py-0.5 bg-rose-50 text-rose-700 rounded-md">0 Alerts</span>
+        </div>
+        <div id="departuresList" class="space-y-2 text-xs"></div>
+      </div>
+
+      <!-- Category 2: Room Shifts -->
+      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100 mb-3">
+          <h3 class="text-xs font-black text-slate-800 flex items-center gap-1.5">
+            <i class="fa-solid fa-arrows-split-up-and-left text-indigo-500"></i> Room Shifts (Standard Rent Applied)
+          </h3>
+          <span id="shiftsCount" class="text-[10px] font-bold px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md">0 Alerts</span>
+        </div>
+        <div id="shiftsList" class="space-y-2 text-xs"></div>
+      </div>
+
+      <!-- Category 3: Unpaid October Dues -->
+      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100 mb-3">
+          <h3 class="text-xs font-black text-slate-800 flex items-center gap-1.5">
+            <i class="fa-solid fa-clock-rotate-left text-amber-500"></i> Prior Month Arrears (Carry to Remarks?)
+          </h3>
+          <span id="duesCount" class="text-[10px] font-bold px-2 py-0.5 bg-amber-50 text-amber-700 rounded-md">0 Alerts</span>
+        </div>
+        <div id="duesList" class="space-y-2 text-xs"></div>
+      </div>
+
+      <!-- Category 4: Beds Opening Up -->
+      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100 mb-3">
+          <h3 class="text-xs font-black text-slate-800 flex items-center gap-1.5">
+            <i class="fa-solid fa-door-open text-emerald-500"></i> Vacated in Previous Month (To Be Dropped)
+          </h3>
+          <span id="droppedCount" class="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md">0 Dropped</span>
+        </div>
+        <div id="droppedList" class="space-y-2 text-xs"></div>
+      </div>
+
+      <!-- EXECUTE BUTTON -->
+      <div class="pt-2">
+        <button onclick="executeRollover()" id="executeBtn" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl shadow-xl shadow-emerald-600/20 text-sm transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-file-circle-check"></i>
+          <span>Confirm &amp; Generate Target Workbook</span>
+        </button>
+        <div id="executionLog" class="mt-3 p-3 rounded-xl text-xs font-semibold hidden"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let previewData = null;
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const today = new Date();
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+      if (today.getDate() < lastDay - 2) {
+        document.getElementById("earlyDateAlert").classList.remove("hidden");
+      }
+
+      const pinBox = document.getElementById("staffPinInput");
+      if (pinBox) {
+        pinBox.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") unlockApp();
+        });
+      }
+
+      if (isAuthenticated()) {
+        document.getElementById("pinLockModal").classList.add("hidden");
+        initDynamicMonthSelect("sourceMonthSelect");
+      }
+    });
+
+    function unlockApp() {
+      verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
+        document.getElementById("pinLockModal").classList.add("hidden");
+        initDynamicMonthSelect("sourceMonthSelect");
+      });
+    }
+
+    async function loadRolloverPreview() {
+      const btn = document.getElementById("previewBtn");
+      const sourceMonth = document.getElementById("sourceMonthSelect").value;
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Scanning sheets...`;
+
+      try {
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=getRolloverPreview&sourceMonth=${encodeURIComponent(sourceMonth)}`);
+        const json = await res.json();
+        if (json.status !== "success") throw new Error(json.message);
+
+        previewData = json;
+        renderReviewBoard();
+        document.getElementById("reviewBoard").classList.remove("hidden");
+      } catch (err) {
+        alert("Error scanning source month: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-magnifying-glass"></i> Scan &amp; Preview Rollover Data`;
+      }
+    }
+
+    function renderReviewBoard() {
+      document.getElementById("activeOccupantBadge").innerText = `${previewData.activeOccupantsCount} Active Occupants`;
+
+      // 1. Departures
+      const depContainer = document.getElementById("departuresList");
+      const depList = previewData.scheduledDepartures || [];
+      document.getElementById("departuresCount").innerText = `${depList.length} Alerts`;
+      if (depList.length === 0) {
+        depContainer.innerHTML = `<p class="text-slate-400 italic">No mid-month departures scheduled.</p>`;
+      } else {
+        depContainer.innerHTML = depList.map((d, i) => `
+          <div class="p-2.5 bg-rose-50/50 rounded-xl border border-rose-100 flex items-center justify-between gap-2">
+            <div>
+              <p class="font-bold text-slate-800">Room ${d.room} &bull; ${d.name}</p>
+              <p class="text-[10px] text-slate-500">Leaving: ${d.vacatingDate} (Std: ₹${d.standardRent})</p>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[11px] font-bold text-slate-500">Nov Rent: ₹</span>
+              <input type="number" id="depRent_${i}" value="${d.suggestedRent}" data-name="${d.name}" data-date="${d.vacatingDate}"
+                     class="w-20 px-2 py-1 font-bold font-mono border border-rose-200 rounded-lg text-rose-700 bg-white" />
+            </div>
+          </div>
+        `).join("");
+      }
+
+      // 2. Room Shifts
+      const shiftContainer = document.getElementById("shiftsList");
+      const shiftList = previewData.shiftedResidents || [];
+      document.getElementById("shiftsCount").innerText = `${shiftList.length} Alerts`;
+      if (shiftList.length === 0) {
+        shiftContainer.innerHTML = `<p class="text-slate-400 italic">No mid-month room shifts in previous month.</p>`;
+      } else {
+        shiftContainer.innerHTML = shiftList.map(s => `
+          <div class="p-2.5 bg-indigo-50/50 rounded-xl border border-indigo-100 flex items-center justify-between">
+            <div>
+              <p class="font-bold text-slate-800">Room ${s.room} &bull; ${s.name}</p>
+              <p class="text-[10px] text-slate-500 italic">${s.remarks}</p>
+            </div>
+            <span class="font-bold font-mono text-indigo-700">₹${s.standardRent}/mo</span>
+          </div>
+        `).join("");
+      }
+
+      // 3. Unpaid Dues
+      const duesContainer = document.getElementById("duesList");
+      const duesList = previewData.unpaidDues || [];
+      document.getElementById("duesCount").innerText = `${duesList.length} Alerts`;
+      if (duesList.length === 0) {
+        duesContainer.innerHTML = `<p class="text-slate-400 italic">All previous month dues cleared!</p>`;
+      } else {
+        duesContainer.innerHTML = duesList.map((u, i) => `
+          <div class="p-2.5 bg-amber-50/50 rounded-xl border border-amber-100 flex items-center justify-between">
+            <div>
+              <p class="font-bold text-slate-800">Room ${u.room} &bull; ${u.name}</p>
+              <p class="text-[10px] text-amber-700 font-bold">Unpaid Balance: ₹${u.balance}</p>
+            </div>
+            <label class="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 cursor-pointer">
+              <input type="checkbox" id="carryDue_${i}" data-name="${u.name}" data-balance="${u.balance}" class="rounded text-purple-600" />
+              <span>Carry Note</span>
+            </label>
+          </div>
+        `).join("");
+      }
+
+      // 4. Dropped
+      const droppedContainer = document.getElementById("droppedList");
+      const dropList = previewData.droppedResidents || [];
+      document.getElementById("droppedCount").innerText = `${dropList.length} Dropped`;
+      if (dropList.length === 0) {
+        droppedContainer.innerHTML = `<p class="text-slate-400 italic">No occupants vacated in previous month.</p>`;
+      } else {
+        droppedContainer.innerHTML = dropList.map((dr, i) => `
+          <div class="p-2 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-slate-500">
+            <span>Room ${dr.room} &bull; ${dr.name} (Vacated ${dr.vacatedOn})</span>
+            <label class="text-[10px] font-bold text-purple-600 flex items-center gap-1 cursor-pointer">
+              <input type="checkbox" id="keepRes_${i}" data-name="${dr.name}" /> Keep in Nov
+            </label>
+          </div>
+        `).join("");
+      }
+    }
+
+    async function executeRollover() {
+      if (!confirm(`Are you sure you want to initialize ${document.getElementById("targetMonthInput").value}?`)) return;
+
+      const btn = document.getElementById("executeBtn");
+      const log = document.getElementById("executionLog");
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Generating Target Workbook in Google Drive...`;
+      log.className = "mt-3 p-3 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
+      log.innerText = "Copying operational tabs and resetting payment columns...";
+
+      // Gather Review Overrides
+      const departuresOverride = {};
+      document.querySelectorAll("[id^='depRent_']").forEach(input => {
+        departuresOverride[input.dataset.name] = {
+          rent: input.value,
+          date: input.dataset.date
+        };
+      });
+
+      const carryArrearsOverride = {};
+      document.querySelectorAll("[id^='carryDue_']:checked").forEach(box => {
+        carryArrearsOverride[box.dataset.name] = box.dataset.balance;
+      });
+
+      const keepResidentsList = [];
+      document.querySelectorAll("[id^='keepRes_']:checked").forEach(box => {
+        keepResidentsList.push(box.dataset.name);
+      });
+
+      const payload = {
+        action: "executeRollover",
+        pin: getStoredPin(),
+        sourceMonth: document.getElementById("sourceMonthSelect").value,
+        targetMonth: document.getElementById("targetMonthInput").value,
+        overrides: {
+          departures: departuresOverride,
+          carryArrears: carryArrearsOverride,
+          keepResidents: keepResidentsList
+        }
+      };
+
+      try {
+        const res = await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (json.status !== "success") throw new Error(json.message);
+
+        log.className = "mt-3 p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
+        log.innerHTML = `✓ ${json.message} <br><a href="${json.newUrl}" target="_blank" class="underline font-bold mt-1 inline-block">Open New Workbook in Drive &rarr;</a>`;
+
+      } catch (err) {
+        log.className = "mt-3 p-3 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 block";
+        log.innerText = "Error: " + err.message;
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-file-circle-check"></i> Confirm &amp; Generate Target Workbook`;
+      }
+    }
+  </script>
+</body>
+</html>

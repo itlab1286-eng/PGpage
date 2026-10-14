@@ -517,8 +517,6 @@
 
         <select id="monthSelect" onchange="loadDailyGuests()" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700">
           <option value="October 2026">October 2026</option>
-          <option value="November 2026">November 2026</option>
-          <option value="December 2026">December 2026</option>
         </select>
         <button onclick="logoutApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition" title="Lock">
           <i class="fa-solid fa-arrow-right-from-bracket"></i>
@@ -586,7 +584,9 @@
 
       if (isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
-        loadDailyGuests();
+        initDynamicMonthSelect("monthSelect").then(() => {
+			loadDailyGuests();
+		});
       } else {
         document.getElementById("pinLockModal").classList.remove("hidden");
       }
@@ -605,11 +605,13 @@
     });
 
     function unlockApp() {
-      verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
-        document.getElementById("pinLockModal").classList.add("hidden");
-        loadDailyGuests();
-      });
-    }
+  verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
+    document.getElementById("pinLockModal").classList.add("hidden");
+    initDynamicMonthSelect("monthSelect").then(() => {
+      loadDailyGuests();
+    });
+  });
+}
 
     function filterList(type) {
       currentFilter = type;

@@ -54,8 +54,6 @@
       <div class="flex items-center gap-2">
         <select id="monthSelect" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700">
           <option value="October 2026">October 2026</option>
-          <option value="November 2026">November 2026</option>
-          <option value="December 2026">December 2026</option>
         </select>
         <button onclick="logoutApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition" title="Lock">
           <i class="fa-solid fa-arrow-right-from-bracket"></i>
@@ -322,38 +320,48 @@
       6: ["601", "602", "603", "604", "605", "606", "607"]
     };
 
-    window.addEventListener("DOMContentLoaded", () => {
-      // 1. Set default dates to today
-      const today = new Date().toISOString().split("T")[0];
-      document.getElementById("resJoiningDate").value = today;
-      document.getElementById("initialPayDate").value = today;
+    window.addEventListener("DOMContentLoaded", async () => {
+  // 1. Set default dates to today
+  const today = new Date().toISOString().split("T")[0];
+  document.getElementById("resJoiningDate").value = today;
+  document.getElementById("initialPayDate").value = today;
 
-      // 2. Build default room grid
-      buildRoomsGrid(1);
+  // 2. Build default room grid
+  buildRoomsGrid(1);
 
-      // 3. Handle pre-fill from Vacancies page if present
-      const urlParams = new URLSearchParams(window.location.search);
-      const prefillRoom = urlParams.get('room');
+  // 3. Handle pre-fill from Vacancies page if present
+  const urlParams = new URLSearchParams(window.location.search);
+  const prefillRoom = urlParams.get('room');
+  const prefillMonth = urlParams.get('month');
 
-      if (prefillRoom) {
-        const floor = parseInt(prefillRoom[0], 10);
-        if (floor >= 1 && floor <= 6) {
-          setFloor(floor);
-        }
-        selectedRoom = prefillRoom;
-        document.getElementById("driveTargetFolderText").innerText = `Room ${prefillRoom}`;
-        buildRoomsGrid(currentFloor);
-      }
+  if (prefillRoom) {
+    const floor = parseInt(prefillRoom[0], 10);
+    if (floor >= 1 && floor <= 6) {
+      setFloor(floor);
+    }
+    selectedRoom = prefillRoom;
+    document.getElementById("driveTargetFolderText").innerText = `Room ${prefillRoom}`;
+    buildRoomsGrid(currentFloor);
+  }
 
-      // 4. Verify staff session
-      if (typeof isAuthenticated === "function" && isAuthenticated()) {
-        const modal = document.getElementById("pinLockModal");
-        if (modal) modal.classList.add("hidden");
-      } else {
-        const modal = document.getElementById("pinLockModal");
-        if (modal) modal.classList.remove("hidden");
-      }
-    });
+  // 4. Initialize dynamic months dropdown & select URL month if passed
+  if (typeof initDynamicMonthSelect === "function") {
+    await initDynamicMonthSelect("monthSelect");
+    if (prefillMonth) {
+      const monthDropdown = document.getElementById("monthSelect");
+      if (monthDropdown) monthDropdown.value = prefillMonth;
+    }
+  }
+
+  // 5. Verify staff session
+  if (typeof isAuthenticated === "function" && isAuthenticated()) {
+    const modal = document.getElementById("pinLockModal");
+    if (modal) modal.classList.add("hidden");
+  } else {
+    const modal = document.getElementById("pinLockModal");
+    if (modal) modal.classList.remove("hidden");
+  }
+});
 
     function unlockApp() {
       verifyStaffPin("staffPinInput", "pinErrorMsg", () => {

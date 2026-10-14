@@ -91,3 +91,30 @@ document.addEventListener("keydown", (e) => {
     }
   }
 });
+
+async function initDynamicMonthSelect(selectId = "monthSelect") {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+
+  try {
+    const res = await fetch(`${APPS_SCRIPT_URL}?action=getAvailableMonths`);
+    const json = await res.json();
+    if (json.status === "success" && json.months && json.months.length > 0) {
+      const currentSelected = select.value;
+      select.innerHTML = "";
+      json.months.forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.textContent = m;
+        select.appendChild(opt);
+      });
+      if (json.months.includes(currentSelected)) {
+        select.value = currentSelected;
+      } else {
+        select.value = json.months[json.months.length - 1];
+      }
+    }
+  } catch (err) {
+    console.warn("Using fallback months.", err);
+  }
+}
