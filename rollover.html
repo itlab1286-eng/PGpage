@@ -288,18 +288,18 @@
       }
     }
 
-    async function executeRollover() {
-      if (!confirm(`Are you sure you want to initialize ${document.getElementById("targetMonthInput").value}?`)) return;
+    async function executeRollover(force = false) {
+      const targetMonth = document.getElementById("targetMonthInput").value;
+      if (!force && !confirm(`Are you sure you want to initialize ${targetMonth}?`)) return;
 
       const btn = document.getElementById("executeBtn");
       const log = document.getElementById("executionLog");
 
       btn.disabled = true;
-      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Generating Target Workbook in Google Drive...`;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Processing rollover...`;
       log.className = "mt-3 p-3 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
-      log.innerText = "Copying operational tabs and resetting payment columns...";
+      log.innerText = "Checking workbook status...";
 
-      // Gather Review Overrides
       const departuresOverride = {};
       document.querySelectorAll("[id^='depRent_']").forEach(input => {
         departuresOverride[input.dataset.name] = {
@@ -322,7 +322,8 @@
         action: "executeRollover",
         pin: getStoredPin(),
         sourceMonth: document.getElementById("sourceMonthSelect").value,
-        targetMonth: document.getElementById("targetMonthInput").value,
+        targetMonth: targetMonth,
+        forceOverwrite: force,
         overrides: {
           departures: departuresOverride,
           carryArrears: carryArrearsOverride,
@@ -337,6 +338,30 @@
           body: JSON.stringify(payload)
         });
         const json = await res.json();
+
+        // Target already exists alert
+        if (json.status === "already_exists") {
+          log.className = "mt-3 p-3 rounded-xl text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 block";
+          log.innerHTML = `
+            <div class="flex items-start gap-2">
+              <i class="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5"></i>
+              <div>
+                <p class="font-bold">${json.message}</p>
+                <div class="mt-2 flex gap-2">
+                  <button onclick="executeRollover(true)" class="px-3 py-1 bg-rose-600 text-white rounded-lg font-bold text-[11px] hover:bg-rose-700 transition">
+                    Force Re-create (Overwrite)
+                  </button>
+                  <button onclick="document.getElementById('executionLog').classList.add('hidden')" class="px-3 py-1 bg-slate-200 text-slate-700 rounded-lg font-bold text-[11px] hover:bg-slate-300 transition">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>`;
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-file-circle-check"></i> Confirm &amp; Generate Target Workbook`;
+          return;
+        }
+
         if (json.status !== "success") throw new Error(json.message);
 
         log.className = "mt-3 p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
