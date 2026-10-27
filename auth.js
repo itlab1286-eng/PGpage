@@ -92,29 +92,41 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+// Automatically populates any <select id="monthSelect"> and defaults to current month
 async function initDynamicMonthSelect(selectId = "monthSelect") {
   const select = document.getElementById(selectId);
   if (!select) return;
 
+  // 1. Determine current real-world month string (e.g., "November 2026")
+  const now = new Date();
+  const currentMonthName = now.toLocaleString("en-US", { month: "long" }) + " " + now.getFullYear();
+
   try {
     const res = await fetch(`${APPS_SCRIPT_URL}?action=getAvailableMonths`);
     const json = await res.json();
+    
     if (json.status === "success" && json.months && json.months.length > 0) {
-      const currentSelected = select.value;
       select.innerHTML = "";
+      
+      // Populate all available months
       json.months.forEach(m => {
         const opt = document.createElement("option");
         opt.value = m;
         opt.textContent = m;
         select.appendChild(opt);
       });
-      if (json.months.includes(currentSelected)) {
-        select.value = currentSelected;
-      } else {
+
+      // 2. Select logic:
+      // Priority A: If real current month exists in the sheet list, select it!
+      if (json.months.includes(currentMonthName)) {
+        select.value = currentMonthName;
+      } 
+      // Priority B: Otherwise default to the latest generated month
+      else {
         select.value = json.months[json.months.length - 1];
       }
     }
   } catch (err) {
-    console.warn("Using fallback months.", err);
+    console.warn("Could not fetch dynamic months, falling back to existing options.", err);
   }
 }
