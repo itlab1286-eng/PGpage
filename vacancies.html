@@ -84,7 +84,7 @@
     </div>
   </div>
 
-  <!-- REPORT VACANCY NOTICE MODAL (FEATURE 1: EDITABLE PRO-RATED RENT) -->
+  <!-- REPORT VACANCY NOTICE MODAL -->
   <div id="reportVacancyModal" class="fixed inset-0 z-40 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -180,17 +180,29 @@
         </h1>
       </div>
 
-      <div class="flex items-center gap-2">
+      <div class="flex items-center flex-wrap gap-2.5">
         <button onclick="openReportModal()" class="px-3 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-sm transition flex items-center gap-1.5">
           <i class="fa-solid fa-plus"></i>
           <span>Report Vacancy</span>
         </button>
 
-        <select id="monthSelect" onchange="loadVacancies()" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700">
-          <option value="October 2026">October 2026</option>
-          <option value="November 2026">November 2026</option>
-          <option value="December 2026">December 2026</option>
-        </select>
+        <div class="flex items-center gap-2">
+          <div class="flex flex-col text-left">
+            <label class="text-[9px] font-bold text-slate-400 uppercase">Check Date</label>
+            <input type="date" id="vacancyCheckDate" onchange="loadVacancies()" 
+                   class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-slate-700 focus:ring-2 focus:ring-rose-500" />
+          </div>
+
+          <div class="flex flex-col text-left">
+            <label class="text-[9px] font-bold text-slate-400 uppercase">Target Month</label>
+            <select id="monthSelect" onchange="loadVacancies()" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-slate-700 focus:ring-2 focus:ring-rose-500">
+              <option value="October 2026">October 2026</option>
+              <option value="November 2026">November 2026</option>
+              <option value="December 2026">December 2026</option>
+            </select>
+          </div>
+        </div>
+
         <button onclick="logoutApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition" title="Lock">
           <i class="fa-solid fa-arrow-right-from-bracket"></i>
         </button>
@@ -198,37 +210,51 @@
     </header>
 
     <!-- METRICS CARDS -->
-    <div class="grid grid-cols-2 gap-4 mb-6">
-      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
         <div>
-          <span class="text-xs font-bold text-rose-600 uppercase tracking-wider">Available Now</span>
-          <p id="metricCurrentOpen" class="text-3xl font-black text-slate-900 mt-1">--</p>
-          <span class="text-[11px] text-slate-400">Ready for instant check-in</span>
+          <span class="text-[11px] font-bold text-rose-600 uppercase tracking-wider">Available Now</span>
+          <p id="metricCurrentOpen" class="text-2xl sm:text-3xl font-black text-slate-900 mt-0.5">--</p>
+          <span class="text-[10px] text-slate-400">Ready for instant check-in</span>
         </div>
-        <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl">
+        <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-lg">
           <i class="fa-solid fa-bed"></i>
         </div>
       </div>
 
-      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
         <div>
-          <span class="text-xs font-bold text-amber-600 uppercase tracking-wider">Upcoming Vacancies</span>
-          <p id="metricFutureOpen" class="text-3xl font-black text-slate-900 mt-1">--</p>
-          <span class="text-[11px] text-slate-400">Notice served this month</span>
+          <span class="text-[11px] font-bold text-purple-600 uppercase tracking-wider">Future Bookings</span>
+          <p id="metricReservedOpen" class="text-2xl sm:text-3xl font-black text-slate-900 mt-0.5">--</p>
+          <span class="text-[10px] text-slate-400">Arriving later this month</span>
         </div>
-        <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+        <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-lg">
+          <i class="fa-solid fa-calendar-check"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+          <span class="text-[11px] font-bold text-amber-600 uppercase tracking-wider">Upcoming Vacancies</span>
+          <p id="metricFutureOpen" class="text-2xl sm:text-3xl font-black text-slate-900 mt-0.5">--</p>
+          <span class="text-[10px] text-slate-400">Notice served / Vacating</span>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-lg">
           <i class="fa-solid fa-clock"></i>
         </div>
       </div>
     </div>
 
-    <!-- TABS: CURRENT VS FUTURE -->
-    <div class="flex gap-2 mb-4 bg-slate-200/70 p-1 rounded-2xl">
-      <button onclick="switchTab('current')" id="tabBtnCurrent" class="flex-1 py-2.5 rounded-xl font-bold text-xs transition bg-white text-slate-900 shadow-sm">
-        <i class="fa-solid fa-circle-check text-rose-600 mr-1.5"></i> Available Right Now (<span id="tabCountCurrent">0</span>)
+    <!-- TABS: CURRENT VS RESERVED VS FUTURE -->
+    <div class="flex gap-2 mb-4 bg-slate-200/70 p-1 rounded-2xl text-xs font-bold">
+      <button onclick="switchTab('current')" id="tabBtnCurrent" class="flex-1 py-2.5 rounded-xl transition bg-white text-slate-900 shadow-sm">
+        <i class="fa-solid fa-circle-check text-rose-600 mr-1"></i> Ready Now (<span id="tabCountCurrent">0</span>)
       </button>
-      <button onclick="switchTab('future')" id="tabBtnFuture" class="flex-1 py-2.5 rounded-xl font-bold text-xs transition text-slate-600">
-        <i class="fa-solid fa-calendar-days text-amber-500 mr-1.5"></i> Upcoming Vacancies (<span id="tabCountFuture">0</span>)
+      <button onclick="switchTab('reserved')" id="tabBtnReserved" class="flex-1 py-2.5 rounded-xl transition text-slate-600">
+        <i class="fa-solid fa-calendar-check text-purple-600 mr-1"></i> Reserved (<span id="tabCountReserved">0</span>)
+      </button>
+      <button onclick="switchTab('future')" id="tabBtnFuture" class="flex-1 py-2.5 rounded-xl transition text-slate-600">
+        <i class="fa-solid fa-calendar-days text-amber-500 mr-1"></i> Vacating (<span id="tabCountFuture">0</span>)
       </button>
     </div>
 
@@ -283,7 +309,16 @@
       </div>
     </div>
 
-    <!-- TAB 2: FUTURE / UPCOMING VACANCIES -->
+    <!-- TAB 2: RESERVED / FUTURE JOININGS -->
+    <div id="sectionReserved" class="space-y-3 hidden">
+      <div id="reservedCardsList" class="space-y-3">
+        <div class="text-center py-10 text-slate-400 text-xs font-semibold">
+          <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Checking upcoming bookings...
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: FUTURE / UPCOMING VACANCIES -->
     <div id="sectionFuture" class="space-y-3 hidden">
       <div id="futureCardsList" class="space-y-3">
         <div class="text-center py-10 text-slate-400 text-xs font-semibold">
@@ -295,14 +330,17 @@
   </div>
 
   <script>
-    let vacancyData = { currentVacancies: [], futureVacancies: [] };
+    let vacancyData = { currentVacancies: [], reservedVacancies: [], futureVacancies: [] };
     let selectedRoomForFill = null;
     let roomResidentCache = [];
 
     window.addEventListener("DOMContentLoaded", () => {
       const today = new Date().toISOString().split("T")[0];
+      const checkDateEl = document.getElementById("vacancyCheckDate");
       const informedEl = document.getElementById("modalInformedDate");
       const vacatingEl = document.getElementById("modalVacatingDate");
+
+      if (checkDateEl) checkDateEl.value = today;
       if (informedEl) informedEl.value = today;
       if (vacatingEl) vacatingEl.value = today;
 
@@ -325,38 +363,52 @@
     function unlockApp() {
       verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
         document.getElementById("pinLockModal").classList.add("hidden");
+        initDynamicMonthSelect("monthSelect");
         loadVacancies();
       });
     }
 
     function switchTab(tab) {
       const btnCurrent = document.getElementById("tabBtnCurrent");
+      const btnReserved = document.getElementById("tabBtnReserved");
       const btnFuture = document.getElementById("tabBtnFuture");
+
       const secCurrent = document.getElementById("sectionCurrent");
+      const secReserved = document.getElementById("sectionReserved");
       const secFuture = document.getElementById("sectionFuture");
 
+      // Reset styles
+      [btnCurrent, btnReserved, btnFuture].forEach(b => {
+        b.className = "flex-1 py-2.5 rounded-xl transition text-slate-600";
+      });
+      [secCurrent, secReserved, secFuture].forEach(s => s.classList.add("hidden"));
+
       if (tab === "current") {
-        btnCurrent.className = "flex-1 py-2.5 rounded-xl font-bold text-xs transition bg-white text-slate-900 shadow-sm";
-        btnFuture.className = "flex-1 py-2.5 rounded-xl font-bold text-xs transition text-slate-600";
+        btnCurrent.className = "flex-1 py-2.5 rounded-xl transition bg-white text-slate-900 shadow-sm";
         secCurrent.classList.remove("hidden");
-        secFuture.classList.add("hidden");
+      } else if (tab === "reserved") {
+        btnReserved.className = "flex-1 py-2.5 rounded-xl transition bg-white text-slate-900 shadow-sm";
+        secReserved.classList.remove("hidden");
       } else {
-        btnFuture.className = "flex-1 py-2.5 rounded-xl font-bold text-xs transition bg-white text-slate-900 shadow-sm";
-        btnCurrent.className = "flex-1 py-2.5 rounded-xl font-bold text-xs transition text-slate-600";
+        btnFuture.className = "flex-1 py-2.5 rounded-xl transition bg-white text-slate-900 shadow-sm";
         secFuture.classList.remove("hidden");
-        secCurrent.classList.add("hidden");
       }
     }
 
     async function loadVacancies(retries = 2) {
       const month = document.getElementById("monthSelect").value;
+      const checkDate = document.getElementById("vacancyCheckDate").value;
+
       const currentContainer = document.getElementById("currentCardsList");
+      const reservedContainer = document.getElementById("reservedCardsList");
       const futureContainer = document.getElementById("futureCardsList");
 
-      currentContainer.innerHTML = `<div class="col-span-2 text-center py-10 text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Loading vacancies for ${month}...</div>`;
+      currentContainer.innerHTML = `<div class="col-span-2 text-center py-10 text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Checking bed schedules for ${checkDate}...</div>`;
+      reservedContainer.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Loading future bookings...</div>`;
+      futureContainer.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Loading vacate notices...</div>`;
 
       try {
-        const res = await fetch(`${APPS_SCRIPT_URL}?action=getVacanciesData&month=${encodeURIComponent(month)}`);
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=getVacanciesData&month=${encodeURIComponent(month)}&checkDate=${encodeURIComponent(checkDate)}`);
         const rawText = await res.text();
 
         let json;
@@ -392,6 +444,7 @@
 
     function renderVacancies() {
       const currentListRaw = vacancyData.currentVacancies || [];
+      const reservedListRaw = vacancyData.reservedVacancies || [];
       const futureListRaw = vacancyData.futureVacancies || [];
 
       const selectedAC = document.getElementById("filterAC").value;
@@ -418,14 +471,18 @@
       }
 
       const filteredCurrent = currentListRaw.filter(matchesFilter);
+      const filteredReserved = reservedListRaw.filter(matchesFilter);
       const filteredFuture = futureListRaw.filter(matchesFilter);
 
       let totalCurrentBeds = 0;
       filteredCurrent.forEach(c => totalCurrentBeds += c.openBeds);
 
       document.getElementById("metricCurrentOpen").innerText = totalCurrentBeds;
+      document.getElementById("metricReservedOpen").innerText = filteredReserved.length;
       document.getElementById("metricFutureOpen").innerText = filteredFuture.length;
+
       document.getElementById("tabCountCurrent").innerText = totalCurrentBeds;
+      document.getElementById("tabCountReserved").innerText = filteredReserved.length;
       document.getElementById("tabCountFuture").innerText = filteredFuture.length;
 
       // 1. Render Current Openings
@@ -452,6 +509,15 @@
             `;
           }
 
+          let reservedNotice = "";
+          if (item.reservedCount > 0) {
+            reservedNotice = `
+              <span class="inline-block mt-1 px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-md font-bold text-[10px]">
+                <i class="fa-solid fa-calendar-check mr-1"></i>${item.reservedCount} Bed Reserved for later
+              </span>
+            `;
+          }
+
           card.innerHTML = `
             <div class="flex items-start justify-between">
               <div>
@@ -464,6 +530,7 @@
                 <p class="text-xs text-slate-500 font-semibold mt-1">Floor ${item.floor} &bull; ${item.capacity}-Sharing</p>
                 <p class="text-[11px] text-slate-400 mt-0.5">${item.activeCount} / ${item.capacity} beds filled</p>
                 ${dailyBadge}
+                ${reservedNotice}
               </div>
 
               <div class="text-right">
@@ -488,7 +555,52 @@
         });
       }
 
-      // 2. Render Upcoming Departures
+      // 2. Render Reserved / Future Bookings
+      const reservedContainer = document.getElementById("reservedCardsList");
+      if (filteredReserved.length === 0) {
+        reservedContainer.innerHTML = `
+          <div class="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-semibold">
+            No future reservations recorded for this month.
+          </div>`;
+      } else {
+        reservedContainer.innerHTML = "";
+        filteredReserved.forEach(item => {
+          const card = document.createElement("div");
+          card.className = "p-4 bg-white rounded-2xl border border-purple-200 bg-purple-50/20 shadow-sm flex flex-wrap items-center justify-between gap-3";
+
+          const isDaily = item.stayType === "Daily";
+
+          card.innerHTML = `
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-base font-black text-slate-900">Room ${item.roomNumber}</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${item.ac === 'Yes' ? 'bg-cyan-100 text-cyan-800' : 'bg-slate-100 text-slate-600'}">
+                  ${item.ac === 'Yes' ? 'AC' : 'Non-AC'}
+                </span>
+                <span class="text-xs text-slate-500 font-bold">&bull; ${item.capacity}-Sharing</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isDaily ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'}">
+                  ${isDaily ? 'Daily Booking' : 'Monthly Advance Booking'}
+                </span>
+              </div>
+              <p class="text-xs font-bold text-slate-800 mt-1 flex items-center gap-1.5">
+                <i class="fa-solid fa-user text-purple-600 text-xs"></i> ${item.residentName}
+                ${item.mobile ? `<span class="text-[11px] text-slate-400 font-normal">(${item.mobile})</span>` : ''}
+              </p>
+              ${item.remarks ? `<p class="text-[11px] text-slate-500 italic mt-0.5">${item.remarks}</p>` : ''}
+            </div>
+
+            <div class="text-right">
+              <span class="inline-block px-3 py-1 bg-purple-100 text-purple-800 font-black text-xs rounded-xl">
+                Arrives: ${item.joiningDate}
+              </span>
+              <p class="text-[10px] font-bold text-purple-600 mt-1">Bed locked for monthly tenants</p>
+            </div>
+          `;
+          reservedContainer.appendChild(card);
+        });
+      }
+
+      // 3. Render Upcoming Departures
       const futureContainer = document.getElementById("futureCardsList");
       if (filteredFuture.length === 0) {
         futureContainer.innerHTML = `
@@ -574,7 +686,7 @@
     }
 
     // ==========================================
-    // VACANCY REPORTING MODAL LOGIC (FEATURE 1)
+    // VACANCY REPORTING MODAL LOGIC
     // ==========================================
     function openReportModal() {
       document.getElementById("reportVacancyModal").classList.remove("hidden");
