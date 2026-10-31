@@ -47,16 +47,58 @@
         </h1>
         <p class="text-xs sm:text-sm text-slate-500">42 Rooms (Floors 1–6) &bull; Google Drive Auto-Uploader</p>
       </div>
-		<a href="index.html" class="px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-2 transition">
-  <i class="fa-solid fa-arrow-left"></i> Home
-</a>
       <div class="flex items-center gap-2">
+        <a href="index.html" class="px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-2 transition">
+          <i class="fa-solid fa-arrow-left"></i> Home
+        </a>
         <button onclick="logoutApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition" title="Lock App">
-  <i class="fa-solid fa-arrow-right-from-bracket"></i>
-</button>
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </button>
       </div>
     </header>
 
+    <!-- STATUS SUMMARY METRICS -->
+    <div class="grid grid-cols-2 gap-4 mb-6">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+          <span class="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Submitted</span>
+          <p id="aadhaarSubmittedCount" class="text-2xl font-black text-slate-900 mt-0.5">--</p>
+          <span class="text-[10px] text-slate-400">Verified in Drive</span>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+          <i class="fa-solid fa-file-circle-check"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+          <span class="text-[11px] font-bold text-rose-600 uppercase tracking-wider">Pending / Missing</span>
+          <p id="aadhaarPendingCount" class="text-2xl font-black text-slate-900 mt-0.5">--</p>
+          <span class="text-[10px] text-slate-400">Needs collection</span>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-lg">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUDIT LIST CONTAINER -->
+    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm mb-6 space-y-3">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+        <h3 class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+          <i class="fa-solid fa-clipboard-user text-blue-600"></i> Aadhaar Verification Ledger
+        </h3>
+        <button type="button" onclick="loadAadhaarAudit(true)" class="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+          <i class="fa-solid fa-rotate text-[10px]"></i> Refresh Status
+        </button>
+      </div>
+
+      <div id="aadhaarAuditList" class="space-y-2 text-xs">
+        <p class="text-slate-400 italic py-4 text-center">Scanning Google Drive folders...</p>
+      </div>
+    </div>
+
+    <!-- UPLOAD WORKSPACE -->
     <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
 
       <!-- ROOM SELECTOR -->
@@ -82,7 +124,7 @@
 
       <!-- UPLOAD FORM -->
       <div class="md:col-span-7 bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">2. Resident & Document Details</h2>
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">2. Resident &amp; Document Details</h2>
 
         <form id="uploadForm" onsubmit="handleUpload(event)" class="space-y-4">
           
@@ -151,14 +193,7 @@
     </div>
   </div>
 
-  <!-- ENDPOINT SETTINGS MODAL -->
-
   <script>
-    // ==========================================
-    // PASTE YOUR GOOGLE APPS SCRIPT URL HERE:
-    // ==========================================
-
-
     let currentFloor = 1;
     let selectedRoom = "101";
 
@@ -168,6 +203,7 @@
 
       if (isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
+        loadAadhaarAudit();
       } else {
         document.getElementById("pinLockModal").classList.remove("hidden");
       }
@@ -179,6 +215,7 @@
     function unlockApp() {
       verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
         document.getElementById("pinLockModal").classList.add("hidden");
+        loadAadhaarAudit();
       });
     }
 
@@ -213,7 +250,11 @@
     }
 
     function selectRoom(roomNum) {
-      selectedRoom = roomNum;
+      selectedRoom = String(roomNum);
+      const floorNum = parseInt(selectedRoom[0], 10);
+      if (floorNum >= 1 && floorNum <= 6 && floorNum !== currentFloor) {
+        showFloor(floorNum);
+      }
       document.getElementById("selectedRoomDisplay").innerText = `Room ${roomNum}`;
       document.getElementById("previewFolder").innerText = roomNum;
       buildRoomsGrid(currentFloor);
@@ -244,14 +285,88 @@
       }
     }
 
+    async function loadAadhaarAudit(force = false) {
+      const container = document.getElementById("aadhaarAuditList");
+      container.innerHTML = `<div class="text-center py-6 text-slate-400"><i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i> Auditing Google Drive room folders...</div>`;
+
+      try {
+        const json = await apiGet("getAadhaarStatus", { forceRefresh: force ? "true" : "" });
+
+        document.getElementById("aadhaarSubmittedCount").innerText = json.submittedCount;
+        document.getElementById("aadhaarPendingCount").innerText = json.pendingCount;
+
+        container.innerHTML = "";
+
+        // 1. Missing / Pending Residents
+        if (json.pending && json.pending.length > 0) {
+          json.pending.forEach(p => {
+            const item = document.createElement("div");
+            item.className = "p-3 bg-rose-50/60 border border-rose-200 rounded-xl flex items-center justify-between gap-3";
+            
+            const cleanMobile = whatsappNumber(p.mobile);
+            const msg = encodeURIComponent(`Hi ${p.name}, this is a reminder from Elysium PG to submit a photo or PDF of your Aadhaar document for verification records for Room ${p.room}. Thank you!`);
+            const waLink = cleanMobile ? `https://wa.me/${cleanMobile}?text=${msg}` : "";
+
+            item.innerHTML = `
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-black text-slate-900">Room ${esc(p.room)}</span>
+                  <span class="text-slate-300">&bull;</span>
+                  <span class="font-bold text-slate-800">${esc(p.name)}</span>
+                  <span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-100 text-rose-700">Missing</span>
+                </div>
+                <p class="text-[10px] text-slate-500 mt-0.5">Joined: ${esc(p.joiningDate) || "N/A"} &bull; Mobile: ${esc(p.mobile) || "None"}</p>
+              </div>
+
+              <div class="flex items-center gap-2">
+                ${cleanMobile ? `
+                  <a href="${waLink}" target="_blank" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 transition">
+                    <i class="fa-brands fa-whatsapp"></i> Request
+                  </a>` : ""}
+                <button type="button" onclick="selectRoom('${p.room}')" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-bold text-[11px] transition">
+                  Upload
+                </button>
+              </div>
+            `;
+            container.appendChild(item);
+          });
+        }
+
+        // 2. Submitted / Verified Residents
+        if (json.submitted && json.submitted.length > 0) {
+          json.submitted.forEach(s => {
+            const item = document.createElement("div");
+            item.className = "p-3 bg-emerald-50/40 border border-emerald-200 rounded-xl flex items-center justify-between gap-3";
+            item.innerHTML = `
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-black text-slate-900">Room ${esc(s.room)}</span>
+                  <span class="text-slate-300">&bull;</span>
+                  <span class="font-bold text-slate-800">${esc(s.name)}</span>
+                  <span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-100 text-emerald-800">Verified</span>
+                </div>
+                <p class="text-[10px] text-slate-500 mt-0.5">File: ${esc(s.file.name)}</p>
+              </div>
+
+              <a href="${s.file.url}" target="_blank" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-[11px] flex items-center gap-1 transition">
+                <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i> View
+              </a>
+            `;
+            container.appendChild(item);
+          });
+        }
+
+        if ((!json.pending || json.pending.length === 0) && (!json.submitted || json.submitted.length === 0)) {
+          container.innerHTML = `<p class="text-slate-400 italic py-4 text-center">No active occupants found for verification.</p>`;
+        }
+
+      } catch (err) {
+        container.innerHTML = `<div class="p-3 text-rose-600 font-bold bg-rose-50 rounded-xl">Error: ${esc(err.message)}</div>`;
+      }
+    }
+
     async function handleUpload(e) {
       e.preventDefault();
-
-      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes("PASTE_YOUR_EXEC_URL_HERE")) {
-        alert("Please set your valid Google Apps Script URL in APPS_SCRIPT_URL or via Settings.");
-        openSettingsModal();
-        return;
-      }
 
       const fileInput = document.getElementById("fileInput");
       if (!fileInput.files || fileInput.files.length === 0) {
@@ -292,6 +407,7 @@
         document.getElementById("dropPrompt").classList.remove("hidden");
         document.getElementById("fileSelectedDisplay").classList.add("hidden");
         updatePreviewName();
+        loadAadhaarAudit(true);
       } catch (err) {
         statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
         statusBox.innerText = "Error: " + err.message;
