@@ -247,30 +247,6 @@
     async function handleUpload(e) {
       e.preventDefault();
 
-      const fileInput = document.getElementById("fileInput");
-      let ext = "pdf";
-      if (fileInput.files.length > 0) {
-        const parts = fileInput.files[0].name.split(".");
-        if (parts.length > 1) ext = parts.pop();
-      }
-      const formatted = `${selectedRoom}_${docType}_${resName}.${ext}`;
-      document.getElementById("previewAutoName").innerText = formatted;
-      return formatted;
-    }
-
-    function previewSelectedFile() {
-      const fileInput = document.getElementById("fileInput");
-      if (fileInput.files.length > 0) {
-        document.getElementById("dropPrompt").classList.add("hidden");
-        document.getElementById("fileSelectedDisplay").classList.remove("hidden");
-        document.getElementById("fileNamePreview").innerText = fileInput.files[0].name;
-        updatePreviewName();
-      }
-    }
-
-    async function handleUpload(e) {
-      e.preventDefault();
-
       if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes("PASTE_YOUR_EXEC_URL_HERE")) {
         alert("Please set your valid Google Apps Script URL in APPS_SCRIPT_URL or via Settings.");
         openSettingsModal();
@@ -326,4 +302,4 @@
     }
   </script>
 </body>
-</html>
+</html>
