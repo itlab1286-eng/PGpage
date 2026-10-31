@@ -48,6 +48,11 @@
         <p class="text-xs sm:text-sm text-slate-500">42 Rooms (Floors 1–6) &bull; Google Drive Auto-Uploader</p>
       </div>
       <div class="flex items-center gap-2">
+        <select id="monthSelect" onchange="loadAadhaarAudit(true)" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="October 2026">October 2026</option>
+          <option value="November 2026">November 2026</option>
+          <option value="December 2026">December 2026</option>
+        </select>
         <a href="index.html" class="px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-2 transition">
           <i class="fa-solid fa-arrow-left"></i> Home
         </a>
@@ -203,7 +208,9 @@
 
       if (isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
-        loadAadhaarAudit();
+        initDynamicMonthSelect("monthSelect").then(() => {
+          loadAadhaarAudit();
+        });
       } else {
         document.getElementById("pinLockModal").classList.remove("hidden");
       }
@@ -215,7 +222,9 @@
     function unlockApp() {
       verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
         document.getElementById("pinLockModal").classList.add("hidden");
-        loadAadhaarAudit();
+        initDynamicMonthSelect("monthSelect").then(() => {
+          loadAadhaarAudit();
+        });
       });
     }
 
@@ -286,11 +295,12 @@
     }
 
     async function loadAadhaarAudit(force = false) {
+      const month = document.getElementById("monthSelect").value;
       const container = document.getElementById("aadhaarAuditList");
-      container.innerHTML = `<div class="text-center py-6 text-slate-400"><i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i> Auditing Google Drive room folders...</div>`;
+      container.innerHTML = `<div class="text-center py-6 text-slate-400"><i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i> Auditing records for ${esc(month)}...</div>`;
 
       try {
-        const json = await apiGet("getAadhaarStatus", { forceRefresh: force ? "true" : "" });
+        const json = await apiGet("getAadhaarStatus", { month: month, forceRefresh: force ? "true" : "" });
 
         document.getElementById("aadhaarSubmittedCount").innerText = json.submittedCount;
         document.getElementById("aadhaarPendingCount").innerText = json.pendingCount;
@@ -357,7 +367,7 @@
         }
 
         if ((!json.pending || json.pending.length === 0) && (!json.submitted || json.submitted.length === 0)) {
-          container.innerHTML = `<p class="text-slate-400 italic py-4 text-center">No active occupants found for verification.</p>`;
+          container.innerHTML = `<p class="text-slate-400 italic py-4 text-center">No active occupants found for ${esc(month)}.</p>`;
         }
 
       } catch (err) {
