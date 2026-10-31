@@ -377,7 +377,6 @@
       const secReserved = document.getElementById("sectionReserved");
       const secFuture = document.getElementById("sectionFuture");
 
-      // Reset styles
       [btnCurrent, btnReserved, btnFuture].forEach(b => {
         b.className = "flex-1 py-2.5 rounded-xl transition text-slate-600";
       });
@@ -392,6 +391,25 @@
       } else {
         btnFuture.className = "flex-1 py-2.5 rounded-xl transition bg-white text-slate-900 shadow-sm";
         secFuture.classList.remove("hidden");
+      }
+    }
+
+    function getAcStatusBadge(ac, acUsing) {
+      const isAc = String(ac || "").trim().toLowerCase() === "yes";
+      const isUsing = String(acUsing || "").trim().toLowerCase() === "yes";
+
+      if (!isAc) {
+        return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Non-AC</span>`;
+      }
+      
+      if (isUsing) {
+        return `<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-300 flex items-center gap-1">
+          <i class="fa-solid fa-snowflake text-cyan-600 text-[10px]"></i> AC (In Use)
+        </span>`;
+      } else {
+        return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+          <i class="fa-regular fa-snowflake text-amber-500 text-[10px]"></i> AC (Idle / Off)
+        </span>`;
       }
     }
 
@@ -523,9 +541,7 @@
               <div>
                 <div class="flex items-center gap-2">
                   <span class="text-base font-black text-slate-900">Room ${item.roomNumber}</span>
-                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${item.ac === 'Yes' ? 'bg-cyan-100 text-cyan-800' : 'bg-slate-100 text-slate-600'}">
-                    ${item.ac === 'Yes' ? 'AC' : 'Non-AC'}
-                  </span>
+                  ${getAcStatusBadge(item.ac, item.acUsing)}
                 </div>
                 <p class="text-xs text-slate-500 font-semibold mt-1">Floor ${item.floor} &bull; ${item.capacity}-Sharing</p>
                 <p class="text-[11px] text-slate-400 mt-0.5">${item.activeCount} / ${item.capacity} beds filled</p>
@@ -574,9 +590,7 @@
             <div>
               <div class="flex items-center gap-2">
                 <span class="text-base font-black text-slate-900">Room ${item.roomNumber}</span>
-                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${item.ac === 'Yes' ? 'bg-cyan-100 text-cyan-800' : 'bg-slate-100 text-slate-600'}">
-                  ${item.ac === 'Yes' ? 'AC' : 'Non-AC'}
-                </span>
+                ${getAcStatusBadge(item.ac, item.acUsing)}
                 <span class="text-xs text-slate-500 font-bold">&bull; ${item.capacity}-Sharing</span>
                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isDaily ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'}">
                   ${isDaily ? 'Daily Booking' : 'Monthly Advance Booking'}
@@ -628,9 +642,7 @@
             <div>
               <div class="flex items-center gap-2">
                 <span class="text-base font-black text-slate-900">Room ${item.roomNumber}</span>
-                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${item.ac === 'Yes' ? 'bg-cyan-100 text-cyan-800' : 'bg-slate-100 text-slate-600'}">
-                  ${item.ac === 'Yes' ? 'AC' : 'Non-AC'}
-                </span>
+                ${getAcStatusBadge(item.ac, item.acUsing)}
                 <span class="text-xs text-slate-500 font-bold">&bull; ${item.capacity}-Sharing</span>
                 ${stayTypeTag}
               </div>
