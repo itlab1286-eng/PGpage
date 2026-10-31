@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Elysium PG - New Resident Check-in</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script src="auth.js"></script>
 </head>
@@ -304,24 +304,13 @@
   </div>
 
   <script>
-    const APPS_SCRIPT_ENDPOINT = typeof APPS_SCRIPT_URL !== "undefined" 
-      ? APPS_SCRIPT_URL 
-      : (typeof APPS_SCRIPT_AUTH_URL !== "undefined" ? APPS_SCRIPT_AUTH_URL : "");
-
     let currentFloor = 1;
     let selectedRoom = "101";
 
-    const ROOMS_CONFIG = {
-      1: ["101", "102", "103", "104", "105", "106", "107"],
-      2: ["201", "202", "203", "204", "205", "206", "207"],
-      3: ["301", "302", "303", "304", "305", "306", "307"],
-      4: ["401", "402", "403", "404", "405", "406", "407"],
-      5: ["501", "502", "503", "504", "505", "506", "507"],
-      6: ["601", "602", "603", "604", "605", "606", "607"]
-    };
+    const ROOMS_CONFIG = PG_CONFIG.rooms; // edit rooms in auth.js
 
     window.addEventListener("DOMContentLoaded", async () => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = todayISO();
       document.getElementById("resJoiningDate").value = today;
       document.getElementById("initialPayDate").value = today;
 
@@ -487,7 +476,6 @@
 
       const payload = {
         action: "onboardNewResident",
-        pin: getStoredPin(),
         month: month,
         roomNumber: selectedRoom,
         name: cleanName,
@@ -506,55 +494,26 @@
         paymentMode: finalModeString
       };
 
-      if (fileInput.files.length > 0) {
-        const file = fileInput.files[0];
-        const ext = file.name.split('.').pop();
-        const formattedFileName = `${selectedRoom}_Doc_${cleanName.replace(/\s+/g, '_')}.${ext}`;
-
-        const base64Data = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result.split(",")[1]);
-          reader.readAsDataURL(file);
-        });
-
-        payload.fileName = formattedFileName;
-        payload.mimeType = file.type;
-        payload.fileData = base64Data;
-      }
-
       try {
-        const res = await fetch(APPS_SCRIPT_ENDPOINT, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
-        });
-
-        const rawText = await res.text();
-        let json = null;
-
-        try {
-          json = JSON.parse(rawText);
-        } catch (parseErr) {
-          if (rawText.includes("<!DOCTYPE") || rawText.includes("<html") || rawText.includes("Google Drive")) {
-            json = { status: "success", message: `Resident ${cleanName} registered in Room ${selectedRoom}!` };
-          } else {
-            throw new Error("Unable to parse server response.");
-          }
+        if (fileInput.files.length > 0) {
+          const prepared = await prepareUploadFile(fileInput.files[0]);
+          const ext = prepared.fileName.split('.').pop();
+          payload.fileName = `${selectedRoom}_Doc_${cleanName.replace(/\s+/g, '_')}.${ext}`;
+          payload.mimeType = prepared.mimeType;
+          payload.fileData = prepared.base64;
         }
 
-        if (json && json.status === "success") {
-          statusBox.className = "p-4 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
-          statusBox.innerHTML = `✓ ${json.message}`;
-          document.getElementById("onboardingForm").reset();
-          document.getElementById("splitPaymentToggle").checked = false;
-          document.getElementById("singlePaySection").classList.remove("hidden");
-          document.getElementById("splitPaySection").classList.add("hidden");
-          const today = new Date().toISOString().split("T")[0];
-          document.getElementById("resJoiningDate").value = today;
-          document.getElementById("initialPayDate").value = today;
-        } else {
-          throw new Error((json && json.message) || "Failed to onboard resident");
-        }
+        const json = await apiPost(payload);
+
+        statusBox.className = "p-4 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
+        statusBox.innerHTML = `✓ ${esc(json.message)}`;
+        document.getElementById("onboardingForm").reset();
+        document.getElementById("splitPaymentToggle").checked = false;
+        document.getElementById("singlePaySection").classList.remove("hidden");
+        document.getElementById("splitPaySection").classList.add("hidden");
+        const today = todayISO();
+        document.getElementById("resJoiningDate").value = today;
+        document.getElementById("initialPayDate").value = today;
       } catch (err) {
         statusBox.className = "p-4 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
         statusBox.innerText = `Error: ${err.message}`;

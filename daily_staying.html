@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Elysium PG - Daily Staying</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script src="auth.js"></script>
 </head>
@@ -573,8 +573,8 @@
     }
 
     window.addEventListener("DOMContentLoaded", () => {
-      const today = new Date().toISOString().split("T")[0];
-      const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+      const today = todayISO();
+      const tomorrow = addDaysISO(1);
       
       document.getElementById("inJoinedDate").value = today;
       document.getElementById("inJoinedTime").value = getCurrentTimeHHMM();
@@ -634,27 +634,11 @@
       container.innerHTML = `<div class="text-center py-12 text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Loading daily guests...</div>`;
 
       try {
-        const refreshParam = forceRefresh ? "&forceRefresh=true" : "";
-        const res = await fetch(`${APPS_SCRIPT_AUTH_URL}?action=getDailyGuests&month=${encodeURIComponent(month)}${refreshParam}`);
-        const rawText = await res.text();
-
-        let json;
-        try {
-          json = JSON.parse(rawText);
-        } catch(e) {
-          if (retries > 0) {
-            await new Promise(r => setTimeout(r, 800));
-            return loadDailyGuests(retries - 1, forceRefresh);
-          }
-          throw new Error("Server warming up. Please reload.");
-        }
-
-        if (json.status !== "success") throw new Error(json.message);
-
+        const json = await apiGet("getDailyGuests", { month: month, forceRefresh: forceRefresh ? "true" : "" });
         allGuests = json.guests || [];
         renderGuests();
       } catch (err) {
-        container.innerHTML = `<p class="text-xs text-rose-500 font-semibold p-4 bg-rose-50 rounded-2xl">Error: ${err.message}</p>`;
+        container.innerHTML = `<p class="text-xs text-rose-500 font-semibold p-4 bg-rose-50 rounded-2xl">Error: ${esc(err.message)}</p>`;
       }
     }
 
@@ -765,23 +749,23 @@
         card.innerHTML = `
           <div>
             <div class="flex items-center gap-2">
-              <span class="text-base font-black text-slate-900">Room ${g.roomNumber}</span>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">${g.sharing}</span>
+              <span class="text-base font-black text-slate-900">Room ${esc(g.roomNumber)}</span>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">${esc(g.sharing)}</span>
               <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-mono">${g.days} Days Stay</span>
               ${graceTag}
             </div>
             <p class="text-xs font-bold text-slate-800 mt-1 flex items-center gap-2">
-              <i class="fa-solid fa-user text-slate-400 text-xs"></i> ${g.name}
-              <span class="text-[11px] text-slate-400 font-normal">(${g.mobile})</span>
+              <i class="fa-solid fa-user text-slate-400 text-xs"></i> ${esc(g.name)}
+              <span class="text-[11px] text-slate-400 font-normal">(${esc(g.mobile)})</span>
             </p>
             <p class="text-[11px] text-slate-500 mt-0.5 flex flex-wrap items-center gap-1.5">
-              <span class="font-medium text-slate-700">${g.joinedDate}</span>
+              <span class="font-medium text-slate-700">${esc(g.joinedDate)}</span>
               <span class="text-slate-400">&rarr;</span>
-              <span class="font-bold text-slate-900">${g.vacatedDate}</span>
+              <span class="font-bold text-slate-900">${esc(g.vacatedDate)}</span>
               <span class="text-slate-300">&bull;</span>
               <span class="text-slate-400">${depositText}</span>
             </p>
-            ${g.actionItem ? `<p class="text-[10px] text-slate-400 italic mt-1">${g.actionItem}</p>` : ''}
+            ${g.actionItem ? `<p class="text-[10px] text-slate-400 italic mt-1">${esc(g.actionItem)}</p>` : ''}
           </div>
 
           <div class="flex flex-col sm:items-end gap-2">
@@ -917,8 +901,8 @@
       document.getElementById("splitPaymentToggle").checked = false;
       document.getElementById("inSinglePaySection").classList.remove("hidden");
       document.getElementById("inSplitPaySection").classList.add("hidden");
-      const today = new Date().toISOString().split("T")[0];
-      const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+      const today = todayISO();
+      const tomorrow = addDaysISO(1);
       document.getElementById("inJoinedDate").value = today;
       document.getElementById("inJoinedTime").value = getCurrentTimeHHMM();
       document.getElementById("inVacatedDate").value = tomorrow;
@@ -953,7 +937,7 @@
 
       const baseVacDate = parseSafeDate(guest.vacatedDate) || new Date();
       const minDateObj = new Date(baseVacDate.getTime() + 86400000);
-      const minDateStr = minDateObj.toISOString().split("T")[0];
+      const minDateStr = toLocalISO(minDateObj);
 
       const dateInput = document.getElementById("extNewVacatedDate");
       dateInput.min = minDateStr;
@@ -1003,7 +987,7 @@
 
       document.getElementById("coRowIndex").value = guest.rowIndex;
       document.getElementById("checkoutGuestSubtitle").innerText = `Room ${guest.roomNumber} - ${guest.name}`;
-      document.getElementById("coVacatedDate").value = new Date().toISOString().split("T")[0];
+      document.getElementById("coVacatedDate").value = todayISO();
       document.getElementById("coVacatedTime").value = getCurrentTimeHHMM();
 
       // Configure Balance Section
@@ -1051,29 +1035,10 @@
     // SAFE FETCH HELPER
     // ==========================================
     async function safePostToSheet(payload, defaultSuccessMessage) {
-      const res = await fetch(APPS_SCRIPT_AUTH_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(payload)
-      });
-
-      const rawText = await res.text();
-      let json = null;
-
-      try {
-        json = JSON.parse(rawText);
-      } catch (e) {
-        if (rawText.includes("<!DOCTYPE") || rawText.includes("<html") || rawText.includes("Google Drive") || rawText.includes("operational")) {
-          return { status: "success", message: defaultSuccessMessage };
-        }
-        throw new Error("Unable to parse server response.");
-      }
-
-      if (json && json.status === "error") {
-        throw new Error(json.message || "Failed operation in sheet.");
-      }
-
-      return json || { status: "success", message: defaultSuccessMessage };
+      // apiPost only resolves when the server confirms success; anything else throws
+      const json = await apiPost(payload);
+      if (!json.message) json.message = defaultSuccessMessage;
+      return json;
     }
 
     // ==========================================
@@ -1118,7 +1083,6 @@
 
       const payload = {
         action: "checkInDailyGuest",
-        pin: getStoredPin(),
         month: document.getElementById("monthSelect").value,
         roomNumber: roomNum,
         name: guestName,
@@ -1138,7 +1102,7 @@
         const result = await safePostToSheet(payload, `Guest ${guestName} registered in Room ${roomNum}!`);
         
         statusBox.className = "p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
-        statusBox.innerHTML = `✓ ${result.message}`;
+        statusBox.innerHTML = `✓ ${esc(result.message)}`;
         setTimeout(() => {
           closeCheckInModal();
           loadDailyGuests(2, true);
@@ -1205,13 +1169,14 @@
 
       const payload = {
         action: "extendDailyStay",
-        pin: getStoredPin(),
         month: document.getElementById("monthSelect").value,
         rowIndex: document.getElementById("extRowIndex").value,
         newVacatedDate: fullNewVacated,
         newDays: totalDays,
-        newPaid: existingPaid + additionalPaid,
-        newBalance: existingBalance + additionalBalance,
+        guestName: (allGuests.find(g => String(g.rowIndex) === String(document.getElementById("extRowIndex").value)) || {}).name,
+        roomNumber: (allGuests.find(g => String(g.rowIndex) === String(document.getElementById("extRowIndex").value)) || {}).roomNumber,
+        additionalPaid: additionalPaid,
+        additionalBalance: additionalBalance,
         additionalMode: additionalModeStr,
         depositAdjustedAmount: depositAdjustAmt
       };
@@ -1220,7 +1185,7 @@
         const result = await safePostToSheet(payload, `Stay extended till ${fullNewVacated}!`);
 
         statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
-        statusBox.innerHTML = `✓ ${result.message}`;
+        statusBox.innerHTML = `✓ ${esc(result.message)}`;
         setTimeout(() => {
           closeExtendModal();
           loadDailyGuests(2, true);
@@ -1263,9 +1228,10 @@
 
       const payload = {
         action: "checkOutDailyGuest",
-        pin: getStoredPin(),
         month: document.getElementById("monthSelect").value,
         rowIndex: document.getElementById("coRowIndex").value,
+        guestName: (allGuests.find(g => String(g.rowIndex) === String(document.getElementById("coRowIndex").value)) || {}).name,
+        roomNumber: (allGuests.find(g => String(g.rowIndex) === String(document.getElementById("coRowIndex").value)) || {}).roomNumber,
         vacatedDate: fullVacated,
         balanceCollected: balCollected,
         balancePaymentMode: balModeStr,
@@ -1277,7 +1243,7 @@
         const result = await safePostToSheet(payload, "Guest checkout & balance settled successfully!");
 
         statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
-        statusBox.innerHTML = `✓ ${result.message}`;
+        statusBox.innerHTML = `✓ ${esc(result.message)}`;
         setTimeout(() => {
           closeCheckOutModal();
           loadDailyGuests(2, true);
@@ -1292,4 +1258,4 @@
     }
   </script>
 </body>
-</html>
+</html>

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Elysium PG Resident Hub</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="auth.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
@@ -51,9 +51,6 @@
   <i class="fa-solid fa-arrow-left"></i> Home
 </a>
       <div class="flex items-center gap-2">
-        <button onclick="openSettingsModal()" class="px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-2 transition">
-          <i class="fa-solid fa-gear"></i> Drive Endpoint
-        </button>
         <button onclick="logoutApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition" title="Lock App">
   <i class="fa-solid fa-arrow-right-from-bracket"></i>
 </button>
@@ -155,27 +152,6 @@
   </div>
 
   <!-- ENDPOINT SETTINGS MODAL -->
-  <div id="settingsModal" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-base font-bold text-slate-900"><i class="fa-solid fa-link text-blue-600 mr-1"></i> Apps Script Web App URL</h3>
-        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
-      </div>
-      <p class="text-xs text-slate-500 mb-3">Modify active endpoint for this session:</p>
-      
-      <input type="url" id="apiUrlInput" placeholder="https://script.google.com/macros/s/.../exec"
-             class="w-full text-xs font-mono p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4" />
-
-      <div class="flex gap-2">
-        <button onclick="saveApiUrl()" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition">
-          Apply URL
-        </button>
-        <button onclick="closeSettingsModal()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">
-          Close
-        </button>
-      </div>
-    </div>
-  </div>
 
   <script>
     // ==========================================
@@ -185,7 +161,6 @@
 
     let currentFloor = 1;
     let selectedRoom = "101";
-    let activePin = ""; // RAM only (never cached to disk)
 
     window.addEventListener("DOMContentLoaded", () => {
       buildRoomsGrid(1);
@@ -205,25 +180,6 @@
       verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
         document.getElementById("pinLockModal").classList.add("hidden");
       });
-    }
-
-    function unlockApp() {
-      const pinInput = document.getElementById("staffPinInput");
-      const pin = pinInput.value.trim();
-      if (pin.length >= 4) {
-        activePin = pin;
-        pinInput.value = "";
-        document.getElementById("pinErrorMsg").classList.add("hidden");
-        document.getElementById("pinLockModal").classList.add("hidden");
-      } else {
-        document.getElementById("pinErrorMsg").classList.remove("hidden");
-      }
-    }
-
-    function lockApp() {
-      activePin = "";
-      document.getElementById("staffPinInput").value = "";
-      document.getElementById("pinLockModal").classList.remove("hidden");
     }
 
     function showFloor(floorNum) {
@@ -288,22 +244,28 @@
       }
     }
 
-    function openSettingsModal() {
-      document.getElementById("apiUrlInput").value = APPS_SCRIPT_URL;
-      document.getElementById("settingsModal").classList.remove("hidden");
-    }
+    async function handleUpload(e) {
+      e.preventDefault();
 
-    function closeSettingsModal() {
-      document.getElementById("settingsModal").classList.add("hidden");
-    }
-
-    function saveApiUrl() {
-      const url = document.getElementById("apiUrlInput").value.trim();
-      if (url) {
-        APPS_SCRIPT_URL = url; // Replaces variable in RAM for current session
-        alert("Endpoint updated for this session.");
+      const fileInput = document.getElementById("fileInput");
+      let ext = "pdf";
+      if (fileInput.files.length > 0) {
+        const parts = fileInput.files[0].name.split(".");
+        if (parts.length > 1) ext = parts.pop();
       }
-      closeSettingsModal();
+      const formatted = `${selectedRoom}_${docType}_${resName}.${ext}`;
+      document.getElementById("previewAutoName").innerText = formatted;
+      return formatted;
+    }
+
+    function previewSelectedFile() {
+      const fileInput = document.getElementById("fileInput");
+      if (fileInput.files.length > 0) {
+        document.getElementById("dropPrompt").classList.add("hidden");
+        document.getElementById("fileSelectedDisplay").classList.remove("hidden");
+        document.getElementById("fileNamePreview").innerText = fileInput.files[0].name;
+        updatePreviewName();
+      }
     }
 
     async function handleUpload(e) {
@@ -332,68 +294,36 @@
       statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
       statusBox.innerText = `Uploading ${finalFileName} to Elysium PG / ${selectedRoom}...`;
 
-      const reader = new FileReader();
-      reader.onload = async function() {
-        const payload = {
-          pin: getStoredPin(),
+      try {
+        const prepared = await prepareUploadFile(file);
+        const result = await apiPost({
+          action: "uploadResidentDocument",
           roomNumber: selectedRoom,
           resident: resident,
           fileName: finalFileName,
-          mimeType: file.type || "application/octet-stream",
-          base64: reader.result
-        };
+          mimeType: prepared.mimeType,
+          base64: prepared.base64
+        });
 
-        try {
-          const response = await fetch(APPS_SCRIPT_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "text/plain;charset=utf-8"
-            },
-            body: JSON.stringify(payload)
-          });
+        statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
+        statusBox.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1.5"></i> Document uploaded successfully to Room ${esc(selectedRoom)}!`;
 
-          const rawText = await response.text();
-          let isSuccess = false;
+        setTimeout(() => {
+          statusBox.classList.add("hidden");
+        }, 5000);
 
-          try {
-            const result = JSON.parse(rawText);
-            if (result.status === "success") {
-              isSuccess = true;
-            } else if (result.status === "error") {
-              throw new Error(result.message || "Upload failed");
-            }
-          } catch (parseErr) {
-            // Google's redirect returns an HTML page (ppConfig) after successfully saving the file
-            if (rawText.includes("<!DOCTYPE") || rawText.includes("ppConfig")) {
-              isSuccess = true;
-            } else {
-              throw new Error(parseErr.message || "Server communication error");
-            }
-          }
-
-          if (isSuccess) {
-            statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
-            statusBox.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1.5"></i> Document uploaded successfully to Room ${selectedRoom}!`;
-
-            setTimeout(() => {
-              statusBox.classList.add("hidden");
-            }, 5000);
-
-            document.getElementById("uploadForm").reset();
-            document.getElementById("dropPrompt").classList.remove("hidden");
-            document.getElementById("fileSelectedDisplay").classList.add("hidden");
-            updatePreviewName();
-          }
-        } catch (err) {
-          statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
-          statusBox.innerText = "Error: " + err.message;
-        } finally {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>Upload to Common Drive</span>`;
-        }
-      };
-      reader.readAsDataURL(file);
+        document.getElementById("uploadForm").reset();
+        document.getElementById("dropPrompt").classList.remove("hidden");
+        document.getElementById("fileSelectedDisplay").classList.add("hidden");
+        updatePreviewName();
+      } catch (err) {
+        statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
+        statusBox.innerText = "Error: " + err.message;
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>Upload to Common Drive</span>`;
+      }
     }
   </script>
 </body>
-</html>
+</html>

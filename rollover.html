@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Elysium PG - Monthly Rollover</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="auth.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 </head>
@@ -171,16 +171,24 @@
         });
       }
 
+      document.getElementById("sourceMonthSelect").addEventListener("change", syncTargetMonth);
+
       if (isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
-        initDynamicMonthSelect("sourceMonthSelect");
+        initDynamicMonthSelect("sourceMonthSelect").then(syncTargetMonth);
       }
     });
+
+    // Suggests the month that follows the chosen source month
+    function syncTargetMonth() {
+      const next = nextMonthName(document.getElementById("sourceMonthSelect").value);
+      if (next) document.getElementById("targetMonthInput").value = next;
+    }
 
     function unlockApp() {
       verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
         document.getElementById("pinLockModal").classList.add("hidden");
-        initDynamicMonthSelect("sourceMonthSelect");
+        initDynamicMonthSelect("sourceMonthSelect").then(syncTargetMonth);
       });
     }
 
@@ -191,9 +199,7 @@
       btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Scanning sheets...`;
 
       try {
-        const res = await fetch(`${APPS_SCRIPT_URL}?action=getRolloverPreview&sourceMonth=${encodeURIComponent(sourceMonth)}`);
-        const json = await res.json();
-        if (json.status !== "success") throw new Error(json.message);
+        const json = await apiGet("getRolloverPreview", { sourceMonth: sourceMonth });
 
         previewData = json;
         renderReviewBoard();
@@ -219,12 +225,12 @@
         depContainer.innerHTML = depList.map((d, i) => `
           <div class="p-2.5 bg-rose-50/50 rounded-xl border border-rose-100 flex items-center justify-between gap-2">
             <div>
-              <p class="font-bold text-slate-800">Room ${d.room} &bull; ${d.name}</p>
-              <p class="text-[10px] text-slate-500">Leaving: ${d.vacatingDate} (Std: ₹${d.standardRent})</p>
+              <p class="font-bold text-slate-800">Room ${esc(d.room)} &bull; ${esc(d.name)}</p>
+              <p class="text-[10px] text-slate-500">Leaving: ${esc(d.vacatingDate)} (Std: ₹${d.standardRent})</p>
             </div>
             <div class="flex items-center gap-1.5">
-              <span class="text-[11px] font-bold text-slate-500">Nov Rent: ₹</span>
-              <input type="number" id="depRent_${i}" value="${d.suggestedRent}" data-name="${d.name}" data-date="${d.vacatingDate}"
+              <span class="text-[11px] font-bold text-slate-500">Next-month Rent: ₹</span>
+              <input type="number" id="depRent_${i}" value="${d.suggestedRent}" data-key="${esc(d.room)}|${esc(d.name)}" data-date="${esc(d.vacatingDate)}"
                      class="w-20 px-2 py-1 font-bold font-mono border border-rose-200 rounded-lg text-rose-700 bg-white" />
             </div>
           </div>
@@ -241,8 +247,8 @@
         shiftContainer.innerHTML = shiftList.map(s => `
           <div class="p-2.5 bg-indigo-50/50 rounded-xl border border-indigo-100 flex items-center justify-between">
             <div>
-              <p class="font-bold text-slate-800">Room ${s.room} &bull; ${s.name}</p>
-              <p class="text-[10px] text-slate-500 italic">${s.remarks}</p>
+              <p class="font-bold text-slate-800">Room ${esc(s.room)} &bull; ${esc(s.name)}</p>
+              <p class="text-[10px] text-slate-500 italic">${esc(s.remarks)}</p>
             </div>
             <span class="font-bold font-mono text-indigo-700">₹${s.standardRent}/mo</span>
           </div>
@@ -259,12 +265,12 @@
         duesContainer.innerHTML = duesList.map((u, i) => `
           <div class="p-2.5 bg-amber-50/50 rounded-xl border border-amber-100 flex items-center justify-between">
             <div>
-              <p class="font-bold text-slate-800">Room ${u.room} &bull; ${u.name}</p>
+              <p class="font-bold text-slate-800">Room ${esc(u.room)} &bull; ${esc(u.name)}</p>
               <p class="text-[10px] text-amber-700 font-bold">Unpaid Balance: ₹${u.balance}</p>
             </div>
             <label class="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 cursor-pointer">
-              <input type="checkbox" id="carryDue_${i}" data-name="${u.name}" data-balance="${u.balance}" class="rounded text-purple-600" />
-              <span>Carry Note</span>
+              <input type="checkbox" id="carryDue_${i}" data-key="${esc(u.room)}|${esc(u.name)}" data-balance="${esc(u.balance)}" class="rounded text-purple-600" />
+              <span>Carry forward as arrears</span>
             </label>
           </div>
         `).join("");
@@ -279,9 +285,9 @@
       } else {
         droppedContainer.innerHTML = dropList.map((dr, i) => `
           <div class="p-2 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-slate-500">
-            <span>Room ${dr.room} &bull; ${dr.name} (Vacated ${dr.vacatedOn})</span>
+            <span>Room ${esc(dr.room)} &bull; ${esc(dr.name)} (Vacated ${esc(dr.vacatedOn)})${dr.balance > 0 ? ` <b class="text-amber-700">unpaid ₹${dr.balance}</b>` : ""}</span>
             <label class="text-[10px] font-bold text-purple-600 flex items-center gap-1 cursor-pointer">
-              <input type="checkbox" id="keepRes_${i}" data-name="${dr.name}" /> Keep in Nov
+              <input type="checkbox" id="keepRes_${i}" data-key="${esc(dr.room)}|${esc(dr.name)}" /> Keep in next month
             </label>
           </div>
         `).join("");
@@ -302,7 +308,7 @@
 
       const departuresOverride = {};
       document.querySelectorAll("[id^='depRent_']").forEach(input => {
-        departuresOverride[input.dataset.name] = {
+        departuresOverride[input.dataset.key] = {
           rent: input.value,
           date: input.dataset.date
         };
@@ -310,17 +316,16 @@
 
       const carryArrearsOverride = {};
       document.querySelectorAll("[id^='carryDue_']:checked").forEach(box => {
-        carryArrearsOverride[box.dataset.name] = box.dataset.balance;
+        carryArrearsOverride[box.dataset.key] = box.dataset.balance;
       });
 
       const keepResidentsList = [];
       document.querySelectorAll("[id^='keepRes_']:checked").forEach(box => {
-        keepResidentsList.push(box.dataset.name);
+        keepResidentsList.push(box.dataset.key);
       });
 
       const payload = {
         action: "executeRollover",
-        pin: getStoredPin(),
         sourceMonth: document.getElementById("sourceMonthSelect").value,
         targetMonth: targetMonth,
         forceOverwrite: force,
@@ -332,12 +337,17 @@
       };
 
       try {
-        const res = await fetch(APPS_SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
-        });
-        const json = await res.json();
+        let json;
+        try {
+          json = await apiPost(payload);
+        } catch (postErr) {
+          // The server answers "already_exists" with a non-success status; treat that as a prompt, not a failure
+          if (postErr.response && postErr.response.status === "already_exists") {
+            json = postErr.response;
+          } else {
+            throw postErr;
+          }
+        }
 
         // Target already exists alert
         if (json.status === "already_exists") {
@@ -346,7 +356,7 @@
             <div class="flex items-start gap-2">
               <i class="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5"></i>
               <div>
-                <p class="font-bold">${json.message}</p>
+                <p class="font-bold">${esc(json.message)}</p>
                 <div class="mt-2 flex gap-2">
                   <button onclick="executeRollover(true)" class="px-3 py-1 bg-rose-600 text-white rounded-lg font-bold text-[11px] hover:bg-rose-700 transition">
                     Force Re-create (Overwrite)
@@ -362,10 +372,8 @@
           return;
         }
 
-        if (json.status !== "success") throw new Error(json.message);
-
         log.className = "mt-3 p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
-        log.innerHTML = `✓ ${json.message} <br><a href="${json.newUrl}" target="_blank" class="underline font-bold mt-1 inline-block">Open New Workbook in Drive &rarr;</a>`;
+        log.innerHTML = `✓ ${esc(json.message)} <br><a href="${esc(json.newUrl)}" target="_blank" class="underline font-bold mt-1 inline-block">Open New Workbook in Drive &rarr;</a>`;
 
       } catch (err) {
         log.className = "mt-3 p-3 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 block";

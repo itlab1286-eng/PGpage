@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Elysium PG - Expenses</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="auth.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 </head>
@@ -274,7 +274,7 @@
       if (remInput) remInput.value = "";
 
       const dateInput = document.getElementById("expenseDate");
-      if (dateInput) dateInput.value = new Date().toISOString().split("T")[0];
+      if (dateInput) dateInput.value = todayISO();
 
       const monthSelect = document.getElementById("monthSelect");
       const targetMonth = document.getElementById("expenseTargetMonth");
@@ -311,18 +311,14 @@
       container.innerHTML = `<div class="text-center py-12 text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Loading spends for ${month}...</div>`;
 
       try {
-        const forceParam = force ? "&forceRefresh=true" : "";
-        const res = await fetch(`${APPS_SCRIPT_URL}?action=getExpensesData&month=${encodeURIComponent(month)}${forceParam}`);
-        const json = await res.json();
-
-        if (json.status !== "success") throw new Error(json.message || "Failed loading data");
+        const json = await apiGet("getExpensesData", { month: month, forceRefresh: force ? "true" : "" });
 
         expensesData = json.expenses || [];
         updateMetrics(json.totals || { grandTotal: 0, byPerson: {} });
         renderExpensesList();
 
       } catch (err) {
-        container.innerHTML = `<div class="p-6 text-center text-xs text-rose-500 font-bold bg-rose-50 rounded-2xl">Error: ${err.message}</div>`;
+        container.innerHTML = `<div class="p-6 text-center text-xs text-rose-500 font-bold bg-rose-50 rounded-2xl">Error: ${esc(err.message)}</div>`;
       }
     }
 
@@ -364,11 +360,11 @@
         card.innerHTML = `
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="text-xs font-black text-slate-900 truncate">${item.itemPurpose}</span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${item.spentBy}</span>
+              <span class="text-xs font-black text-slate-900 truncate">${esc(item.itemPurpose)}</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${esc(item.spentBy)}</span>
             </div>
             <p class="text-[11px] text-slate-400 mt-0.5">
-              ${item.date} ${item.remarks ? `&bull; <span class="italic text-slate-500">${item.remarks}</span>` : ""}
+              ${esc(item.date)} ${item.remarks ? `&bull; <span class="italic text-slate-500">${esc(item.remarks)}</span>` : ""}
             </p>
           </div>
 
@@ -379,7 +375,7 @@
               <button onclick="startEditExpense(${item.rowIndex})" class="w-7 h-7 rounded-lg bg-slate-50 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs transition" title="Edit">
                 <i class="fa-solid fa-pen"></i>
               </button>
-              <button onclick="confirmDeleteExpense(${item.rowIndex}, '${item.itemPurpose}', ${item.amount})" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center text-xs transition" title="Delete">
+              <button onclick="confirmDeleteExpense(${item.rowIndex})" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center text-xs transition" title="Delete">
                 <i class="fa-solid fa-trash-can"></i>
               </button>
             </div>
@@ -387,6 +383,12 @@
         `;
         container.appendChild(card);
       });
+    }
+
+    // What the row looked like when the list was loaded - the server re-checks it before editing/deleting
+    function expectedFor(rowIndex) {
+      const item = expensesData.find(e => e.rowIndex === rowIndex);
+      return item ? { itemPurpose: item.itemPurpose, amount: item.amount, spentBy: item.spentBy } : null;
     }
 
     function startEditExpense(rowIndex) {
@@ -448,9 +450,9 @@
       const targetMonth = document.getElementById("expenseTargetMonth").value;
       const payload = {
         action: isEditing ? "updateExpense" : "recordExpense",
-        pin: getStoredPin(),
         month: targetMonth,
         rowIndex: editingRow,
+        expected: isEditing ? expectedFor(Number(editingRow)) : undefined,
         date: document.getElementById("expenseDate").value,
         itemPurpose: document.getElementById("expenseItem").value.trim(),
         amount: document.getElementById("expenseAmount").value,
@@ -459,39 +461,17 @@
       };
 
       try {
-        const res = await fetch(APPS_SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
-        });
+        await apiPost(payload);
 
-        const rawText = await res.text();
-    let json;
-    try { 
-      json = JSON.parse(rawText); 
-    } catch (parseErr) { 
-      // If server returned plain text (like 'operational' message), it succeeded
-      json = { status: "success", message: rawText }; 
-    }
+        statusBox.className = "p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
+        statusBox.innerHTML = isEditing ? `✓ Expense updated successfully!` : `✓ Expense of ₹${esc(payload.amount)} saved!`;
 
-    // Treat 'operational' message as success
-    const isSuccess = json.status === "success" || 
-                      (json.message && json.message.includes("operational")) ||
-                      rawText.includes("operational");
+        resetExpenseForm();
+        setTimeout(() => { statusBox.classList.add("hidden"); }, 3000);
 
-    if (isSuccess) {
-      statusBox.className = "p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
-      statusBox.innerHTML = isEditing ? `✓ Expense updated successfully!` : `✓ Expense of ₹${payload.amount} saved!`;
-
-      resetExpenseForm();
-      setTimeout(() => { statusBox.classList.add("hidden"); }, 3000);
-
-      if (document.getElementById("monthSelect").value === targetMonth) {
-        loadExpenses(true);
-      }
-    } else {
-      throw new Error(json.message || "Operation failed");
-    }
+        if (document.getElementById("monthSelect").value === targetMonth) {
+          loadExpenses(true);
+        }
       } catch (err) {
         statusBox.className = "p-3 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 block";
         statusBox.innerText = "Error: " + err.message;
@@ -505,10 +485,12 @@
     }
 
     // --- IN-PAGE MODAL DELETE SYSTEM ---
-    function confirmDeleteExpense(rowIndex, itemPurpose, amount) {
+    function confirmDeleteExpense(rowIndex) {
+      const item = expensesData.find(e => e.rowIndex === rowIndex);
+      if (!item) return;
       pendingDeleteRow = rowIndex;
-      document.getElementById("delModalItem").innerText = `"${itemPurpose}"`;
-      document.getElementById("delModalAmt").innerText = `₹${amount.toLocaleString("en-IN")}`;
+      document.getElementById("delModalItem").innerText = `"${item.itemPurpose}"`;
+      document.getElementById("delModalAmt").innerText = `₹${item.amount.toLocaleString("en-IN")}`;
       
       const modal = document.getElementById("deleteConfirmModal");
       modal.classList.remove("hidden");
@@ -533,30 +515,19 @@
 
       const month = document.getElementById("monthSelect").value;
       try {
-        const res = await fetch(APPS_SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({
-            action: "deleteExpense",
-            pin: getStoredPin(),
-            month: month,
-            rowIndex: pendingDeleteRow
-          })
+        await apiPost({
+          action: "deleteExpense",
+          month: month,
+          rowIndex: pendingDeleteRow,
+          expected: expectedFor(pendingDeleteRow)
         });
-
-        const json = await res.json();
-        if (json.status === "success") {
-          closeDeleteModal();
-          loadExpenses(true);
-        } else {
-          alert("Failed to delete: " + (json.message || "Unknown error"));
-          closeDeleteModal();
-        }
+        closeDeleteModal();
+        loadExpenses(true);
       } catch (e) {
-        alert("Connection error while deleting.");
+        alert("Failed to delete: " + e.message);
         closeDeleteModal();
       }
     }
   </script>
 </body>
-</html>
+</html>

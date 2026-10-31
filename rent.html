@@ -4,8 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Elysium PG - Rent & Dues Ledger</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="auth.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="receipt.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     .room-btn.active { background-color: #4f46e5; color: #ffffff; border-color: #4338ca; }
@@ -363,7 +365,7 @@
 
             <div>
               <div class="flex items-center justify-between mb-1">
-                <label class="text-xs font-bold text-slate-700">Total Rent Received (₹)</label>
+                <label id="payAmountLabel" class="text-xs font-bold text-slate-700">Amount Received Now (₹)</label>
                 <div class="flex items-center gap-3">
                   <label class="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-indigo-600 hover:text-indigo-800">
                     <input type="checkbox" id="splitPaymentToggle" onchange="toggleSplitPayment()" class="rounded text-indigo-600 focus:ring-0 cursor-pointer" />
@@ -374,8 +376,15 @@
                   </button>
                 </div>
               </div>
-              <input type="number" id="payAmount" required
+              <input type="number" id="payAmount" required min="0" step="1" oninput="updatePaySummary()"
                      class="w-full text-base font-bold px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-slate-800" />
+              <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <p id="paySummaryLine" class="text-[11px] font-semibold text-slate-500"></p>
+                <label class="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-500 hover:text-slate-800">
+                  <input type="checkbox" id="payReplaceToggle" onchange="onPayTypeChange()" class="rounded text-indigo-600 focus:ring-0 cursor-pointer" />
+                  <span>Correct the total instead</span>
+                </label>
+              </div>
             </div>
 
             <!-- Pro-Rate Calculator Panel -->
@@ -501,6 +510,11 @@
           </form>
 
           <div id="ledgerStatusBox" class="mt-4 p-3 rounded-xl text-xs font-semibold hidden"></div>
+
+          <div id="paymentHistoryBox" class="mt-5 pt-4 border-t border-slate-100 hidden">
+            <p class="text-[11px] font-bold text-slate-400 mb-2">Payments recorded this month</p>
+            <div id="paymentHistoryList" class="space-y-1.5"></div>
+          </div>
         </div>
 
       </div>
@@ -537,6 +551,27 @@
 
   </div>
 
+  <!-- RECEIPT MODAL -->
+  <div id="receiptModal" class="fixed inset-0 z-40 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-base font-black text-slate-900">Payment receipt</h3>
+        <button type="button" onclick="closeReceiptModal()" class="text-slate-400 hover:text-slate-600 text-lg" aria-label="Close">&times;</button>
+      </div>
+      <div id="receiptPreview" class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs space-y-1.5"></div>
+      <div id="receiptStatus" class="hidden"></div>
+      <div class="mt-4 space-y-2">
+        <button type="button" id="receiptShareBtn" onclick="shareReceiptPdf()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 text-sm transition">
+          <i class="fa-brands fa-whatsapp text-base"></i><span>Share PDF on WhatsApp</span>
+        </button>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" id="receiptChatBtn" onclick="openReceiptChat()" class="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">Open resident's chat</button>
+          <button type="button" onclick="downloadReceiptPdf()" class="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">Download PDF</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     let currentFloor = 1;
     let selectedRoom = "101";
@@ -548,18 +583,11 @@
     let ignoredDuesKeys = JSON.parse(sessionStorage.getItem("elysium_ignored_dues") || "{}");
     let currentDuesFilter = "ALL";
 
-    const ROOMS_CONFIG = {
-      1: ["101", "102", "103", "104", "105", "106", "107"],
-      2: ["201", "202", "203", "204", "205", "206", "207"],
-      3: ["301", "302", "303", "304", "305", "306", "307"],
-      4: ["401", "402", "403", "404", "405", "406", "407"],
-      5: ["501", "502", "503", "504", "505", "506", "507"],
-      6: ["601", "602", "603", "604", "605", "606", "607"]
-    };
+    const ROOMS_CONFIG = PG_CONFIG.rooms; // edit rooms in auth.js
 
     window.addEventListener("DOMContentLoaded", () => {
       buildRoomsGrid(1);
-      document.getElementById("payDate").value = new Date().toISOString().split("T")[0];
+      document.getElementById("payDate").value = todayISO();
 
       if (isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
@@ -674,41 +702,27 @@
       container.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Loading Room ${selectedRoom} residents...</div>`;
 
       try {
-        const refreshQuery = forceRefresh ? "&forceRefresh=true" : "";
-        const res = await fetch(`${APPS_SCRIPT_URL}?action=getResidentsByRoom&roomNumber=${selectedRoom}&month=${encodeURIComponent(month)}${refreshQuery}`);
-        const rawText = await res.text();
-        
-        let json;
-        try {
-          json = JSON.parse(rawText);
-        } catch (parseErr) {
-          if (retries > 0) {
-            await new Promise(resolve => setTimeout(resolve, 800));
-            return loadRoomResidents(retries - 1, forceRefresh);
-          }
-          throw new Error("Server warming up. Please tap the room again.");
-        }
-
-        if (json.status !== "success") {
-          throw new Error(json.message || "Failed loading data");
-        }
+        const json = await apiGet("getResidentsByRoom", {
+          roomNumber: selectedRoom, month: month, includeVacated: "true", forceRefresh: forceRefresh ? "true" : ""
+        });
 
         const rawList = json.residents || [];
-        const todayStr = new Date().toISOString().split("T")[0];
+        const todayStr = todayISO();
 
+        // Residents who already left stay visible only while they still owe money
         activeResidents = rawList.filter(r => {
-          if (!r.vacatedOn) return true;
-          return r.vacatedOn >= todayStr;
+          if (!r.vacatedOn || r.vacatedOn >= todayStr) return true;
+          return ((parseFloat(r.expectedRent) || 0) + (parseFloat(r.arrears) || 0) - (parseFloat(r.rentPaid) || 0)) > 0;
         });
 
         if (activeResidents.length === 0) {
-          container.innerHTML = `<p class="text-xs text-slate-500 italic p-3 bg-slate-50 rounded-xl">No active residents recorded for Room ${selectedRoom} in ${month}.</p>`;
+          container.innerHTML = `<p class="text-xs text-slate-500 italic p-3 bg-slate-50 rounded-xl">No active residents recorded for Room ${esc(selectedRoom)} in ${esc(month)}.</p>`;
           return;
         }
 
         container.innerHTML = "";
         activeResidents.forEach((r, idx) => {
-          const expectedRent = parseFloat(r.expectedRent) || 0;
+          const expectedRent = (parseFloat(r.expectedRent) || 0) + (parseFloat(r.arrears) || 0); // rent + carried-forward arrears
           const rentPaid = parseFloat(r.rentPaid) || 0;
           const dueAmt = Math.max(0, expectedRent - rentPaid);
           const isFullyPaid = (expectedRent > 0 && rentPaid >= expectedRent);
@@ -741,8 +755,10 @@
           card.className = `resident-card p-3 rounded-xl border cursor-pointer hover:border-indigo-400 transition flex items-center justify-between ${cardBg}`;
 
           let noticeTag = "";
-          if (r.vacatedOn) {
-            noticeTag = `<span class="text-[10px] text-amber-600 font-bold ml-1.5">(Leaving: ${r.vacatedOn})</span>`;
+          if (r.vacated) {
+            noticeTag = `<span class="text-[10px] text-rose-600 font-bold ml-1.5">(Left on ${esc(r.vacatedOn)} - dues pending)</span>`;
+          } else if (r.vacatedOn) {
+            noticeTag = `<span class="text-[10px] text-amber-600 font-bold ml-1.5">(Leaving: ${esc(r.vacatedOn)})</span>`;
           }
 
           const residentDeposit = Number(r.advance || r.advancePaid || 3000);
@@ -751,19 +767,19 @@
             <div class="flex-1 min-w-0" onclick="chooseResident(${idx})">
               <p class="text-sm font-black text-slate-800 flex items-center gap-1.5">
                 <i class="fa-solid fa-user text-xs ${isFullyPaid || isIgnored ? 'text-emerald-600' : (isPartial ? 'text-amber-500' : 'text-slate-400')}"></i>
-                <span class="truncate">${r.name}</span>
+                <span class="truncate">${esc(r.name)}</span>
                 ${noticeTag}
               </p>
-              <p class="text-[11px] text-slate-500 font-semibold mt-0.5">Rent: ₹${r.expectedRent} &bull; ${r.mobile || 'No Mobile'}</p>
+              <p class="text-[11px] text-slate-500 font-semibold mt-0.5">Rent: ₹${esc(r.expectedRent)}${r.arrears > 0 ? ` + ₹${esc(r.arrears)} arrears` : ''} &bull; ${esc(r.mobile) || 'No Mobile'}</p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
-              <button type="button" onclick="event.stopPropagation(); openShiftModal('${selectedRoom}', '${r.name}', '${r.mobile || ''}', ${r.expectedRent}, ${residentDeposit}, ${r.rentPaid || 0})" 
+              <button type="button" onclick="event.stopPropagation(); openShiftFor(${idx})" 
                       class="px-2 py-1 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl transition flex items-center gap-1" title="Shift Room">
                 <i class="fa-solid fa-arrows-split-up-and-left text-[10px]"></i>
                 <span>Shift</span>
               </button>
 
-              <button type="button" onclick="event.stopPropagation(); openAdvanceModal('${r.name}', '${selectedRoom}', ${residentDeposit})" 
+              <button type="button" onclick="event.stopPropagation(); openAdvanceFor(${idx})" 
                       class="px-2 py-1 text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl transition flex items-center gap-1" title="Return Advance">
                 <i class="fa-solid fa-hand-holding-dollar text-[10px]"></i>
                 <span>Return Adv</span>
@@ -776,8 +792,21 @@
         });
 
       } catch (err) {
-        container.innerHTML = `<p class="text-xs text-red-500 font-semibold p-3 bg-red-50 rounded-xl">Error: ${err.message}</p>`;
+        container.innerHTML = `<p class="text-xs text-red-500 font-semibold p-3 bg-red-50 rounded-xl">Error: ${esc(err.message)}</p>`;
       }
+    }
+
+    // Button helpers: look the resident up by position instead of putting names inside onclick strings
+    function openShiftFor(idx) {
+      const r = activeResidents[idx];
+      if (!r) return;
+      const deposit = Number(r.advance || r.advancePaid || 3000);
+      openShiftModal(selectedRoom, r.name, r.mobile || "", r.expectedRent, deposit, r.rentPaid || 0);
+    }
+    function openAdvanceFor(idx) {
+      const r = activeResidents[idx];
+      if (!r) return;
+      openAdvanceModal(r.name, selectedRoom, Number(r.advance || r.advancePaid || 3000));
     }
 
     function chooseResident(idx) {
@@ -792,30 +821,88 @@
       document.getElementById("targetExpectedRent").innerText = "₹" + currentSelectedResident.expectedRent;
       document.getElementById("targetRowIndex").value = currentSelectedResident.rowIndex;
       
-      document.getElementById("payAmount").value = currentSelectedResident.rentPaid || currentSelectedResident.expectedRent;
-      document.getElementById("payRemarks").value = currentSelectedResident.stayingDates || "";
-
-      if (currentSelectedResident.paymentMode) {
-        const fullMode = currentSelectedResident.paymentMode;
-        if (fullMode.includes("+ ")) {
-          document.getElementById("splitPaymentToggle").checked = true;
-          toggleSplitPayment();
-        } else if (fullMode.includes(" to ")) {
-          const parts = fullMode.split(" to ");
-          document.getElementById("payMode").value = parts[0].trim();
-          document.getElementById("payReceiver").value = parts[1].trim();
-        } else {
-          document.getElementById("payMode").value = fullMode;
-        }
-      } else {
-        document.getElementById("splitPaymentToggle").checked = false;
-        document.getElementById("singlePaySection").classList.remove("hidden");
-        document.getElementById("splitPaySection").classList.add("hidden");
-      }
+      // Payments ADD to what is already recorded, so start from the balance still due
+      document.getElementById("payReplaceToggle").checked = false;
+      const dueTotal = residentTotalDue(currentSelectedResident);
+      const alreadyPaid = parseFloat(currentSelectedResident.rentPaid) || 0;
+      document.getElementById("payAmount").value = Math.max(0, dueTotal - alreadyPaid) || "";
+      loadedRemarks = currentSelectedResident.stayingDates || "";
+      document.getElementById("payRemarks").value = loadedRemarks;
+      document.getElementById("payMode").value = "Cash";
+      document.getElementById("payReceiver").value = "None";
+      document.getElementById("payDate").value = todayISO();
+      document.getElementById("splitPaymentToggle").checked = false;
+      document.getElementById("singlePaySection").classList.remove("hidden");
+      document.getElementById("splitPaySection").classList.add("hidden");
+      onPayTypeChange();
 
       document.getElementById("paymentFormCard").classList.remove("hidden");
       document.getElementById("ledgerStatusBox").classList.add("hidden");
       document.getElementById("proRateBox").classList.add("hidden");
+      loadPaymentHistory();
+    }
+
+    let loadedRemarks = "";
+
+    function residentTotalDue(r) {
+      return (parseFloat(r.expectedRent) || 0) + (parseFloat(r.arrears) || 0);
+    }
+
+    function onPayTypeChange() {
+      const replace = document.getElementById("payReplaceToggle").checked;
+      const r = currentSelectedResident;
+      document.getElementById("payAmountLabel").innerText = replace ? "Correct Total Paid This Month (₹)" : "Amount Received Now (₹)";
+      if (r) {
+        const paid = parseFloat(r.rentPaid) || 0;
+        document.getElementById("payAmount").value = replace ? paid : (Math.max(0, residentTotalDue(r) - paid) || "");
+      }
+      updatePaySummary();
+    }
+
+    function updatePaySummary() {
+      const r = currentSelectedResident;
+      const line = document.getElementById("paySummaryLine");
+      if (!r || !line) return;
+      const paid = parseFloat(r.rentPaid) || 0;
+      const due = residentTotalDue(r);
+      const entered = parseFloat(document.getElementById("payAmount").value) || 0;
+      const replace = document.getElementById("payReplaceToggle").checked;
+      const after = replace ? entered : paid + entered;
+      const bal = Math.max(0, due - after);
+      line.innerText = `Already paid ₹${paid.toLocaleString("en-IN")} • Due ₹${due.toLocaleString("en-IN")} • After this: ${bal > 0 ? "₹" + bal.toLocaleString("en-IN") + " left" : "fully paid"}`;
+    }
+
+    async function loadPaymentHistory() {
+      const box = document.getElementById("paymentHistoryBox");
+      const list = document.getElementById("paymentHistoryList");
+      const r = currentSelectedResident;
+      if (!r) return;
+      box.classList.add("hidden");
+      try {
+        const json = await apiGet("getPaymentHistory", {
+          month: document.getElementById("monthSelect").value, roomNumber: selectedRoom, name: r.name
+        }, 0);
+        paymentHistory = (json.payments || []).filter(p => p.amount > 0);
+        if (paymentHistory.length === 0) { list.innerHTML = ""; return; }
+        list.innerHTML = paymentHistory.map((p, i) => `
+          <div class="flex items-center justify-between gap-2 p-2 bg-slate-50 rounded-xl text-xs">
+            <div class="min-w-0">
+              <span class="font-bold text-slate-800">₹${esc(Number(p.amount).toLocaleString("en-IN"))}</span>
+              <span class="text-slate-500"> • ${esc(p.paymentDate)} • ${esc(p.mode || "-")}</span>
+            </div>
+            <button type="button" onclick="openHistoryReceipt(${i})" class="shrink-0 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg flex items-center gap-1">
+              <i class="fa-brands fa-whatsapp"></i> Receipt
+            </button>
+          </div>`).join("");
+        box.classList.remove("hidden");
+      } catch (e) { /* history is optional */ }
+    }
+
+    let paymentHistory = [];
+    function openHistoryReceipt(i) {
+      const p = paymentHistory[i];
+      if (!p) return;
+      openReceiptModal(receiptFromHistory(p, currentSelectedResident));
     }
 
     function toggleProRateBox() {
@@ -825,16 +912,22 @@
     function calcProRate() {
       const days = parseInt(document.getElementById("calcDays").value, 10) || 0;
       const rent = parseFloat(currentSelectedResident.expectedRent) || 0;
-      const total = Math.round((rent / 30) * days);
+      const total = Math.round((rent / prorateDays(document.getElementById("monthSelect").value)) * days);
       document.getElementById("calculatedOutput").innerText = "₹" + total;
     }
 
     function applyCalculatedAmount() {
       const days = parseInt(document.getElementById("calcDays").value, 10) || 0;
       const rent = parseFloat(currentSelectedResident.expectedRent) || 0;
-      const total = Math.round((rent / 30) * days);
+      const total = Math.round((rent / prorateDays(document.getElementById("monthSelect").value)) * days);
       document.getElementById("payAmount").value = total;
       document.getElementById("payRemarks").value = `Pro-rated for ${days} days`;
+      // A pro-rated amount is the whole month's due: record it as the total, not as an extra payment
+      if ((parseFloat(currentSelectedResident.rentPaid) || 0) > 0) {
+        document.getElementById("payReplaceToggle").checked = true;
+        document.getElementById("payAmountLabel").innerText = "Correct Total Paid This Month (₹)";
+      }
+      updatePaySummary();
     }
 
     function toggleSplitPayment() {
@@ -908,41 +1001,31 @@
 
       const payload = {
         action: "recordRentPayment",
-        pin: getStoredPin(),
         month: document.getElementById("monthSelect").value,
         roomNumber: selectedRoom,
         rowIndex: document.getElementById("targetRowIndex").value,
         residentName: currentSelectedResident.name,
         rentPaid: document.getElementById("payAmount").value,
+        entryType: document.getElementById("payReplaceToggle").checked ? "replace" : "add",
         paymentDate: document.getElementById("payDate").value,
         mode: finalModeString,
-        remarks: document.getElementById("payRemarks").value
+        // only sent when edited, so a stale copy can never overwrite newer remarks
+        remarks: document.getElementById("payRemarks").value !== loadedRemarks ? document.getElementById("payRemarks").value : undefined
       };
 
       try {
-        const response = await fetch(APPS_SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
-        });
+        const result = await apiPost(payload);
 
-        const rawText = await response.text();
-        let result;
-        try {
-          result = JSON.parse(rawText);
-        } catch(e) {
-          result = { status: "success", message: "Recorded successfully!" };
-        }
+        statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
+        statusBox.innerHTML = `✓ Payment saved for <b>${esc(currentSelectedResident.name)}</b>!`;
 
-        if (result.status === "success") {
-          statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
-          statusBox.innerHTML = `✓ Payment saved for <b>${currentSelectedResident.name}</b>!`;
-          
-          setTimeout(() => { statusBox.classList.add("hidden"); }, 4000);
-          loadRoomResidents(2, true);
-          loadAllDues(true);
-        } else {
-          throw new Error(result.message || "Failed to write payment");
+        setTimeout(() => { statusBox.classList.add("hidden"); }, 4000);
+        loadRoomResidents(2, true);
+        loadAllDues(true);
+
+        // Offer the receipt straight away
+        if (result.receipt) {
+          openReceiptModal(result.receipt);
         }
       } catch (err) {
         statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
@@ -960,8 +1043,8 @@
       currentAdvResident = { name, room };
       document.getElementById("advModalResidentName").innerText = `${name} (Room ${room})`;
       document.getElementById("advTotalAmount").value = totalAdvance || 3000;
-      document.getElementById("advMaintenanceDeduction").value = 1000;
-      document.getElementById("advVacatingDate").value = new Date().toISOString().split("T")[0];
+      document.getElementById("advMaintenanceDeduction").value = PG_CONFIG.defaultMaintenanceDeduction;
+      document.getElementById("advVacatingDate").value = todayISO();
       document.getElementById("advStatusBox").classList.add("hidden");
       calculateNetRefund();
       document.getElementById("advanceReturnModal").classList.remove("hidden");
@@ -998,26 +1081,19 @@
       statusBox.innerText = `Recording settlement for ${currentAdvResident.name}...`;
 
       try {
-        const res = await fetch(APPS_SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({
-            action: "settleAdvanceReturn",
-            pin: getStoredPin(),
-            month: currentMonth,
-            room: currentAdvResident.room,
-            name: currentAdvResident.name,
-            refundAmount: netRefund,
-            returnedBy: returnedBy,
-            vacatingDate: vacDate,
-            maintenanceDeducted: maint
-          })
+        const json = await apiPost({
+          action: "settleAdvanceReturn",
+          month: currentMonth,
+          room: currentAdvResident.room,
+          name: currentAdvResident.name,
+          refundAmount: netRefund,
+          returnedBy: returnedBy,
+          vacatingDate: vacDate,
+          maintenanceDeducted: maint
         });
-        const json = await res.json();
-        if (json.status !== "success") throw new Error(json.message);
 
         statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
-        statusBox.innerHTML = `✓ ${json.message}`;
+        statusBox.innerHTML = `✓ ${esc(json.message)}`;
 
         setTimeout(() => {
           closeAdvanceModal();
@@ -1049,7 +1125,7 @@
       document.getElementById("shiftCollectModeBox").classList.add("hidden");
 
       document.getElementById("shiftModalSubtitle").innerText = `${residentName} (Currently in Room ${fromRoom})`;
-      document.getElementById("shiftDate").value = new Date().toISOString().split("T")[0];
+      document.getElementById("shiftDate").value = todayISO();
 
       recalculateShiftRents();
       document.getElementById("roomShiftModal").classList.remove("hidden");
@@ -1066,9 +1142,9 @@
       const newFullRent = parseFloat(document.getElementById("shiftNewFullRent").value) || 0;
       if (!shiftDateStr) return;
 
-      const dateObj = new Date(shiftDateStr);
+      const dateObj = new Date(shiftDateStr + "T00:00:00");
       const day = dateObj.getDate();
-      const totalDays = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate();
+      const totalDays = PG_CONFIG.prorateUseActualDays ? new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate() : 30;
 
       const daysOld = Math.max(0, day - 1);
       const daysNew = Math.max(1, totalDays - day + 1);
@@ -1142,7 +1218,6 @@
 
       const payload = {
         action: "shiftResident",
-        pin: getStoredPin(),
         month: document.getElementById("monthSelect").value,
         fromRoom: document.getElementById("shiftFromRoom").value,
         toRoom: document.getElementById("shiftToRoom").value,
@@ -1161,16 +1236,10 @@
       };
 
       try {
-        const res = await fetch(APPS_SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
-        });
-        const json = await res.json();
-        if (json.status !== "success") throw new Error(json.message);
+        const json = await apiPost(payload);
 
         statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
-        statusBox.innerHTML = `✓ ${json.message}`;
+        statusBox.innerHTML = `✓ ${esc(json.message)}`;
         setTimeout(() => {
           closeShiftModal();
           loadRoomResidents(2, true);
@@ -1201,16 +1270,13 @@
       }
 
       try {
-        const res = await fetch(`${APPS_SCRIPT_URL}?action=getAllPendingDues&month=${encodeURIComponent(month)}`);
-        const json = await res.json();
-
-        if (json.status !== "success") throw new Error(json.message || "Failed loading dues");
+        const json = await apiGet("getAllPendingDues", { month: month, forceRefresh: force ? "true" : "" });
 
         allDuesList = json.dues || [];
         renderDues();
       } catch (err) {
         if (container) {
-          container.innerHTML = `<div class="p-6 text-center text-xs text-red-500 font-bold bg-red-50 rounded-2xl">Error: ${err.message}</div>`;
+          container.innerHTML = `<div class="p-6 text-center text-xs text-red-500 font-bold bg-red-50 rounded-2xl">Error: ${esc(err.message)}</div>`;
         }
       }
     }
@@ -1229,7 +1295,11 @@
       renderDues();
     }
 
-    function toggleIgnoreResident(key, residentName) {
+    function toggleIgnoreResident(idx) {
+      const item = allDuesList[idx];
+      if (!item) return;
+      const key = `${item.roomNumber}_${item.name}`;
+      const residentName = item.name;
       if (ignoredDuesKeys[key]) {
         delete ignoredDuesKeys[key];
       } else {
@@ -1249,15 +1319,22 @@
       chevron.classList.toggle("rotate-90");
     }
 
-    function sendWhatsAppReminder(name, mobile, room, balance) {
-      if (!mobile) {
-        alert("No mobile number recorded for this resident.");
+    function sendWhatsAppReminder(idx) {
+      const item = allDuesList[idx];
+      if (!item) return;
+      const num = whatsappNumber(item.mobile);
+      if (!num) {
+        alert("No valid mobile number is recorded for this resident.");
         return;
       }
-      const cleanMobile = mobile.replace(/\D/g, "").slice(-10);
       const month = document.getElementById("monthSelect").value;
-      const text = encodeURIComponent(`Hi ${name}, this is a gentle reminder from Elysium PG regarding pending rent of ₹${balance.toLocaleString('en-IN')} for Room ${room} (${month}). Please clear the dues at your earliest convenience. Thank you!`);
-      window.open(`https://wa.me/91${cleanMobile}?text=${text}`, "_blank");
+      const text = encodeURIComponent(`Hi ${item.name}, this is a gentle reminder from ${PG_CONFIG.pgName} regarding pending rent of ₹${item.balance.toLocaleString('en-IN')} for Room ${item.roomNumber} (${month}). Please clear the dues at your earliest convenience. Thank you!`);
+      window.open(`https://wa.me/${num}?text=${text}`, "_blank");
+    }
+
+    function quickCollect(idx) {
+      const item = allDuesList[idx];
+      if (item) quickSelectResidentForPayment(item.roomNumber, item.name);
     }
 
     function quickSelectResidentForPayment(roomNumber, residentName) {
@@ -1285,7 +1362,7 @@
       let activeCount = 0;
       let ignoredCount = 0;
 
-      allDuesList.forEach(item => {
+      allDuesList.forEach((item, itemIdx) => {
         const key = `${item.roomNumber}_${item.name}`;
         const isIgnored = Boolean(ignoredDuesKeys[key]);
 
@@ -1295,8 +1372,8 @@
 
         const isPartial = item.status === "Partial";
         const statusBadge = isPartial
-          ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Paid ₹${item.rentPaid} • Due ₹${item.balance}</span>`
-          : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">Unpaid ₹${item.expectedRent}</span>`;
+          ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Paid ₹${esc(item.rentPaid)} • Due ₹${esc(item.balance)}</span>`
+          : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">Unpaid ₹${esc(item.balance)}</span>`;
 
         const card = document.createElement("div");
         card.className = `p-4 rounded-2xl border shadow-sm transition flex flex-wrap items-center justify-between gap-3 ${
@@ -1306,33 +1383,34 @@
         card.innerHTML = `
           <div>
             <div class="flex items-center gap-2">
-              <span class="text-sm font-black text-slate-900">Room ${item.roomNumber}</span>
+              <span class="text-sm font-black text-slate-900">Room ${esc(item.roomNumber)}</span>
               <span class="text-slate-300">&bull;</span>
-              <span class="text-xs font-black text-slate-800">${item.name}</span>
+              <span class="text-xs font-black text-slate-800">${esc(item.name)}</span>
               ${statusBadge}
             </div>
             <p class="text-[11px] text-slate-400 mt-1 font-semibold">
-              ${item.mobile ? item.mobile : 'No Mobile'}
-              ${item.vacatedOn ? ` &bull; Vacating on ${item.vacatedOn}` : ''}
-              ${isIgnored ? `<span class="text-indigo-600 font-bold ml-1.5">(Note: ${ignoredDuesKeys[key]})</span>` : ''}
+              ${esc(item.mobile) || 'No Mobile'}
+              ${item.arrears > 0 ? ` &bull; incl. ₹${esc(item.arrears)} arrears` : ''}
+              ${item.hasLeft ? ` &bull; <span class="text-rose-600">Left on ${esc(item.vacatedOn)}</span>` : (item.vacatedOn ? ` &bull; Vacating on ${esc(item.vacatedOn)}` : '')}
+              ${isIgnored ? `<span class="text-indigo-600 font-bold ml-1.5">(Note: ${esc(ignoredDuesKeys[key])})</span>` : ''}
             </p>
           </div>
 
           <div class="flex items-center gap-2">
-            <button type="button" onclick="toggleIgnoreResident('${key}', '${item.name}')" 
+            <button type="button" onclick="toggleIgnoreResident(${itemIdx})" 
                     class="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition" 
                     title="${isIgnored ? 'Restore to Defaulters' : 'Mark as Exception / Pro-rated'}">
               <i class="fa-solid ${isIgnored ? 'fa-arrow-rotate-left' : 'fa-eye-slash'}"></i>
               <span>${isIgnored ? 'Restore' : 'Ignore'}</span>
             </button>
 
-            <button type="button" onclick="sendWhatsAppReminder('${item.name}', '${item.mobile}', '${item.roomNumber}', ${item.balance})" 
+            <button type="button" onclick="sendWhatsAppReminder(${itemIdx})" 
                     class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5">
               <i class="fa-brands fa-whatsapp text-sm"></i>
               <span>Remind</span>
             </button>
 
-            <button type="button" onclick="quickSelectResidentForPayment('${item.roomNumber}', '${item.name}')" 
+            <button type="button" onclick="quickCollect(${itemIdx})" 
                     class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5">
               <i class="fa-solid fa-credit-card"></i>
               <span>Collect</span>
@@ -1355,7 +1433,7 @@
       if (ignoredBadge) ignoredBadge.innerText = ignoredCount;
 
       if (activeCount === 0) {
-        activeContainer.innerHTML = `<div class="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-semibold">🎉 All active dues are collected or marked as known exceptions for ${month}!</div>`;
+        activeContainer.innerHTML = `<div class="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-semibold">🎉 All active dues are collected or marked as known exceptions for ${esc(month)}!</div>`;
       }
     }
 
@@ -1375,9 +1453,7 @@
       if (prefetchQueue.length === 0) return;
       const nextRoom = prefetchQueue.shift();
 
-      try {
-        fetch(`${APPS_SCRIPT_URL}?action=getResidentsByRoom&roomNumber=${nextRoom}&month=${encodeURIComponent(month)}`);
-      } catch (e) {}
+      apiGet("getResidentsByRoom", { roomNumber: nextRoom, month: month, includeVacated: "true" }, 0).catch(() => {});
 
       setTimeout(() => runPrefetchWorker(month), 300);
     }
