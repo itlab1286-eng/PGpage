@@ -145,7 +145,7 @@
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Advance Paid (₹)</label>
-            <input type="number" id="advPaid" placeholder="e.g. 2000"
+            <input type="number" id="advPaid" placeholder="0 if deferred"
                    class="w-full text-xs font-bold px-3 py-2.5 border border-slate-300 rounded-xl font-mono text-emerald-700" />
           </div>
           <div>
@@ -321,47 +321,42 @@
     };
 
     window.addEventListener("DOMContentLoaded", async () => {
-  // 1. Set default dates to today
-  const today = new Date().toISOString().split("T")[0];
-  document.getElementById("resJoiningDate").value = today;
-  document.getElementById("initialPayDate").value = today;
+      const today = new Date().toISOString().split("T")[0];
+      document.getElementById("resJoiningDate").value = today;
+      document.getElementById("initialPayDate").value = today;
 
-  // 2. Build default room grid
-  buildRoomsGrid(1);
+      buildRoomsGrid(1);
 
-  // 3. Handle pre-fill from Vacancies page if present
-  const urlParams = new URLSearchParams(window.location.search);
-  const prefillRoom = urlParams.get('room');
-  const prefillMonth = urlParams.get('month');
+      const urlParams = new URLSearchParams(window.location.search);
+      const prefillRoom = urlParams.get('room');
+      const prefillMonth = urlParams.get('month');
 
-  if (prefillRoom) {
-    const floor = parseInt(prefillRoom[0], 10);
-    if (floor >= 1 && floor <= 6) {
-      setFloor(floor);
-    }
-    selectedRoom = prefillRoom;
-    document.getElementById("driveTargetFolderText").innerText = `Room ${prefillRoom}`;
-    buildRoomsGrid(currentFloor);
-  }
+      if (prefillRoom) {
+        const floor = parseInt(prefillRoom[0], 10);
+        if (floor >= 1 && floor <= 6) {
+          setFloor(floor);
+        }
+        selectedRoom = prefillRoom;
+        document.getElementById("driveTargetFolderText").innerText = `Room ${prefillRoom}`;
+        buildRoomsGrid(currentFloor);
+      }
 
-  // 4. Initialize dynamic months dropdown & select URL month if passed
-  if (typeof initDynamicMonthSelect === "function") {
-    await initDynamicMonthSelect("monthSelect");
-    if (prefillMonth) {
-      const monthDropdown = document.getElementById("monthSelect");
-      if (monthDropdown) monthDropdown.value = prefillMonth;
-    }
-  }
+      if (typeof initDynamicMonthSelect === "function") {
+        await initDynamicMonthSelect("monthSelect");
+        if (prefillMonth) {
+          const monthDropdown = document.getElementById("monthSelect");
+          if (monthDropdown) monthDropdown.value = prefillMonth;
+        }
+      }
 
-  // 5. Verify staff session
-  if (typeof isAuthenticated === "function" && isAuthenticated()) {
-    const modal = document.getElementById("pinLockModal");
-    if (modal) modal.classList.add("hidden");
-  } else {
-    const modal = document.getElementById("pinLockModal");
-    if (modal) modal.classList.remove("hidden");
-  }
-});
+      if (typeof isAuthenticated === "function" && isAuthenticated()) {
+        const modal = document.getElementById("pinLockModal");
+        if (modal) modal.classList.add("hidden");
+      } else {
+        const modal = document.getElementById("pinLockModal");
+        if (modal) modal.classList.remove("hidden");
+      }
+    });
 
     function unlockApp() {
       verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
@@ -401,7 +396,6 @@
         grid.appendChild(btn);
       });
 
-      // Default select first room if not matching floor
       if (!rooms.includes(selectedRoom)) {
         selectedRoom = rooms[0];
         document.getElementById("driveTargetFolderText").innerText = `Room ${selectedRoom}`;
@@ -449,7 +443,6 @@
       const combined = `${part1Str}+ ${part2Str}`;
       document.getElementById("splitStringPreview").innerText = combined;
 
-      // Update total rent amount automatically
       document.getElementById("initialRentPaid").value = amt1 + amt2;
       return combined;
     }
@@ -463,28 +456,35 @@
       btn.disabled = true;
       btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Registering & Uploading...`;
       statusBox.className = "p-4 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
-      statusBox.innerText = "Writing resident to sheet and uploading Aadhaar to Google Drive...";
+      statusBox.innerText = "Writing resident to sheet and uploading document to Google Drive...";
 
       const cleanName = document.getElementById("resName").value.trim();
       const month = document.getElementById("monthSelect").value;
 
-      // Format Payment Mode (Single vs Split)
-      const isSplit = document.getElementById("splitPaymentToggle").checked;
-      let finalModeString = "";
+      // Check payments entered
+      const advPaidAmount = parseFloat(document.getElementById("advPaid").value) || 0;
+      const rentPaidAmount = parseFloat(document.getElementById("initialRentPaid").value) || 0;
 
-      if (isSplit) {
-        finalModeString = buildSplitSummary();
-      } else {
-        const selectedMode = document.getElementById("payMode").value;
-        const selectedReceiver = document.getElementById("payReceiver").value;
-        if (selectedReceiver && selectedReceiver !== "None" && selectedMode !== "Cash") {
-          finalModeString = `${selectedMode} to ${selectedReceiver}`;
+      // Format payment mode if rent is actually paid
+      let finalModeString = "";
+      let finalPayDate = "";
+
+      if (rentPaidAmount > 0) {
+        const isSplit = document.getElementById("splitPaymentToggle").checked;
+        if (isSplit) {
+          finalModeString = buildSplitSummary();
         } else {
-          finalModeString = selectedMode;
+          const selectedMode = document.getElementById("payMode").value;
+          const selectedReceiver = document.getElementById("payReceiver").value;
+          if (selectedReceiver && selectedReceiver !== "None" && selectedMode !== "Cash") {
+            finalModeString = `${selectedMode} to ${selectedReceiver}`;
+          } else {
+            finalModeString = selectedMode;
+          }
         }
+        finalPayDate = document.getElementById("initialPayDate").value;
       }
 
-      // Prepare payload cleanly
       const payload = {
         action: "onboardNewResident",
         pin: getStoredPin(),
@@ -497,18 +497,19 @@
         rent: document.getElementById("resRent").value,
         stayingDates: document.getElementById("resStayingDates").value.trim(),
         advance: document.getElementById("advExpected").value,
-        advancePaid: document.getElementById("advPaid").value,
-        advanceReceivedBy: document.getElementById("advReceiver").value,
-        rentPaid: document.getElementById("initialRentPaid").value,
-        paymentDate: document.getElementById("initialPayDate").value,
+        
+        // Only submit payment info if amount > 0
+        advancePaid: advPaidAmount > 0 ? advPaidAmount : "",
+        advanceReceivedBy: advPaidAmount > 0 ? document.getElementById("advReceiver").value : "",
+        rentPaid: rentPaidAmount > 0 ? rentPaidAmount : "",
+        paymentDate: finalPayDate,
         paymentMode: finalModeString
       };
 
-      // Read file if attached
       if (fileInput.files.length > 0) {
         const file = fileInput.files[0];
         const ext = file.name.split('.').pop();
-        const formattedFileName = `${selectedRoom}_Aadhaar_${cleanName.replace(/\s+/g, '_')}.${ext}`;
+        const formattedFileName = `${selectedRoom}_Doc_${cleanName.replace(/\s+/g, '_')}.${ext}`;
 
         const base64Data = await new Promise((resolve) => {
           const reader = new FileReader();
@@ -534,7 +535,6 @@
         try {
           json = JSON.parse(rawText);
         } catch (parseErr) {
-          // If Google Apps Script returned an HTML redirect page, the write succeeded!
           if (rawText.includes("<!DOCTYPE") || rawText.includes("<html") || rawText.includes("Google Drive")) {
             json = { status: "success", message: `Resident ${cleanName} registered in Room ${selectedRoom}!` };
           } else {
