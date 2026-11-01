@@ -591,9 +591,10 @@
 
       if (isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
-        initDynamicMonthSelect("monthSelect");
-        loadRoomResidents();
-        loadAllDues();
+        initDynamicMonthSelect("monthSelect").then(() => {
+          loadRoomResidents();
+          loadAllDues();
+        });
       } else {
         document.getElementById("pinLockModal").classList.remove("hidden");
       }
@@ -602,13 +603,13 @@
     function unlockApp() {
       verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
         document.getElementById("pinLockModal").classList.add("hidden");
-        initDynamicMonthSelect("monthSelect");
-        loadRoomResidents();
-        loadAllDues();
-        startBackgroundPrefetch(currentFloor);
+        initDynamicMonthSelect("monthSelect").then(() => {
+          loadRoomResidents();
+          loadAllDues();
+          startBackgroundPrefetch(currentFloor);
+        });
       });
     }
-
     function handleMonthChange() {
       loadRoomResidents();
       loadAllDues(true);
