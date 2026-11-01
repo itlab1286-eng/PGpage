@@ -585,8 +585,8 @@
       if (isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
         initDynamicMonthSelect("monthSelect").then(() => {
-			loadDailyGuests();
-		});
+          loadDailyGuests();
+        });
       } else {
         document.getElementById("pinLockModal").classList.remove("hidden");
       }
@@ -605,13 +605,13 @@
     });
 
     function unlockApp() {
-  verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
-    document.getElementById("pinLockModal").classList.add("hidden");
-    initDynamicMonthSelect("monthSelect").then(() => {
-      loadDailyGuests();
-    });
-  });
-}
+      verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
+        document.getElementById("pinLockModal").classList.add("hidden");
+        initDynamicMonthSelect("monthSelect").then(() => {
+          loadDailyGuests();
+        });
+      });
+    }
 
     function filterList(type) {
       currentFilter = type;
@@ -1258,4 +1258,4 @@
     }
   </script>
 </body>
-</html>
+</html>
