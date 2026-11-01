@@ -175,20 +175,24 @@
 
       if (isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
-        initDynamicMonthSelect("sourceMonthSelect").then(syncTargetMonth);
+        initDynamicMonthSelect("sourceMonthSelect").then(() => {
+          syncTargetMonth();
+        });
       }
     });
 
-    // Suggests the month that follows the chosen source month
     function syncTargetMonth() {
-      const next = nextMonthName(document.getElementById("sourceMonthSelect").value);
+      const sourceVal = document.getElementById("sourceMonthSelect").value;
+      const next = nextMonthName(sourceVal);
       if (next) document.getElementById("targetMonthInput").value = next;
     }
 
     function unlockApp() {
       verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
         document.getElementById("pinLockModal").classList.add("hidden");
-        initDynamicMonthSelect("sourceMonthSelect").then(syncTargetMonth);
+        initDynamicMonthSelect("sourceMonthSelect").then(() => {
+          syncTargetMonth();
+        });
       });
     }
 
