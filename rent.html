@@ -69,7 +69,7 @@
                    class="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-bold text-rose-600" />
           </div>
         </div>
-
+        
         <div class="p-3 bg-rose-50 border border-rose-200 rounded-2xl flex items-center justify-between">
           <div>
             <span class="font-bold text-rose-900 block">Net Refund Amount:</span>
@@ -107,7 +107,56 @@
       </div>
     </div>
   </div>
+<!-- COLLECT ADVANCE MODAL -->
+<div id="collectAdvanceModal" class="fixed inset-0 z-40 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+  <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+      <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+        <i class="fa-solid fa-hand-holding-dollar text-emerald-600"></i> Collect Advance
+      </h3>
+      <button type="button" onclick="closeCollectAdvanceModal()" class="text-slate-400 hover:text-slate-600 p-1">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
 
+    <form onsubmit="submitCollectAdvance(event)" class="space-y-3.5 text-xs">
+      <div>
+        <span class="text-slate-500 font-semibold">Resident:</span>
+        <span id="colAdvResidentName" class="font-bold text-slate-900 text-sm block"></span>
+        <span id="colAdvStatusText" class="text-[11px] text-slate-400"></span>
+      </div>
+
+      <div>
+        <label class="block text-slate-600 font-bold mb-1">Advance Amount Received (₹) *</label>
+        <input type="number" id="colAdvAmount" required placeholder="e.g. 2000" min="1"
+               class="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-bold text-emerald-700 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+      </div>
+
+      <div>
+        <label class="block text-slate-600 font-bold mb-1">Received By / Mode *</label>
+        <select id="colAdvReceiver" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl font-bold bg-white text-slate-800">
+          <option value="Sreekaran">Sreekaran</option>
+          <option value="Manohar">Manohar</option>
+          <option value="Sudheer">Sudheer</option>
+          <option value="Office Account">Office Account</option>
+          <option value="Cash">Cash</option>
+        </select>
+      </div>
+
+      <div id="colAdvStatusBox" class="p-2.5 rounded-xl text-xs font-semibold hidden"></div>
+
+      <div class="flex gap-2 pt-2">
+        <button type="button" onclick="closeCollectAdvanceModal()" class="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+          Cancel
+        </button>
+        <button type="submit" id="colAdvSubmitBtn" class="w-2/3 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-check"></i>
+          <span>Save Advance</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
   <!-- ROOM SHIFT TRANSFER MODAL -->
   <div id="roomShiftModal" class="fixed inset-0 z-40 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto">
@@ -779,7 +828,11 @@
                 <i class="fa-solid fa-arrows-split-up-and-left text-[10px]"></i>
                 <span>Shift</span>
               </button>
-
+              <button type="button" onclick="event.stopPropagation(); openCollectAdvanceModal(${idx})" 
+        class="px-2 py-1 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl transition flex items-center gap-1" title="Collect Advance">
+  <i class="fa-solid fa-hand-holding-dollar text-[10px]"></i>
+  <span>Collect Adv</span>
+</button>
               <button type="button" onclick="event.stopPropagation(); openAdvanceFor(${idx})" 
                       class="px-2 py-1 text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl transition flex items-center gap-1" title="Return Advance">
                 <i class="fa-solid fa-hand-holding-dollar text-[10px]"></i>
@@ -1036,7 +1089,71 @@
         btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>Save Payment to Sheet</span>`;
       }
     }
+    let currentCollectAdvResident = null;
 
+function openCollectAdvanceModal(idx) {
+  const r = activeResidents[idx];
+  if (!r) return;
+  currentCollectAdvResident = r;
+
+  const agreed = Number(r.advance) || 0;
+  const alreadyPaid = Number(r.advancePaid) || 0;
+  const remaining = Math.max(0, agreed - alreadyPaid);
+
+  document.getElementById("colAdvResidentName").innerText = `${r.name} (Room ${selectedRoom})`;
+  document.getElementById("colAdvStatusText").innerText = `Agreed: ₹${agreed} • Already Paid: ₹${alreadyPaid}`;
+  document.getElementById("colAdvAmount").value = remaining > 0 ? remaining : "";
+  document.getElementById("colAdvStatusBox").classList.add("hidden");
+  document.getElementById("collectAdvanceModal").classList.remove("hidden");
+}
+
+function closeCollectAdvanceModal() {
+  document.getElementById("collectAdvanceModal").classList.add("hidden");
+  currentCollectAdvResident = null;
+}
+
+async function submitCollectAdvance(e) {
+  e.preventDefault();
+  if (!currentCollectAdvResident) return;
+
+  const btn = document.getElementById("colAdvSubmitBtn");
+  const statusBox = document.getElementById("colAdvStatusBox");
+  const amount = document.getElementById("colAdvAmount").value;
+  const receiver = document.getElementById("colAdvReceiver").value;
+  const month = document.getElementById("monthSelect").value;
+
+  btn.disabled = true;
+  btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...`;
+  statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
+  statusBox.innerText = `Saving advance for ${currentCollectAdvResident.name}...`;
+
+  try {
+    const res = await apiPost({
+      action: "recordAdvancePayment",
+      month: month,
+      roomNumber: selectedRoom,
+      rowIndex: currentCollectAdvResident.rowIndex,
+      residentName: currentCollectAdvResident.name,
+      advancePaid: amount,
+      receivedBy: receiver
+    });
+
+    statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
+    statusBox.innerHTML = `✓ ${esc(res.message)}`;
+
+    setTimeout(() => {
+      closeCollectAdvanceModal();
+      loadRoomResidents(2, true);
+    }, 1200);
+
+  } catch (err) {
+    statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 block";
+    statusBox.innerText = "Error: " + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i class="fa-solid fa-check"></i> <span>Save Advance</span>`;
+  }
+}
     // ==========================================
     // ADVANCE RETURN & MAINTENANCE SETTLEMENT
     // ==========================================
