@@ -353,8 +353,9 @@
 
       if (typeof isAuthenticated === "function" && isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
-        initDynamicMonthSelect("monthSelect");
-        loadVacancies();
+        initDynamicMonthSelect("monthSelect").then(() => {
+          loadVacancies();
+        });
       } else {
         document.getElementById("pinLockModal").classList.remove("hidden");
       }
@@ -363,8 +364,9 @@
     function unlockApp() {
       verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
         document.getElementById("pinLockModal").classList.add("hidden");
-        initDynamicMonthSelect("monthSelect");
-        loadVacancies();
+        initDynamicMonthSelect("monthSelect").then(() => {
+          loadVacancies();
+        });
       });
     }
 
