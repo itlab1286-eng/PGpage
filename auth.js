@@ -317,15 +317,47 @@ async function apiPost(payload) {
 }
 
 // ---------------------------------------------------------------------------
-// Dynamic month dropdown (chronologically sorted, defaults to the current month)
+// Dynamic month dropdown (synchronously initialized + persisted across pages)
 // ---------------------------------------------------------------------------
+const ACTIVE_MONTH_KEY = "elysium_active_month";
+
+function getActiveMonthFallback() {
+  const saved = localStorage.getItem(ACTIVE_MONTH_KEY);
+  if (saved && parseMonthName(saved)) return saved;
+
+  const now = new Date();
+  return MONTH_NAMES[now.getMonth()] + " " + now.getFullYear();
+}
+
 async function initDynamicMonthSelect(selectId = "monthSelect") {
   const select = document.getElementById(selectId);
   if (!select) return;
 
   const now = new Date();
   const currentMonthName = MONTH_NAMES[now.getMonth()] + " " + now.getFullYear();
+  const targetInitialMonth = getActiveMonthFallback();
 
+  // 1. Synchronously pre-select/insert the target month to prevent any UI flicker
+  let hasTarget = Array.from(select.options).some(o => o.value === targetInitialMonth);
+  if (!hasTarget) {
+    const opt = document.createElement("option");
+    opt.value = targetInitialMonth;
+    opt.textContent = targetInitialMonth;
+    select.prepend(opt);
+  }
+  select.value = targetInitialMonth;
+
+  // 2. Persist whenever staff changes the month dropdown on any page
+  if (!select.dataset.listenerAttached) {
+    select.addEventListener("change", () => {
+      if (select.value) {
+        localStorage.setItem(ACTIVE_MONTH_KEY, select.value);
+      }
+    });
+    select.dataset.listenerAttached = "true";
+  }
+
+  // 3. Fetch all available sheets from the server
   try {
     const json = await apiGet("getAvailableMonths");
     if (json.months && json.months.length > 0) {
@@ -338,18 +370,24 @@ async function initDynamicMonthSelect(selectId = "monthSelect") {
         select.appendChild(opt);
       });
 
-      if (months.includes(currentMonthName)) {
+      // Preserve previously chosen active month, or current month, or latest available
+      const savedMonth = localStorage.getItem(ACTIVE_MONTH_KEY);
+      if (savedMonth && months.includes(savedMonth)) {
+        select.value = savedMonth;
+      } else if (months.includes(currentMonthName)) {
         select.value = currentMonthName;
       } else {
-        // Latest month that is not in the future, else the latest available
         const nowKey = now.getFullYear() * 12 + now.getMonth();
         const past = months.filter(m => monthSortKey(m) <= nowKey);
         select.value = past.length ? past[past.length - 1] : months[months.length - 1];
       }
+      localStorage.setItem(ACTIVE_MONTH_KEY, select.value);
     }
   } catch (err) {
-    console.warn("Could not fetch dynamic months, falling back to existing options.", err);
+    console.warn("Could not fetch dynamic months, falling back to local month.", err);
   }
+
+  return select.value;
 }
 
 // ---------------------------------------------------------------------------
