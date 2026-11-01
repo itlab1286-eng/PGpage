@@ -240,26 +240,26 @@
     let pendingDeleteRow = null;
 
     window.addEventListener("DOMContentLoaded", () => {
-      resetExpenseForm();
       if (isAuthenticated()) {
-  document.getElementById("pinLockModal").classList.add("hidden");
-  initDynamicMonthSelect("monthSelect").then(() => {
-    loadExpenses();
-  });
-} else {
+        document.getElementById("pinLockModal").classList.add("hidden");
+        initDynamicMonthSelect("monthSelect").then(() => {
+          resetExpenseForm();
+          loadExpenses();
+        });
+      } else {
         document.getElementById("pinLockModal").classList.remove("hidden");
       }
     });
 
     function unlockApp() {
-  verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
-    document.getElementById("pinLockModal").classList.add("hidden");
-    initDynamicMonthSelect("monthSelect").then(() => {
-      loadExpenses();
-    });
-  });
-}
-
+      verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
+        document.getElementById("pinLockModal").classList.add("hidden");
+        initDynamicMonthSelect("monthSelect").then(() => {
+          resetExpenseForm();
+          loadExpenses();
+        });
+      });
+    }
     function resetExpenseForm() {
       const rowInput = document.getElementById("editingRowIndex");
       if (rowInput) rowInput.value = "";
@@ -530,4 +530,4 @@
     }
   </script>
 </body>
-</html>
+</html>
