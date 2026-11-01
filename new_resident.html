@@ -348,10 +348,13 @@
     });
 
     function unlockApp() {
-      verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
-        document.getElementById("pinLockModal").classList.add("hidden");
-      });
+  verifyStaffPin("staffPinInput", "pinErrorMsg", async () => {
+    document.getElementById("pinLockModal").classList.add("hidden");
+    if (typeof initDynamicMonthSelect === "function") {
+      await initDynamicMonthSelect("monthSelect");
     }
+  });
+}
 
     function setFloor(floor) {
       currentFloor = floor;
