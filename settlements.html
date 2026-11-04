@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Elysium PG - Cashflow & Partner Settlements</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="auth.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-16">
+
+  <!-- PIN LOCK SCREEN -->
+  <div id="pinLockModal" class="fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center">
+      <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mb-1">Staff Verification</h2>
+      <p class="text-sm text-slate-500 mb-6">Enter PIN to access Partner Settlements</p>
+      
+      <div class="flex justify-center mb-6">
+        <input type="password" maxlength="6" id="staffPinInput" 
+               class="w-44 text-center text-3xl tracking-widest font-mono py-2 border-2 border-slate-300 rounded-xl focus:border-emerald-600 focus:outline-none" 
+               placeholder="••••" autofocus />
+      </div>
+
+      <p id="pinErrorMsg" class="text-xs text-red-500 font-semibold mb-4 hidden">Invalid PIN.</p>
+
+      <button onclick="unlockApp()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-emerald-500/30 transition">
+        Unlock Console
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN WRAPPER -->
+  <div class="max-w-5xl mx-auto px-4 pt-4 sm:pt-8">
+    
+    <!-- HEADER -->
+    <header class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <a href="index.html" class="text-xs font-bold text-slate-500 hover:text-slate-800 transition flex items-center gap-1">
+            <i class="fa-solid fa-arrow-left"></i> Home
+          </a>
+          <span class="text-slate-300">&bull;</span>
+          <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Accounting & Settlements</span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
+          <i class="fa-solid fa-scale-balanced text-emerald-600"></i> Cashflow &amp; Settlements
+        </h1>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="loadSettlementData(true)" class="p-2.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition flex items-center gap-1.5" title="Force Refresh">
+          <i class="fa-solid fa-arrows-rotate"></i>
+          <span class="hidden sm:inline">Refresh</span>
+        </button>
+        <button onclick="logoutApp()" class="p-2.5 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition" title="Lock">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- MULTI-MONTH SELECTOR BAR -->
+    <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm mb-6 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+          <i class="fa-solid fa-calendar-week text-emerald-600"></i> Select Months to Analyze:
+        </span>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="selectPresetMonths('current')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition">Current Month</button>
+          <button type="button" onclick="selectPresetMonths('all')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition">All Months</button>
+        </div>
+      </div>
+      <div id="monthChipsContainer" class="flex flex-wrap gap-2 pt-1">
+        <!-- Dynamically rendered month toggle pills -->
+        <span class="text-xs text-slate-400 py-1">Loading months...</span>
+      </div>
+    </div>
+
+    <!-- SUMMARY METRIC TILES -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <span class="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">Total Inflow</span>
+        <p id="metricTotalInflow" class="text-xl sm:text-2xl font-black text-slate-900 mt-1">₹0</p>
+        <span class="text-[10px] text-slate-400">Rent + Adv + Daily</span>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <span class="text-[11px] font-bold text-rose-600 uppercase tracking-wider block">Expenses</span>
+        <p id="metricTotalExpenses" class="text-xl sm:text-2xl font-black text-slate-900 mt-1">₹0</p>
+        <span class="text-[10px] text-slate-400">Operational spends</span>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <span class="text-[11px] font-bold text-amber-600 uppercase tracking-wider block">Adv Refunds</span>
+        <p id="metricTotalRefunds" class="text-xl sm:text-2xl font-black text-slate-900 mt-1">₹0</p>
+        <span class="text-[10px] text-slate-400">Security deposits returned</span>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <span class="text-[11px] font-bold text-indigo-600 uppercase tracking-wider block">Net Retained</span>
+        <p id="metricNetRetained" class="text-xl sm:text-2xl font-black text-indigo-700 mt-1">₹0</p>
+        <span class="text-[10px] text-slate-400">Inflow &minus; Outflow</span>
+      </div>
+    </div>
+
+    <!-- VISUAL CHARTS -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+      
+      <!-- Chart 1: Partner Inflow vs Outflow vs Net Holding -->
+      <div class="lg:col-span-8 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+            <i class="fa-solid fa-chart-column text-indigo-600"></i> Partner Inflow vs Outflow (₹)
+          </h2>
+        </div>
+        <div class="h-64 sm:h-72 w-full">
+          <canvas id="partnerBarChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: Outflow Breakdown (Expenses vs Advance Returns) -->
+      <div class="lg:col-span-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+        <h2 class="text-xs font-black uppercase tracking-wider text-slate-700 mb-3 flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-pie text-emerald-600"></i> Outflow Distribution
+        </h2>
+        <div class="h-56 w-full flex items-center justify-center">
+          <canvas id="outflowPieChart"></canvas>
+        </div>
+        <p class="text-[10px] text-center text-slate-400 mt-2">Combined spends &amp; tenant security refunds</p>
+      </div>
+
+    </div>
+
+    <!-- PARTNER SETTLEMENT CARDS -->
+    <h2 class="text-xs font-black uppercase tracking-wider text-slate-500 mb-3 px-1 flex items-center gap-1.5">
+      <i class="fa-solid fa-users text-indigo-600"></i> Partner In-Hand Balances
+    </h2>
+    <div id="partnerCardsContainer" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <!-- Dynamically filled with Partner Cards -->
+    </div>
+
+    <!-- TRANSACTION AUDIT LEDGER -->
+    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+        <div>
+          <h2 class="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+            <i class="fa-solid fa-list-check text-emerald-600"></i> Transaction Audit Trail
+          </h2>
+          <p class="text-[11px] text-slate-400">Detailed line items across selected months</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Spender / Receiver Filter -->
+          <select id="partnerTxFilter" onchange="renderFilteredTransactions()" class="text-xs font-bold px-3 py-1.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-700">
+            <option value="ALL">All Partners</option>
+            <option value="Sreekaran">Sreekaran</option>
+            <option value="Manohar">Manohar</option>
+            <option value="Sudheer">Sudheer</option>
+            <option value="Cash">Cash</option>
+            <option value="Office Account">Office Account</option>
+          </select>
+
+          <!-- Type Filter -->
+          <select id="typeTxFilter" onchange="renderFilteredTransactions()" class="text-xs font-bold px-3 py-1.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-700">
+            <option value="ALL">All Flows</option>
+            <option value="Rent">Rent Only</option>
+            <option value="Advance">Advance Only</option>
+            <option value="Daily Stay">Daily Stay</option>
+            <option value="Expense">Expenses</option>
+            <option value="Advance Return">Advance Refunds</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Quick Search Bar -->
+      <div class="relative">
+        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </span>
+        <input type="text" id="txSearchInput" oninput="renderFilteredTransactions()" placeholder="Search description, room, or note..."
+               class="w-full pl-8 pr-3 py-2 text-xs font-semibold border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+      </div>
+
+      <!-- List View -->
+      <div id="txListContainer" class="space-y-2 max-h-96 overflow-y-auto pr-1">
+        <p class="text-center py-8 text-xs text-slate-400">Loading transactions...</p>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let availableMonths = [];
+    let selectedMonths = [];
+    let cachedPayload = null;
+    let barChartInstance = null;
+    let pieChartInstance = null;
+
+    window.addEventListener("DOMContentLoaded", async () => {
+      if (isAuthenticated()) {
+        document.getElementById("pinLockModal").classList.add("hidden");
+        await initMonths();
+      } else {
+        document.getElementById("pinLockModal").classList.remove("hidden");
+      }
+    });
+
+    function unlockApp() {
+      verifyStaffPin("staffPinInput", "pinErrorMsg", async () => {
+        document.getElementById("pinLockModal").classList.add("hidden");
+        await initMonths();
+      });
+    }
+
+    // -------------------------------------------------------------
+    // MONTH SELECTION LOGIC
+    // -------------------------------------------------------------
+    async function initMonths() {
+      try {
+        const json = await apiGet("getAvailableMonths");
+        availableMonths = (json.months || []).slice().sort((a, b) => monthSortKey(a) - monthSortKey(b));
+        
+        // Pick current active month or latest available as initial selection
+        const fallback = getActiveMonthFallback();
+        selectedMonths = availableMonths.includes(fallback) 
+          ? [fallback] 
+          : (availableMonths.length ? [availableMonths[availableMonths.length - 1]] : ["October 2026"]);
+
+        renderMonthChips();
+        loadSettlementData();
+      } catch (e) {
+        console.warn("Could not load available months", e);
+      }
+    }
+
+    function renderMonthChips() {
+      const container = document.getElementById("monthChipsContainer");
+      container.innerHTML = "";
+
+      availableMonths.forEach(m => {
+        const isSelected = selectedMonths.includes(m);
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = `px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border ${
+          isSelected 
+            ? "bg-emerald-600 text-white border-emerald-600 shadow-sm" 
+            : "bg-slate-50 text-slate-600 border-slate-200 hover:border-emerald-300"
+        }`;
+        chip.innerHTML = `${isSelected ? '<i class="fa-solid fa-check text-[10px]"></i>' : ''}<span>${esc(m)}</span>`;
+        chip.onclick = () => toggleMonth(m);
+        container.appendChild(chip);
+      });
+    }
+
+    function toggleMonth(m) {
+      if (selectedMonths.includes(m)) {
+        if (selectedMonths.length === 1) return; // Keep at least one month active
+        selectedMonths = selectedMonths.filter(x => x !== m);
+      } else {
+        selectedMonths.push(m);
+      }
+      renderMonthChips();
+      loadSettlementData();
+    }
+
+    function selectPresetMonths(type) {
+      if (type === "current") {
+        const fallback = getActiveMonthFallback();
+        selectedMonths = availableMonths.includes(fallback) ? [fallback] : [availableMonths[availableMonths.length - 1]];
+      } else if (type === "all") {
+        selectedMonths = [...availableMonths];
+      }
+      renderMonthChips();
+      loadSettlementData();
+    }
+
+    // -------------------------------------------------------------
+    // DATA FETCHING & UI HYDRATION
+    // -------------------------------------------------------------
+    async function loadSettlementData(force = false) {
+      const monthsParam = selectedMonths.join(",");
+      const txContainer = document.getElementById("txListContainer");
+      txContainer.innerHTML = `<div class="text-center py-8 text-xs text-slate-400 font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i> Aggregating multi-month ledger...</div>`;
+
+      try {
+        const json = await apiGet("getPartnerCashflow", { months: monthsParam, forceRefresh: force ? "true" : "" });
+        cachedPayload = json;
+
+        renderTopMetrics(json);
+        renderCharts(json);
+        renderPartnerCards(json.partners);
+        renderFilteredTransactions();
+
+      } catch (err) {
+        txContainer.innerHTML = `<div class="p-4 text-center text-xs text-rose-500 font-bold bg-rose-50 rounded-xl">Error: ${esc(err.message)}</div>`;
+      }
+    }
+
+    function renderTopMetrics(data) {
+      let totalInflow = 0;
+      let totalExpenses = 0;
+      let totalRefunds = 0;
+
+      Object.values(data.monthlyBreakdown || {}).forEach(m => {
+        totalInflow += (m.totalInflow || 0);
+        totalExpenses += (m.expenses || 0);
+        totalRefunds += (m.refunds || 0);
+      });
+
+      const netRetained = totalInflow - (totalExpenses + totalRefunds);
+
+      document.getElementById("metricTotalInflow").innerText = "₹" + totalInflow.toLocaleString("en-IN");
+      document.getElementById("metricTotalExpenses").innerText = "₹" + totalExpenses.toLocaleString("en-IN");
+      document.getElementById("metricTotalRefunds").innerText = "₹" + totalRefunds.toLocaleString("en-IN");
+      document.getElementById("metricNetRetained").innerText = "₹" + netRetained.toLocaleString("en-IN");
+    }
+
+    function renderPartnerCards(partners) {
+      const container = document.getElementById("partnerCardsContainer");
+      container.innerHTML = "";
+
+      const primaryPartners = ["Sreekaran", "Manohar", "Sudheer", "Cash"];
+
+      primaryPartners.forEach(pName => {
+        const p = partners[pName] || {
+          name: pName, rentCollected: 0, advanceCollected: 0, dailyCollected: 0,
+          advanceRefunded: 0, expensesPaid: 0, totalInflow: 0, totalOutflow: 0, netHolding: 0
+        };
+
+        const isHolding = p.netHolding >= 0;
+        const statusBadge = isHolding
+          ? `<span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[11px] font-black rounded-lg">Holds ₹${Math.abs(p.netHolding).toLocaleString("en-IN")}</span>`
+          : `<span class="px-2.5 py-1 bg-rose-100 text-rose-800 text-[11px] font-black rounded-lg">Owed ₹${Math.abs(p.netHolding).toLocaleString("en-IN")}</span>`;
+
+        const card = document.createElement("div");
+        card.className = "bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between";
+
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100 mb-3">
+              <span class="text-sm font-black text-slate-800 flex items-center gap-1.5">
+                <i class="fa-solid fa-user-circle text-indigo-600"></i> ${esc(p.name)}
+              </span>
+              ${statusBadge}
+            </div>
+
+            <!-- Inflow Breakdown -->
+            <div class="space-y-1 text-xs mb-3">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Inflow Collected</span>
+              <div class="flex justify-between text-slate-600">
+                <span>Rent:</span>
+                <span class="font-bold font-mono">₹${p.rentCollected.toLocaleString("en-IN")}</span>
+              </div>
+              <div class="flex justify-between text-slate-600">
+                <span>Advance:</span>
+                <span class="font-bold font-mono">₹${p.advanceCollected.toLocaleString("en-IN")}</span>
+              </div>
+              <div class="flex justify-between text-slate-600">
+                <span>Daily Stay:</span>
+                <span class="font-bold font-mono">₹${p.dailyCollected.toLocaleString("en-IN")}</span>
+              </div>
+              <div class="flex justify-between text-emerald-700 font-bold pt-1 border-t border-slate-100">
+                <span>Total Received:</span>
+                <span class="font-mono">₹${p.totalInflow.toLocaleString("en-IN")}</span>
+              </div>
+            </div>
+
+            <!-- Outflow Breakdown -->
+            <div class="space-y-1 text-xs">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Outflow Handled</span>
+              <div class="flex justify-between text-slate-600">
+                <span>Expenses Paid:</span>
+                <span class="font-bold font-mono text-rose-600">₹${p.expensesPaid.toLocaleString("en-IN")}</span>
+              </div>
+              <div class="flex justify-between text-slate-600">
+                <span>Advance Refunded:</span>
+                <span class="font-bold font-mono text-amber-600">₹${p.advanceRefunded.toLocaleString("en-IN")}</span>
+              </div>
+              <div class="flex justify-between text-slate-800 font-bold pt-1 border-t border-slate-100">
+                <span>Total Outflow:</span>
+                <span class="font-mono">₹${p.totalOutflow.toLocaleString("en-IN")}</span>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" onclick="filterByPartner('${esc(p.name)}')" 
+                  class="mt-4 w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-[11px] rounded-xl transition border border-slate-200 flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-receipt text-indigo-500"></i>
+            <span>View Ledger Line Items</span>
+          </button>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // -------------------------------------------------------------
+    // CHART.JS VISUAL RENDERING
+    // -------------------------------------------------------------
+    function renderCharts(data) {
+      const pKeys = ["Sreekaran", "Manohar", "Sudheer", "Cash"];
+      const inflows = [];
+      const outflows = [];
+      const netHoldings = [];
+
+      pKeys.forEach(k => {
+        const p = (data.partners && data.partners[k]) || { totalInflow: 0, totalOutflow: 0, netHolding: 0 };
+        inflows.push(p.totalInflow);
+        outflows.push(p.totalOutflow);
+        netHoldings.push(p.netHolding);
+      });
+
+      // 1. Grouped Bar Chart
+      const barCtx = document.getElementById("partnerBarChart").getContext("2d");
+      if (barChartInstance) barChartInstance.destroy();
+
+      barChartInstance = new Chart(barCtx, {
+        type: "bar",
+        data: {
+          labels: pKeys,
+          datasets: [
+            {
+              label: "Inflow (Collected)",
+              data: inflows,
+              backgroundColor: "rgba(16, 185, 129, 0.8)",
+              borderRadius: 6
+            },
+            {
+              label: "Outflow (Spent + Refunded)",
+              data: outflows,
+              backgroundColor: "rgba(244, 63, 94, 0.8)",
+              borderRadius: 6
+            },
+            {
+              label: "Net Holding",
+              data: netHoldings,
+              backgroundColor: "rgba(79, 70, 229, 0.85)",
+              borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "top", labels: { boxWidth: 12, font: { weight: "bold", size: 11 } } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ${ctx.dataset.label}: ₹${Number(ctx.raw).toLocaleString("en-IN")}`
+              }
+            }
+          },
+          scales: {
+            y: {
+              ticks: {
+                callback: (v) => "₹" + v.toLocaleString("en-IN"),
+                font: { size: 10 }
+              },
+              grid: { color: "#f1f5f9" }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { font: { weight: "bold", size: 11 } }
+            }
+          }
+        }
+      });
+
+      // 2. Outflow Distribution (Expenses vs Refunds)
+      let sumExp = 0;
+      let sumRef = 0;
+      Object.values(data.monthlyBreakdown || {}).forEach(m => {
+        sumExp += (m.expenses || 0);
+        sumRef += (m.refunds || 0);
+      });
+
+      const pieCtx = document.getElementById("outflowPieChart").getContext("2d");
+      if (pieChartInstance) pieChartInstance.destroy();
+
+      pieChartInstance = new Chart(pieCtx, {
+        type: "doughnut",
+        data: {
+          labels: ["Expenses", "Advance Returns"],
+          datasets: [{
+            data: [sumExp, sumRef],
+            backgroundColor: ["#f43f5e", "#f59e0b"],
+            borderWidth: 2,
+            borderColor: "#ffffff"
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "bottom", labels: { boxWidth: 12, font: { weight: "bold", size: 10 } } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ₹${Number(ctx.raw).toLocaleString("en-IN")}`
+              }
+            }
+          },
+          cutout: "68%"
+        }
+      });
+    }
+
+    // -------------------------------------------------------------
+    // INSTANT TRANSACTION LEDGER FILTERING (NO REFETCHING)
+    // -------------------------------------------------------------
+    function filterByPartner(partnerName) {
+      document.getElementById("partnerTxFilter").value = partnerName;
+      renderFilteredTransactions();
+      document.getElementById("txListContainer").scrollIntoView({ behavior: "smooth" });
+    }
+
+    function renderFilteredTransactions() {
+      if (!cachedPayload || !cachedPayload.transactions) return;
+
+      const container = document.getElementById("txListContainer");
+      const partnerFilter = document.getElementById("partnerTxFilter").value;
+      const typeFilter = document.getElementById("typeTxFilter").value;
+      const query = (document.getElementById("txSearchInput").value || "").toLowerCase().trim();
+
+      const filtered = cachedPayload.transactions.filter(t => {
+        if (partnerFilter !== "ALL" && t.partner !== partnerFilter) return false;
+        if (typeFilter !== "ALL" && t.type !== typeFilter) return false;
+        if (query) {
+          const matchStr = `${t.description} ${t.mode} ${t.date} ${t.partner}`.toLowerCase();
+          if (!matchStr.includes(query)) return false;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="text-center py-8 text-xs text-slate-400 italic">No line items match the selected filters.</p>`;
+        return;
+      }
+
+      container.innerHTML = "";
+      filtered.forEach(t => {
+        const isInflow = t.direction === "Inflow";
+        const row = document.createElement("div");
+        row.className = "p-2.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3 text-xs";
+
+        const badgeColor = isInflow ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700";
+        const sign = isInflow ? "+" : "&minus;";
+
+        row.innerHTML = `
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-slate-900 truncate">${esc(t.description)}</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${badgeColor}">${esc(t.type)}</span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-0.5">
+              ${esc(t.date)} &bull; Handled by: <span class="font-bold text-slate-600">${esc(t.partner)}</span> (${esc(t.mode)})
+            </p>
+          </div>
+
+          <span class="font-mono font-black text-sm shrink-0 ${isInflow ? 'text-emerald-700' : 'text-rose-600'}">
+            ${sign}₹${Number(t.amount).toLocaleString("en-IN")}
+          </span>
+        `;
+        container.appendChild(row);
+      });
+    }
+  </script>
+</body>
+</html>
