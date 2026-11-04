@@ -398,19 +398,38 @@
           </div>
         </div>
 
-        <!-- Step 3: Payment Entry Form -->
+        <!-- Step 3: Payment Entry Form (RESTORED WRAPPER CARD) -->
         <div id="paymentFormCard" class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hidden">
           <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
             <div>
               <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Recording Payment For</p>
               <h3 id="targetResidentName" class="text-lg font-black text-slate-800">Resident Name</h3>
             </div>
-            <div class="text-right">
-              <p class="text-[11px] text-slate-400 font-bold">Standard Rent</p>
-              <p id="targetExpectedRent" class="text-sm font-black text-slate-700">₹0</p>
+            <div class="flex items-center gap-2">
+              <button type="button" id="clearPaymentBtn" onclick="confirmResetPayment()" 
+                      class="px-2.5 py-1 text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl transition flex items-center gap-1 hidden" 
+                      title="Clear / Reset this month's recorded payment">
+                <i class="fa-solid fa-trash-can text-[10px]"></i>
+                <span>Reset to ₹0</span>
+              </button>
+              <div class="text-right pl-2 border-l border-slate-100">
+                <p class="text-[11px] text-slate-400 font-bold">Standard Rent</p>
+                <p id="targetExpectedRent" class="text-sm font-black text-slate-700">₹0</p>
+              </div>
             </div>
           </div>
-
+		  
+          <!-- EDIT / CORRECTION BANNER -->
+          <div id="correctionBanner" class="p-2.5 bg-amber-50 border border-amber-200 rounded-xl mb-4 text-xs font-bold text-amber-800 flex items-center justify-between hidden">
+            <span class="flex items-center gap-1.5">
+              <i class="fa-solid fa-pen-to-square text-amber-600"></i>
+              <span>Correction Mode: Overwriting recorded payment</span>
+            </span>
+            <button type="button" onclick="cancelCorrectionMode()" class="text-amber-700 hover:text-amber-900 underline text-[11px]">
+              Switch to Add Payment
+            </button>
+          </div>
+		  
           <form onsubmit="savePayment(event)" class="space-y-4">
             <input type="hidden" id="targetRowIndex" />
 
@@ -742,11 +761,17 @@
 
     function selectRoom(roomNum) {
       selectedRoom = String(roomNum);
-      document.getElementById("activeRoomBadge").innerText = `Room ${selectedRoom}`;
-      document.getElementById("currentRoomText").innerText = selectedRoom;
+      const activeBadge = document.getElementById("activeRoomBadge");
+      const currentRoomTxt = document.getElementById("currentRoomText");
+      if (activeBadge) activeBadge.innerText = `Room ${selectedRoom}`;
+      if (currentRoomTxt) currentRoomTxt.innerText = selectedRoom;
+
       buildRoomsGrid(currentFloor);
-      document.getElementById("paymentFormCard").classList.add("hidden");
-      loadRoomResidents();
+
+      const payCard = document.getElementById("paymentFormCard");
+      if (payCard) payCard.classList.add("hidden");
+
+      loadRoomResidents(2, false);
     }
 
     async function loadRoomResidents(retries = 2, forceRefresh = false) {
@@ -805,6 +830,7 @@
           }
 
           const card = document.createElement("div");
+          card.id = `resident-card-${idx}`;
           card.className = `resident-card p-3.5 rounded-2xl border cursor-pointer hover:border-indigo-400 transition flex flex-col gap-2.5 ${cardBg}`;
 
           let noticeTag = "";
@@ -815,7 +841,7 @@
           }
 
           card.innerHTML = `
-            <!-- Top Row: Name, Subtext & Status Badge -->
+            <!-- Top Row: Name, Subtext & Status Badge (Tapping selects resident) -->
             <div class="flex items-start justify-between gap-2" onclick="chooseResident(${idx})">
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-black text-slate-800 flex items-center gap-1.5 flex-wrap">
@@ -832,7 +858,7 @@
               </div>
             </div>
 
-            <!-- Bottom Row: Action Buttons -->
+            <!-- Bottom Row: Independent Action Buttons -->
             <div class="flex items-center gap-1.5 flex-wrap pt-2 border-t border-slate-100">
               <button type="button" onclick="event.stopPropagation(); openShiftFor(${idx})" 
                       class="px-2.5 py-1 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg transition flex items-center gap-1">
@@ -876,35 +902,52 @@
 
     function chooseResident(idx) {
       currentSelectedResident = activeResidents[idx];
+      if (!currentSelectedResident) return;
 
       document.querySelectorAll(".resident-card").forEach((c, i) => {
         if (i === idx) c.classList.add("active");
         else c.classList.remove("active");
       });
 
-      document.getElementById("targetResidentName").innerText = currentSelectedResident.name;
-      document.getElementById("targetExpectedRent").innerText = "₹" + currentSelectedResident.expectedRent;
-      document.getElementById("targetRowIndex").value = currentSelectedResident.rowIndex;
+      document.getElementById("targetResidentName").innerText = currentSelectedResident.name || "Resident";
+      document.getElementById("targetExpectedRent").innerText = "₹" + (currentSelectedResident.expectedRent || 0);
+      document.getElementById("targetRowIndex").value = currentSelectedResident.rowIndex || "";
       
-      // Payments ADD to what is already recorded, so start from the balance still due
-      document.getElementById("payReplaceToggle").checked = false;
-      const dueTotal = residentTotalDue(currentSelectedResident);
+      // Configure Reset button visibility
+      const clearBtn = document.getElementById("clearPaymentBtn");
       const alreadyPaid = parseFloat(currentSelectedResident.rentPaid) || 0;
+      if (clearBtn) {
+        if (alreadyPaid > 0) clearBtn.classList.remove("hidden");
+        else clearBtn.classList.add("hidden");
+      }
+
+      // Default mode setup
+      cancelCorrectionMode();
+      
+      const dueTotal = residentTotalDue(currentSelectedResident);
       document.getElementById("payAmount").value = Math.max(0, dueTotal - alreadyPaid) || "";
       loadedRemarks = currentSelectedResident.stayingDates || "";
       document.getElementById("payRemarks").value = loadedRemarks;
       document.getElementById("payMode").value = "Cash";
       document.getElementById("payReceiver").value = "None";
-      document.getElementById("payDate").value = todayISO();
+      document.getElementById("payDate").value = typeof todayISO === "function" ? todayISO() : new Date().toISOString().slice(0, 10);
       document.getElementById("splitPaymentToggle").checked = false;
       document.getElementById("singlePaySection").classList.remove("hidden");
       document.getElementById("splitPaySection").classList.add("hidden");
       onPayTypeChange();
 
-      document.getElementById("paymentFormCard").classList.remove("hidden");
-      document.getElementById("ledgerStatusBox").classList.add("hidden");
-      document.getElementById("proRateBox").classList.add("hidden");
+      const payCard = document.getElementById("paymentFormCard");
+      if (payCard) payCard.classList.remove("hidden");
+
+      const statusBox = document.getElementById("ledgerStatusBox");
+      if (statusBox) statusBox.classList.add("hidden");
+
+      const proBox = document.getElementById("proRateBox");
+      if (proBox) proBox.classList.add("hidden");
+
       loadPaymentHistory();
+
+      if (payCard) payCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
     let loadedRemarks = "";
@@ -955,9 +998,14 @@
               <span class="font-bold text-slate-800">₹${esc(Number(p.amount).toLocaleString("en-IN"))}</span>
               <span class="text-slate-500"> • ${esc(p.paymentDate)} • ${esc(p.mode || "-")}</span>
             </div>
-            <button type="button" onclick="openHistoryReceipt(${i})" class="shrink-0 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg flex items-center gap-1">
-              <i class="fa-brands fa-whatsapp"></i> Receipt
-            </button>
+            <div class="flex items-center gap-1">
+              <button type="button" onclick="enableCorrectionMode()" class="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded-lg flex items-center gap-1 text-[11px]" title="Edit / Correct total">
+                <i class="fa-solid fa-pen-to-square"></i> Edit
+              </button>
+              <button type="button" onclick="openHistoryReceipt(${i})" class="shrink-0 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg flex items-center gap-1 text-[11px]">
+                <i class="fa-brands fa-whatsapp"></i> Receipt
+              </button>
+            </div>
           </div>`).join("");
         box.classList.remove("hidden");
       } catch (e) { /* history is optional */ }
@@ -1074,7 +1122,6 @@
         entryType: document.getElementById("payReplaceToggle").checked ? "replace" : "add",
         paymentDate: document.getElementById("payDate").value,
         mode: finalModeString,
-        // only sent when edited, so a stale copy can never overwrite newer remarks
         remarks: document.getElementById("payRemarks").value !== loadedRemarks ? document.getElementById("payRemarks").value : undefined
       };
 
@@ -1088,7 +1135,6 @@
         loadRoomResidents(2, true);
         loadAllDues(true);
 
-        // Offer the receipt straight away
         if (result.receipt) {
           openReceiptModal(result.receipt);
         }
@@ -1594,6 +1640,76 @@
       originalShowFloor(floorNum);
       startBackgroundPrefetch(floorNum);
     };
+	
+    // -------------------------------------------------------------
+    // PAYMENT CORRECTION & RESET HANDLERS
+    // -------------------------------------------------------------
+    function enableCorrectionMode() {
+      if (!currentSelectedResident) return;
+      const paid = parseFloat(currentSelectedResident.rentPaid) || 0;
+      
+      document.getElementById("payReplaceToggle").checked = true;
+      document.getElementById("correctionBanner").classList.remove("hidden");
+      document.getElementById("payAmountLabel").innerText = "Correct Total Paid This Month (₹)";
+      document.getElementById("payAmount").value = paid;
+      document.getElementById("saveRentBtn").innerHTML = `<i class="fa-solid fa-pen-to-square"></i> <span>Overwrite & Correct Sheet</span>`;
+      updatePaySummary();
+    }
+
+    function cancelCorrectionMode() {
+      if (!currentSelectedResident) return;
+      document.getElementById("payReplaceToggle").checked = false;
+      document.getElementById("correctionBanner").classList.add("hidden");
+      document.getElementById("payAmountLabel").innerText = "Amount Received Now (₹)";
+      document.getElementById("saveRentBtn").innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>Save Payment to Sheet</span>`;
+      const dueTotal = residentTotalDue(currentSelectedResident);
+      const paid = parseFloat(currentSelectedResident.rentPaid) || 0;
+      document.getElementById("payAmount").value = Math.max(0, dueTotal - paid) || "";
+      updatePaySummary();
+    }
+
+    async function confirmResetPayment() {
+      if (!currentSelectedResident) return;
+      const r = currentSelectedResident;
+      const paid = parseFloat(r.rentPaid) || 0;
+
+      if (!confirm(`Are you sure you want to completely RESET payment for ${r.name}?\n\n• Current recorded paid: ₹${paid}\n• New status: ₹0 (Unpaid)\n\nThis will clear payment mode and date in the sheet.`)) {
+        return;
+      }
+
+      const statusBox = document.getElementById("ledgerStatusBox");
+      statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 block";
+      statusBox.innerText = `Resetting payment to ₹0 for ${r.name}...`;
+
+      try {
+        const payload = {
+          action: "recordRentPayment",
+          month: document.getElementById("monthSelect").value,
+          roomNumber: selectedRoom,
+          rowIndex: r.rowIndex,
+          residentName: r.name,
+          rentPaid: 0,
+          entryType: "replace",
+          paymentDate: "",
+          mode: "",
+          remarks: "Payment reset"
+        };
+
+        const result = await apiPost(payload);
+        statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
+        statusBox.innerHTML = `✓ Payment cleared! ${esc(r.name)} is now marked as Unpaid.`;
+
+        setTimeout(() => {
+          statusBox.classList.add("hidden");
+          loadRoomResidents(2, true);
+          loadAllDues(true);
+        }, 1200);
+
+      } catch (err) {
+        statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 block";
+        statusBox.innerText = "Error: " + err.message;
+      }
+    }
   </script>
 </body>
 </html>
