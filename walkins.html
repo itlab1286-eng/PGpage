@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Elysium PG - Walkin Ledger</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="auth.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-16">
+
+  <!-- PIN LOCK SCREEN -->
+  <div id="pinLockModal" class="fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center">
+      <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mb-1">Staff Verification</h2>
+      <p class="text-sm text-slate-500 mb-6">Enter PIN to access Walkin Ledger</p>
+      
+      <div class="flex justify-center mb-6">
+        <input type="password" maxlength="6" id="staffPinInput" 
+               class="w-44 text-center text-3xl tracking-widest font-mono py-2 border-2 border-slate-300 rounded-xl focus:border-indigo-600 focus:outline-none" 
+               placeholder="••••" autofocus />
+      </div>
+
+      <p id="pinErrorMsg" class="text-xs text-red-500 font-semibold mb-4 hidden">Invalid PIN.</p>
+
+      <button onclick="unlockApp()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-indigo-500/30 transition">
+        Unlock Ledger
+      </button>
+    </div>
+  </div>
+
+  <!-- ENTRY / EDIT MODAL -->
+  <div id="walkinModal" class="fixed inset-0 z-40 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h3 id="modalTitle" class="text-base font-black text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-person-walking text-indigo-600"></i> Log Walkin Inquiry
+        </h3>
+        <button type="button" onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form onsubmit="saveWalkin(event)" class="space-y-3.5 text-xs">
+        <input type="hidden" id="entryRowIndex" />
+
+        <!-- Sharing Requirement & Persons -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-600 font-bold mb-1">Requirement *</label>
+            <select id="inputRequirement" required class="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <option value="2 sharing">2 sharing</option>
+              <option value="3 sharing" selected>3 sharing</option>
+              <option value="4 sharing">4 sharing</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-600 font-bold mb-1">No. of Persons *</label>
+            <input type="number" id="inputPersons" min="1" max="20" value="1" required
+                   class="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- Name & Phone -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-600 font-bold mb-1">Resident / Contact Name</label>
+            <input type="text" id="inputName" placeholder="e.g. Mohan Krishna"
+                   class="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-slate-600 font-bold mb-1">Phone Number</label>
+            <input type="tel" id="inputPhone" placeholder="10-digit mobile"
+                   class="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- Amount Said (Free Text) -->
+        <div>
+          <label class="block text-slate-600 font-bold mb-1">Amount Said (Text) *</label>
+          <input type="text" id="inputAmountSaid" required placeholder="e.g. 10000 plus 3000 slightly negotiable"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+        </div>
+
+        <!-- Remarks (Free Text) -->
+        <div>
+          <label class="block text-slate-600 font-bold mb-1">Remarks (Text)</label>
+          <textarea id="inputRemarks" rows="2" placeholder="e.g. Shown 606 and 607, non ac for nov 1"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-xl font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+        </div>
+
+        <div id="modalStatusBox" class="p-2.5 rounded-xl text-xs font-semibold hidden"></div>
+
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="closeModal()" class="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+            Cancel
+          </button>
+          <button type="submit" id="saveWalkinBtn" class="w-2/3 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span>Save Entry</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN PAGE WRAPPER -->
+  <div class="max-w-4xl mx-auto px-4 pt-4 sm:pt-8">
+    
+    <!-- TOP HEADER -->
+    <header class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 mb-4 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <a href="index.html" class="text-xs font-bold text-slate-500 hover:text-slate-800 transition flex items-center gap-1">
+            <i class="fa-solid fa-arrow-left"></i> Home
+          </a>
+          <span class="text-slate-300">&bull;</span>
+          <span class="text-xs font-bold text-indigo-600 uppercase tracking-wider">Walkin Ledger</span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
+          <i class="fa-solid fa-person-walking-arrow-right text-indigo-600"></i> Elysium Walkin
+        </h1>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- Dynamic Month Dropdown -->
+        <select id="monthSelect" onchange="onMonthChange()" class="px-3 py-2 text-xs font-black bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-800">
+          <option value="">Loading Month...</option>
+        </select>
+
+        <button onclick="loadWalkins(true)" class="p-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition" title="Refresh">
+          <i class="fa-solid fa-arrows-rotate"></i>
+        </button>
+        <button onclick="openNewModal()" class="px-3.5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md transition flex items-center gap-1.5">
+          <i class="fa-solid fa-plus"></i>
+          <span>New Entry</span>
+        </button>
+        <button onclick="logoutApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition" title="Exit / Lock">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- SEARCH & FILTERS -->
+    <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div class="relative flex-1 min-w-[200px]">
+        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </span>
+        <input type="text" id="searchInput" oninput="renderWalkins()" placeholder="Search name, phone, remarks, or amount..."
+               class="w-full pl-8 pr-3 py-2 text-xs font-bold border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+      </div>
+
+      <!-- Sharing Filters -->
+      <div class="flex items-center gap-1.5 text-xs font-bold">
+        <button type="button" onclick="setFilter('ALL')" id="filterALL" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white">All (<span id="countAll">0</span>)</button>
+        <button type="button" onclick="setFilter('2 sharing')" id="filter2" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600">2S</button>
+        <button type="button" onclick="setFilter('3 sharing')" id="filter3" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600">3S</button>
+        <button type="button" onclick="setFilter('4 sharing')" id="filter4" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600">4S</button>
+      </div>
+    </div>
+
+    <!-- ENTRIES CONTAINER -->
+    <div id="walkinsContainer" class="space-y-3">
+      <div class="text-center py-10 text-slate-400 text-xs font-semibold">
+        <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Initializing Walkin ledger...
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let walkinsData = [];
+    let currentFilter = "ALL";
+
+    window.addEventListener("DOMContentLoaded", () => {
+      if (typeof isAuthenticated === "function" && isAuthenticated()) {
+        document.getElementById("pinLockModal").classList.add("hidden");
+        initPage();
+      } else if (typeof isAuthenticated !== "function") {
+        document.getElementById("pinLockModal").classList.add("hidden");
+        initPage();
+      } else {
+        document.getElementById("pinLockModal").classList.remove("hidden");
+      }
+    });
+
+    function unlockApp() {
+      verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
+        document.getElementById("pinLockModal").classList.add("hidden");
+        initPage();
+      });
+    }
+
+    async function initPage() {
+      await loadMonthsList();
+      loadWalkins();
+    }
+
+    async function loadMonthsList() {
+      const select = document.getElementById("monthSelect");
+      try {
+        const json = await apiGet("getAvailableMonths");
+        if (json.status === "success" && Array.isArray(json.months) && json.months.length > 0) {
+          select.innerHTML = "";
+          json.months.forEach(m => {
+  const opt = document.createElement("option");
+  // Use m.id or m.key first if your system uses Sheet IDs for month selection
+  opt.value = m.id || m.key || m.name || m; 
+  opt.textContent = m.name || m.label || m;
+  if (m.current || m.active) opt.selected = true;
+  select.appendChild(opt);
+});
+        }
+      } catch (e) {
+        select.innerHTML = `<option value="">Active Sheet</option>`;
+      }
+    }
+
+    function onMonthChange() {
+      loadWalkins(true);
+    }
+
+    async function loadWalkins(force = false) {
+      const container = document.getElementById("walkinsContainer");
+      const month = document.getElementById("monthSelect").value;
+
+      container.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Syncing Walkin entries...</div>`;
+
+      try {
+        const json = await apiGet("getWalkins", { month: month, forceRefresh: force ? "true" : "" });
+        if (json.status === "success") {
+          walkinsData = json.walkins || [];
+          renderWalkins();
+        } else {
+          throw new Error(json.message || "Failed to load records");
+        }
+      } catch (err) {
+        container.innerHTML = `<div class="p-6 text-center text-xs text-red-500 font-bold bg-red-50 rounded-2xl border border-red-200">Error: ${esc(err.message)}</div>`;
+      }
+    }
+
+    function setFilter(sharing) {
+      currentFilter = sharing;
+      ["ALL", "2 sharing", "3 sharing", "4 sharing"].forEach(key => {
+        const id = key === "ALL" ? "filterALL" : (key === "2 sharing" ? "filter2" : (key === "3 sharing" ? "filter3" : "filter4"));
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        if (key === sharing) {
+          btn.className = "px-3 py-1.5 rounded-xl bg-indigo-600 text-white";
+        } else {
+          btn.className = "px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600";
+        }
+      });
+      renderWalkins();
+    }
+
+    function renderWalkins() {
+      const container = document.getElementById("walkinsContainer");
+      const query = (document.getElementById("searchInput").value || "").trim().toLowerCase();
+      document.getElementById("countAll").innerText = walkinsData.length;
+
+      const filtered = walkinsData.filter(item => {
+        if (currentFilter !== "ALL") {
+          const reqNum = currentFilter.replace(" sharing", "").trim();
+          if (!item.requirement.toLowerCase().includes(reqNum)) return false;
+        }
+        if (!query) return true;
+        return (
+          item.name.toLowerCase().includes(query) ||
+          item.phone.toLowerCase().includes(query) ||
+          item.remarks.toLowerCase().includes(query) ||
+          item.amountSaid.toLowerCase().includes(query)
+        );
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="p-8 bg-white rounded-2xl border border-slate-200 text-center">
+            <div class="w-12 h-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-2 text-lg">
+              <i class="fa-solid fa-person-shelter"></i>
+            </div>
+            <p class="text-xs font-bold text-slate-600">No walk-in inquiries found</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Click '+ New Entry' to log an inquiry</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = "";
+      filtered.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 transition flex flex-col gap-2.5";
+
+        const cleanPhone = String(item.phone).replace(/\D/g, "");
+        const formattedWa = cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone;
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="px-2.5 py-0.5 rounded-lg text-[11px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  ${esc(item.requirement) || "Sharing not specified"}
+                </span>
+                <span class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700">
+                  <i class="fa-solid fa-users text-[9px] mr-1"></i>${item.persons ? esc(item.persons) + ' person(s)' : '1 person'}
+                </span>
+                <span class="text-slate-300">&bull;</span>
+                <span class="text-sm font-black text-slate-900">${esc(item.name) || 'Walkin Contact'}</span>
+              </div>
+              
+              <p class="text-xs text-slate-500 font-semibold mt-1.5 flex items-center gap-1.5">
+                <i class="fa-solid fa-phone text-[10px] text-slate-400"></i>
+                <span>${esc(item.phone) || 'No phone recorded'}</span>
+              </p>
+            </div>
+
+            <!-- Action Buttons: WhatsApp, Call, Edit, Delete -->
+            <div class="flex items-center gap-1.5 shrink-0">
+              ${cleanPhone ? `
+                <a href="https://wa.me/${formattedWa}" target="_blank" class="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition" title="WhatsApp">
+                  <i class="fa-brands fa-whatsapp text-sm"></i>
+                </a>
+                <a href="tel:${cleanPhone}" class="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 transition" title="Call">
+                  <i class="fa-solid fa-phone text-xs"></i>
+                </a>
+              ` : ''}
+              <button type="button" onclick="editWalkin(${item.rowIndex})" class="p-2 rounded-xl bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 transition" title="Edit">
+                <i class="fa-solid fa-pen text-xs"></i>
+              </button>
+              <button type="button" onclick="deleteWalkin(${item.rowIndex}, '${esc(item.name)}')" class="p-2 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 transition" title="Delete">
+                <i class="fa-solid fa-trash text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Quoted Price & Remarks -->
+          <div class="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-1.5 text-xs">
+            <div class="flex items-start gap-1.5">
+              <span class="font-bold text-slate-500 shrink-0">Amount Said:</span>
+              <span class="font-bold text-indigo-950 break-words">${esc(item.amountSaid) || 'None recorded'}</span>
+            </div>
+            ${item.remarks ? `
+              <div class="flex items-start gap-1.5 border-t border-slate-200/60 pt-1.5">
+                <span class="font-bold text-slate-500 shrink-0">Remarks:</span>
+                <span class="text-slate-700 font-medium break-words">${esc(item.remarks)}</span>
+              </div>
+            ` : ''}
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+    }
+
+    function openNewModal() {
+      document.getElementById("modalTitle").innerHTML = `<i class="fa-solid fa-person-walking text-indigo-600"></i> Log Walkin Inquiry`;
+      document.getElementById("entryRowIndex").value = "";
+      document.getElementById("inputRequirement").value = "3 sharing";
+      document.getElementById("inputPersons").value = "1";
+      document.getElementById("inputName").value = "";
+      document.getElementById("inputPhone").value = "";
+      document.getElementById("inputAmountSaid").value = "";
+      document.getElementById("inputRemarks").value = "";
+      document.getElementById("modalStatusBox").classList.add("hidden");
+      document.getElementById("walkinModal").classList.remove("hidden");
+    }
+
+    function editWalkin(rowIndex) {
+      const item = walkinsData.find(w => w.rowIndex === rowIndex);
+      if (!item) return;
+
+      document.getElementById("modalTitle").innerHTML = `<i class="fa-solid fa-pen text-indigo-600"></i> Edit Inquiry (Row #${rowIndex})`;
+      document.getElementById("entryRowIndex").value = item.rowIndex;
+      document.getElementById("inputRequirement").value = item.requirement || "3 sharing";
+      document.getElementById("inputPersons").value = item.persons || "1";
+      document.getElementById("inputName").value = item.name || "";
+      document.getElementById("inputPhone").value = item.phone || "";
+      document.getElementById("inputAmountSaid").value = item.amountSaid || "";
+      document.getElementById("inputRemarks").value = item.remarks || "";
+      document.getElementById("modalStatusBox").classList.add("hidden");
+      document.getElementById("walkinModal").classList.remove("hidden");
+    }
+
+    function closeModal() {
+      document.getElementById("walkinModal").classList.add("hidden");
+    }
+
+    async function saveWalkin(e) {
+      e.preventDefault();
+      const btn = document.getElementById("saveWalkinBtn");
+      const statusBox = document.getElementById("modalStatusBox");
+      const month = document.getElementById("monthSelect").value;
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...`;
+      statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
+      statusBox.innerText = "Writing to Walkin sheet...";
+
+      const payload = {
+        action: "saveWalkin",
+        month: month,
+        rowIndex: document.getElementById("entryRowIndex").value,
+        requirement: document.getElementById("inputRequirement").value,
+        persons: document.getElementById("inputPersons").value,
+        name: document.getElementById("inputName").value,
+        phone: document.getElementById("inputPhone").value,
+        amountSaid: document.getElementById("inputAmountSaid").value,
+        remarks: document.getElementById("inputRemarks").value
+      };
+
+      try {
+        const res = await apiPost(payload);
+        if (res.status === "success") {
+          statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
+          statusBox.innerHTML = `✓ ${esc(res.message || "Saved successfully!")}`;
+
+          setTimeout(() => {
+            closeModal();
+            loadWalkins(true);
+          }, 700);
+        } else {
+          throw new Error(res.message || "Failed to save entry");
+        }
+      } catch (err) {
+        statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
+        statusBox.innerText = "Error: " + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>Save Entry</span>`;
+      }
+    }
+
+    async function deleteWalkin(rowIndex, name) {
+      const displayName = name ? `"${name}"` : `this inquiry`;
+      if (!confirm(`Are you sure you want to delete ${displayName}?`)) return;
+
+      const month = document.getElementById("monthSelect").value;
+      try {
+        const res = await apiPost({
+          action: "deleteWalkin",
+          month: month,
+          rowIndex: rowIndex
+        });
+
+        if (res.status === "success") {
+          loadWalkins(true);
+        } else {
+          alert("Error: " + (res.message || "Failed to delete record"));
+        }
+      } catch (e) {
+        alert("Error: " + e.message);
+      }
+    }
+
+    function esc(s) {
+      return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+  </script>
+</body>
+</html>

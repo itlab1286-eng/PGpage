@@ -170,24 +170,9 @@ function showPinError(errorMsg, text) {
 
 // Clears the session and redirects to portal home
 function logoutApp() {
-  if (confirm("Do you want to exit Elysium PG?")) {
-    // 1. If running inside the Android APK wrapper, close the app natively
-    if (window.AndroidApp && typeof window.AndroidApp.exitApp === "function") {
-      window.AndroidApp.exitApp();
-      return;
-    }
-
-    // 2. Fallback for desktop/mobile browser: clear session and show lock screen
-    sessionStorage.removeItem("elysium_staff_authenticated");
-    const pinModal = document.getElementById("pinLockModal");
-    if (pinModal) {
-      pinModal.classList.remove("hidden");
-    } else {
-      localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(TOKEN_KEY);
   sessionStorage.clear();
   window.location.href = "index.html";
-    }
-  }
 }
 
 function lockApp() {
