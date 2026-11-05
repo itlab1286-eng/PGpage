@@ -133,6 +133,12 @@ function isAuthenticated() {
 function logoutApp() {
   sessionStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(TOKEN_KEY);
+
+  // If running inside Android WebView, exit app cleanly if desired, or redirect to login
+  if (window.AndroidApp && typeof window.AndroidApp.exitApp === "function") {
+    // Optionally close the app directly on logout:
+    // window.AndroidApp.exitApp();
+  }
   window.location.replace("login.html");
 }
 
