@@ -1,12 +1,10 @@
 // auth.js - Shared configuration, authentication & API helpers for Elysium PG
 // ---------------------------------------------------------------------------
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNR9EP5FfVODvpxdDUh4s4ciInW1JREY681R0gbb8HlTNBTfRLppwoDZKH5N9Spqc6/exec";
-const APPS_SCRIPT_AUTH_URL = APPS_SCRIPT_URL; // legacy alias used by a few pages
+const APPS_SCRIPT_AUTH_URL = APPS_SCRIPT_URL;
 
-// Central, editable settings (keep in sync with the constants at the top of code.gs)
 const PG_CONFIG = {
   pgName: "Elysium PG",
-  // Rooms shown in the room pickers (floor -> room numbers)
   rooms: {
     1: ["101", "102", "103", "104", "105", "106", "107"],
     2: ["201", "202", "203", "204", "205", "206", "207"],
@@ -15,22 +13,14 @@ const PG_CONFIG = {
     5: ["501", "502", "503", "504", "505", "506", "507"],
     6: ["601", "602", "603", "604", "605", "606", "607"]
   },
-  // true  = pro-rate using the real number of days in the month (28/29/30/31)
-  // false = always divide by 30
   prorateUseActualDays: true,
-  // Default maintenance deduction when returning an advance
   defaultMaintenanceDeduction: 1000,
-  // Country code for WhatsApp links (India)
   countryCode: "91"
 };
 
+const SESSION_KEY = "elysium_session_data";
 const TOKEN_KEY = "elysium_auth_token";
 
-// ---------------------------------------------------------------------------
-// Small utilities
-// ---------------------------------------------------------------------------
-
-// Escapes text before it is placed inside innerHTML templates
 function esc(value) {
   if (value === null || value === undefined) return "";
   return String(value)
@@ -41,8 +31,6 @@ function esc(value) {
     .replace(/'/g, "&#39;");
 }
 
-// Local (device) calendar date as yyyy-MM-dd. toISOString() is UTC and returns
-// "yesterday" between 12:00 AM and 5:30 AM in India, so it must not be used.
 function toLocalISO(d) {
   const dt = d instanceof Date ? d : new Date(d);
   const y = dt.getFullYear();
@@ -61,7 +49,6 @@ function addDaysISO(days, fromDate) {
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-// "November 2026" -> { year: 2026, month: 10 }  (month is 0-based) or null
 function parseMonthName(name) {
   const m = String(name || "").trim().match(/^([A-Za-z]+)\s+(\d{4})$/);
   if (!m) return null;
@@ -79,7 +66,6 @@ function nextMonthName(name) {
   const idx = p.year * 12 + p.month + 1;
   return `${MONTH_NAMES[idx % 12]} ${Math.floor(idx / 12)}`;
 }
-// Days used as the divisor for pro-rating a month's rent
 function prorateDays(monthName) {
   if (!PG_CONFIG.prorateUseActualDays) return 30;
   const p = parseMonthName(monthName);
@@ -87,7 +73,6 @@ function prorateDays(monthName) {
   return new Date(p.year, p.month + 1, 0).getDate();
 }
 
-// Normalises an Indian mobile number to digits with country code, or "" if invalid
 function whatsappNumber(mobile) {
   let digits = String(mobile || "").replace(/\D/g, "");
   if (digits.length === 12 && digits.startsWith(PG_CONFIG.countryCode)) return digits;
@@ -98,110 +83,144 @@ function whatsappNumber(mobile) {
 }
 
 // ---------------------------------------------------------------------------
-// Session handling (token issued by the server after a PIN login)
+// Session & Auth Handling (1-Hour Expiry + Session Closure via sessionStorage)
 // ---------------------------------------------------------------------------
-function decodeTokenExpiry(token) {
+function getActiveSession() {
+  const raw = sessionStorage.getItem(SESSION_KEY);
+  if (!raw) return null;
   try {
-    const body = String(token).split(".")[0].replace(/-/g, "+").replace(/_/g, "/");
-    const payload = JSON.parse(atob(body));
-    return Number(payload.exp) || 0;
+    const session = JSON.parse(raw);
+    if (!session || !session.token || !session.expiry) {
+      sessionStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    if (Date.now() > Number(session.expiry)) {
+      sessionStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return session;
   } catch (e) {
-    return 0;
+    sessionStorage.removeItem(SESSION_KEY);
+    return null;
   }
+}
+
+function saveSession(session) {
+  if (!session) return;
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  localStorage.setItem(TOKEN_KEY, session.token);
 }
 
 function getAuthToken() {
-  const token = localStorage.getItem(TOKEN_KEY) || "";
-  if (!token) return "";
-  if (decodeTokenExpiry(token) <= Date.now()) {
-    localStorage.removeItem(TOKEN_KEY);
-    return "";
-  }
-  return token;
+  const s = getActiveSession();
+  return s ? s.token : "";
+}
+
+function getAuthRole() {
+  const s = getActiveSession();
+  return s ? s.role : "GUEST";
+}
+
+function getAuthUser() {
+  const s = getActiveSession();
+  return s ? (s.displayName || s.username) : "User";
 }
 
 function isAuthenticated() {
-  return Boolean(getAuthToken());
+  return getActiveSession() !== null;
 }
 
-async function verifyStaffPin(pinInputId, errorMsgId, onSuccess) {
-  const pinInput = document.getElementById(pinInputId);
-  const errorMsg = document.getElementById(errorMsgId);
-  const pin = (pinInput ? pinInput.value : "").trim();
-  if (!pin) return;
-
-  if (errorMsg) errorMsg.classList.add("hidden");
-  if (pinInput) pinInput.disabled = true;
-
-  try {
-    // PIN goes in a POST body (never in the URL)
-    const res = await fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "login", pin: pin })
-    });
-    const rawText = await res.text();
-    let data = null;
-    try {
-      data = JSON.parse(rawText);
-    } catch (e) {
-      throw new Error("Server did not respond properly. Please try again.");
-    }
-
-    if (data.status === "success" && data.token) {
-      localStorage.setItem(TOKEN_KEY, data.token);
-      if (pinInput) pinInput.value = "";
-      if (typeof onSuccess === "function") onSuccess();
-    } else {
-      showPinError(errorMsg, (data && data.message) || "Invalid Staff PIN");
-    }
-  } catch (err) {
-    showPinError(errorMsg, err.message || "Connection error. Please try again.");
-  } finally {
-    if (pinInput) pinInput.disabled = false;
-  }
-}
-
-function showPinError(errorMsg, text) {
-  if (!errorMsg) return;
-  errorMsg.innerText = text;
-  errorMsg.classList.remove("hidden");
-}
-
-// Clears the session and redirects to portal home
 function logoutApp() {
+  sessionStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(TOKEN_KEY);
-  sessionStorage.clear();
-  window.location.href = "index.html";
+  window.location.replace("login.html");
 }
 
 function lockApp() {
   logoutApp();
 }
 
-// Called whenever the server says the session is no longer valid
 function handleSessionExpired() {
+  sessionStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(TOKEN_KEY);
-  const modal = document.getElementById("pinLockModal");
-  if (modal) {
-    modal.classList.remove("hidden");
-  } else {
-    window.location.href = "index.html";
+  const current = encodeURIComponent(window.location.pathname.split("/").pop() || "index.html");
+  window.location.replace(`login.html?redirect=${current}`);
+}
+
+// Direct URL Protection (Guards every HTML page upon loading)
+function enforcePageAuthentication() {
+  const isLoginPage = window.location.pathname.endsWith("login.html");
+  const session = getActiveSession();
+
+  if (!session) {
+    if (!isLoginPage) {
+      const page = encodeURIComponent(window.location.pathname.split("/").pop() || "index.html");
+      window.location.replace(`login.html?redirect=${page}`);
+    }
+  } else if (isLoginPage) {
+    window.location.replace("index.html");
   }
 }
 
-// Universal Enter key listener for all PIN inputs
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    const pinBox = document.getElementById("staffPinInput");
-    if (pinBox && !pinBox.closest("#pinLockModal")?.classList.contains("hidden")) {
-      if (typeof unlockApp === "function") unlockApp();
-    }
-  }
-});
+enforcePageAuthentication();
 
 // ---------------------------------------------------------------------------
-// API helpers - every call goes through these so errors are never shown as success
+// Strict Viewer Mode Frontend Restrictions
+// ---------------------------------------------------------------------------
+function applyViewerRestrictions() {
+  const role = getAuthRole();
+  if (role === "VIEWER") {
+    const selectors = [
+      "button[type='submit']",
+      ".btn-save",
+      ".btn-delete",
+      ".btn-add",
+      "#confirmDeleteBtn",
+      "#saveUserBtn",
+      "#uploadSubmitBtn",
+      "#generateMonthBtn"
+    ];
+    selectors.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => {
+        el.style.display = "none";
+      });
+    });
+
+    document.querySelectorAll("input, select, textarea").forEach(input => {
+      const id = (input.id || "").toLowerCase();
+      const isFilter = id.includes("filter") || id.includes("search") || id.includes("monthselect") || id.includes("roomsearch");
+      if (!isFilter) {
+        input.setAttribute("disabled", "true");
+        input.classList.add("opacity-60", "cursor-not-allowed");
+      }
+    });
+
+    const header = document.querySelector("header");
+    if (header && !document.getElementById("viewerNoticeBadge")) {
+      const badge = document.createElement("div");
+      badge.id = "viewerNoticeBadge";
+      badge.className = "bg-amber-100 text-amber-800 text-[11px] font-bold px-3 py-1.5 rounded-xl border border-amber-200 flex items-center gap-1.5 shadow-sm";
+      badge.innerHTML = `<i class="fa-solid fa-eye text-amber-600"></i> <span>View-Only Account</span>`;
+      header.appendChild(badge);
+    }
+  }
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  const legacyPinModal = document.getElementById("pinLockModal");
+  if (legacyPinModal && isAuthenticated()) {
+    legacyPinModal.classList.add("hidden");
+  }
+  applyViewerRestrictions();
+});
+
+function unlockApp() {
+  const legacyPinModal = document.getElementById("pinLockModal");
+  if (legacyPinModal) legacyPinModal.classList.add("hidden");
+}
+
+// ---------------------------------------------------------------------------
+// Robust API Helpers
 // ---------------------------------------------------------------------------
 function makeRequestId() {
   if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -218,8 +237,6 @@ function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
-// Read-only request. Throws on any problem. Retries once on a non-JSON reply
-// (Apps Script cold starts occasionally return an HTML page).
 async function apiGet(action, params = {}, retries = 2) {
   const qs = new URLSearchParams({ action, token: getAuthToken() });
   Object.entries(params).forEach(([k, v]) => {
@@ -249,9 +266,9 @@ async function apiGet(action, params = {}, retries = 2) {
     throw new Error("Server is warming up. Please tap refresh.");
   }
 
-  if (json.code === "unauthorized") {
+  if (json.code === "unauthorized" || (json.message && json.message.toLowerCase().includes("unauthorized"))) {
     handleSessionExpired();
-    throw new Error(json.message || "Session expired. Please unlock again.");
+    throw new Error(json.message || "Session expired. Please log in again.");
   }
   if (json.status !== "success") {
     throw new Error(json.message || "Request failed.");
@@ -259,12 +276,14 @@ async function apiGet(action, params = {}, retries = 2) {
   return json;
 }
 
-// Write request. Resolves ONLY when the server confirms success.
-// A request id lets the server ignore a repeat of the same write, so retrying
-// after a timeout can never create a duplicate row.
 const uncertainWrites = new Map();
 
 async function apiPost(payload) {
+  if (getAuthRole() === "VIEWER") {
+    alert("Action blocked: Your account has View-Only permissions.");
+    throw new Error("FORBIDDEN: View-Only accounts cannot modify data.");
+  }
+
   const body = Object.assign({}, payload);
   delete body.pin;
   body.token = getAuthToken();
@@ -294,7 +313,7 @@ async function apiPost(payload) {
     try {
       json = JSON.parse(rawText);
     } catch (e) {
-      lastError = new Error("The server did not confirm the save. Please check the sheet before retrying (a retry will not create duplicates).");
+      lastError = new Error("The server did not confirm the save. Please check the sheet before retrying.");
       uncertainWrites.set(fingerprint, requestId);
       await sleep(1500);
       continue;
@@ -302,9 +321,9 @@ async function apiPost(payload) {
 
     uncertainWrites.delete(fingerprint);
 
-    if (json.code === "unauthorized") {
+    if (json.code === "unauthorized" || (json.message && json.message.toLowerCase().includes("unauthorized"))) {
       handleSessionExpired();
-      throw new Error(json.message || "Session expired. Please unlock again.");
+      throw new Error(json.message || "Session expired. Please log in again.");
     }
     if (json.status !== "success") {
       const err = new Error(json.message || "The server rejected this request.");
@@ -316,15 +335,11 @@ async function apiPost(payload) {
   throw lastError || new Error("Request failed.");
 }
 
-// ---------------------------------------------------------------------------
-// Dynamic month dropdown (synchronously initialized + persisted across pages)
-// ---------------------------------------------------------------------------
 const ACTIVE_MONTH_KEY = "elysium_active_month";
 
 function getActiveMonthFallback() {
   const saved = localStorage.getItem(ACTIVE_MONTH_KEY);
   if (saved && parseMonthName(saved)) return saved;
-
   const now = new Date();
   return MONTH_NAMES[now.getMonth()] + " " + now.getFullYear();
 }
@@ -337,7 +352,6 @@ async function initDynamicMonthSelect(selectId = "monthSelect") {
   const currentMonthName = MONTH_NAMES[now.getMonth()] + " " + now.getFullYear();
   const targetInitialMonth = getActiveMonthFallback();
 
-  // 1. Synchronously pre-select/insert the target month to prevent any UI flicker
   let hasTarget = Array.from(select.options).some(o => o.value === targetInitialMonth);
   if (!hasTarget) {
     const opt = document.createElement("option");
@@ -347,7 +361,6 @@ async function initDynamicMonthSelect(selectId = "monthSelect") {
   }
   select.value = targetInitialMonth;
 
-  // 2. Persist whenever staff changes the month dropdown on any page
   if (!select.dataset.listenerAttached) {
     select.addEventListener("change", () => {
       if (select.value) {
@@ -357,7 +370,6 @@ async function initDynamicMonthSelect(selectId = "monthSelect") {
     select.dataset.listenerAttached = "true";
   }
 
-  // 3. Fetch all available sheets from the server
   try {
     const json = await apiGet("getAvailableMonths");
     if (json.months && json.months.length > 0) {
@@ -370,7 +382,6 @@ async function initDynamicMonthSelect(selectId = "monthSelect") {
         select.appendChild(opt);
       });
 
-      // Preserve previously chosen active month, or current month, or latest available
       const savedMonth = localStorage.getItem(ACTIVE_MONTH_KEY);
       if (savedMonth && months.includes(savedMonth)) {
         select.value = savedMonth;
@@ -390,10 +401,7 @@ async function initDynamicMonthSelect(selectId = "monthSelect") {
   return select.value;
 }
 
-// ---------------------------------------------------------------------------
-// Image compression for uploads (phones produce 5-10 MB photos)
-// ---------------------------------------------------------------------------
-const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // keep in sync with MAX_DOC_BYTES in code.gs
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
 async function prepareUploadFile(file) {
   if (!file) throw new Error("No file selected.");
@@ -423,9 +431,7 @@ async function prepareUploadFile(file) {
         outType = "image/jpeg";
         outName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
       }
-    } catch (e) {
-      // fall back to the original file
-    }
+    } catch (e) {}
   }
 
   if (blob.size > MAX_UPLOAD_BYTES) {

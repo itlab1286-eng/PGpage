@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Elysium PG - Operations Portal</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="auth.js"></script>
@@ -10,33 +10,8 @@
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen pb-12">
 
-  <!-- PIN LOCK SCREEN -->
-  <div id="pinLockModal" class="fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center">
-      <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
-        <i class="fa-solid fa-lock"></i>
-      </div>
-      <h2 class="text-xl font-bold text-slate-900 mb-1">Staff Access Verification</h2>
-      <p class="text-sm text-slate-500 mb-6">Enter your PIN to access Elysium PG Portal</p>
-      
-      <div class="flex justify-center mb-6">
-        <input type="password" maxlength="6" id="staffPinInput" 
-               class="w-44 text-center text-3xl tracking-widest font-mono py-2 border-2 border-slate-300 rounded-xl focus:border-blue-600 focus:outline-none" 
-               placeholder="••••" autofocus />
-      </div>
-
-      <p id="pinErrorMsg" class="text-xs text-red-500 font-semibold mb-4 hidden">Invalid Staff PIN.</p>
-
-      <button onclick="unlockApp()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition">
-        Unlock Portal
-      </button>
-    </div>
-  </div>
-
-  <!-- MAIN DASHBOARD -->
   <div class="max-w-4xl mx-auto px-4 pt-6 sm:pt-10">
     
-    <!-- HEADER -->
     <header class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-6 flex items-center justify-between">
       <div>
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 mb-2">
@@ -45,15 +20,23 @@
         <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
           Elysium PG Hub
         </h1>
-        <p class="text-xs sm:text-sm text-slate-500 mt-1">Staff Management &amp; Resident Operations Portal</p>
+        <p class="text-xs sm:text-sm text-slate-500 mt-1 flex items-center gap-2">
+          <span>Logged in as:</span>
+          <span id="userGreeting" class="font-bold text-slate-800">User</span>
+          <span id="userRoleBadge" class="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-700">Role</span>
+        </p>
       </div>
 
-      <button onclick="lockApp()" class="p-3 text-sm font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl transition" title="Log Out / Lock Portal">
-        <i class="fa-solid fa-arrow-right-from-bracket"></i>
-      </button>
+      <div class="flex items-center gap-2">
+        <a id="masterAdminLink" href="users.html" class="hidden p-3 text-sm font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-2xl transition" title="User Management">
+          <i class="fa-solid fa-user-gear"></i>
+        </a>
+        <button onclick="logoutApp()" class="p-3 text-sm font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl transition" title="Log Out">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </button>
+      </div>
     </header>
 
-    <!-- QUICK STATS BAR -->
     <div class="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
       <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-center">
         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Rooms</p>
@@ -69,13 +52,9 @@
       </div>
     </div>
 
-    <!-- MODULE TILES GRID -->
     <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 px-1">Management Modules</h2>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-      
-	
-	<!-- 1. Vacancies & Availability -->
       <a href="vacancies.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-rose-500 hover:shadow-md transition flex items-start gap-4">
         <div class="w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
           <i class="fa-solid fa-door-open"></i>
@@ -88,8 +67,7 @@
           <p class="text-xs text-slate-500 mt-1">Live beds available now and upcoming vacancies with departure dates.</p>
         </div>
       </a>
-	  
-      <!-- 2. Rent & Dues Ledger -->
+      
       <a href="rent.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-indigo-500 hover:shadow-md transition flex items-start gap-4">
         <div class="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
           <i class="fa-solid fa-receipt"></i>
@@ -103,7 +81,6 @@
         </div>
       </a>
 
-      <!-- 3. New Resident Check-in -->
       <a href="new_resident.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-indigo-500 hover:shadow-md transition flex items-start gap-4">
         <div class="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
           <i class="fa-solid fa-user-plus"></i>
@@ -117,18 +94,19 @@
         </div>
       </a>
 
-	<!--4. WAlkin-in -->
-		<a href="walkins.html" class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm hover:border-indigo-400 hover:shadow-md transition flex items-center gap-4">
-  <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-xl shrink-0">
-    <i class="fa-solid fa-person-walking-arrow-right"></i>
-  </div>
-  <div>
-    <h3 class="font-black text-slate-900 text-sm">Walk-in Inquiries</h3>
-    <p class="text-xs text-slate-400">Track inquiries, quotes & sharing requests</p>
-  </div>
-</a>
+      <a href="walkins.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-indigo-400 hover:shadow-md transition flex items-start gap-4">
+        <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
+          <i class="fa-solid fa-person-walking-arrow-right"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-slate-800 text-base group-hover:text-indigo-600 transition">Walk-in Inquiries</h3>
+            <span class="text-[10px] uppercase font-bold tracking-wide bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full shrink-0">Inquiry</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Track inquiries, quotes & sharing requests.</p>
+        </div>
+      </a>
 
-      <!-- 5. Daily Staying -->
       <a href="daily_staying.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-emerald-500 hover:shadow-md transition flex items-start gap-4">
         <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
           <i class="fa-solid fa-clock-rotate-left"></i>
@@ -138,11 +116,10 @@
             <h3 class="text-base font-bold text-slate-800 group-hover:text-emerald-600 transition">Daily Staying</h3>
             <span class="text-[10px] uppercase font-bold tracking-wide bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">Short Stay</span>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Manage day-wise guests, auto-calculate stay duration, extend dates, and process deposit refunds.</p>
+          <p class="text-xs text-slate-500 mt-1">Manage day-wise guests, auto-calculate stay duration, and process refunds.</p>
         </div>
       </a>
 
-      <!-- 6. Operational Expenses -->
       <a href="expenses.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-teal-500 hover:shadow-md transition flex items-start gap-4">
         <div class="w-12 h-12 rounded-xl bg-teal-100 text-teal-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
           <i class="fa-solid fa-receipt"></i>
@@ -156,7 +133,6 @@
         </div>
       </a>
 
-	<!-- 7. Resident & Room Details -->
       <a href="resident_details.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-teal-500 hover:shadow-md transition flex items-start gap-4">
         <div class="w-12 h-12 rounded-xl bg-teal-100 text-teal-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
           <i class="fa-solid fa-user-pen"></i>
@@ -169,8 +145,7 @@
           <p class="text-xs text-slate-500 mt-1">Edit fixed rents, advances, phone numbers, and configure room AC usage.</p>
         </div>
       </a>
-	
-	<!-- 8. Cashflow & Settlements -->
+      
       <a href="settlements.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-emerald-500 hover:shadow-md transition flex items-start gap-4">
         <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
           <i class="fa-solid fa-scale-balanced"></i>
@@ -183,8 +158,7 @@
           <p class="text-xs text-slate-500 mt-1">Multi-month partner balances, collections, expenses, and advance returns.</p>
         </div>
       </a>
-	  
-	  <!-- 9. Document Uploader -->
+      
       <a href="aadhar.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-blue-500 hover:shadow-md transition flex items-start gap-4">
         <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
           <i class="fa-solid fa-id-card"></i>
@@ -197,9 +171,23 @@
           <p class="text-xs text-slate-500 mt-1">Upload Aadhaar, PAN, and agreements to Room 101–607 folders.</p>
         </div>
       </a>
+
+      <!-- 10. Partner & User Management (Master Admin Only) -->
+      <a id="usersCardTile" href="users.html" class="hidden group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-purple-500 hover:shadow-md transition flex items-start gap-4">
+        <div class="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
+          <i class="fa-solid fa-user-shield"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-slate-800 group-hover:text-purple-600 transition">User Management</h3>
+            <span class="text-[10px] uppercase font-bold tracking-wide bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full shrink-0">Master</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Add partner accounts, configure viewer permissions, and set security PINs.</p>
+        </div>
+      </a>
+
     </div>
 
-    <!-- QUICK DRIVE SHORTCUT -->
     <div class="mt-6 bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <i class="fa-brands fa-google-drive text-2xl text-blue-600"></i>
@@ -217,33 +205,25 @@
 
   <script>
     window.addEventListener("DOMContentLoaded", () => {
-      // If already verified, hide modal immediately
-      if (isAuthenticated()) {
-        document.getElementById("pinLockModal").classList.add("hidden");
-      } else {
-        document.getElementById("pinLockModal").classList.remove("hidden");
+      const user = getAuthUser();
+      const role = getAuthRole();
+      
+      document.getElementById("userGreeting").innerText = user;
+      
+      const badge = document.getElementById("userRoleBadge");
+      if (role === "MASTER_ADMIN") {
+        badge.innerText = "Master Admin";
+        badge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-700 border border-purple-200";
+        document.getElementById("masterAdminLink").classList.remove("hidden");
+        document.getElementById("usersCardTile").classList.remove("hidden");
+      } else if (role === "ADMIN") {
+        badge.innerText = "Admin";
+        badge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700 border border-emerald-200";
+      } else if (role === "VIEWER") {
+        badge.innerText = "Viewer (Read-Only)";
+        badge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-700 border border-amber-200";
       }
     });
-
-    function unlockApp() {
-      verifyStaffPin("staffPinInput", "pinErrorMsg", () => {
-        document.getElementById("pinLockModal").classList.add("hidden");
-      });
-    }
-
-    function lockApp() {
-      if (typeof logoutApp === "function") {
-        logoutApp();
-      } else {
-        sessionStorage.clear();
-        document.getElementById("staffPinInput").value = "";
-        document.getElementById("pinLockModal").classList.remove("hidden");
-      }
-    }
-
-    function openComingSoon(moduleName) {
-      alert(`${moduleName} module is under development and will be connected next!`);
-    }
   </script>
 </body>
-</html>
+</html>

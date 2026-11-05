@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Elysium PG - User & Partner Access</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="auth.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-16">
+
+  <div class="max-w-4xl mx-auto px-4 pt-4 sm:pt-8">
+    <header class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <a href="index.html" class="text-xs font-bold text-slate-500 hover:text-slate-800 transition flex items-center gap-1">
+            <i class="fa-solid fa-arrow-left"></i> Home
+          </a>
+          <span class="text-slate-300">&bull;</span>
+          <span class="text-xs font-bold text-purple-600 uppercase tracking-wider">Access Control</span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+          <i class="fa-solid fa-user-shield text-purple-600"></i> Partner &amp; User Management
+        </h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="loadUsers()" class="p-2.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition flex items-center gap-1.5" title="Refresh Users">
+          <i class="fa-solid fa-arrows-rotate"></i>
+          <span class="hidden sm:inline">Refresh</span>
+        </button>
+        <button onclick="logoutApp()" class="p-2.5 text-xs font-semibold bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition" title="Log Out">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Create / Update User Card -->
+    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm mb-6">
+      <h2 class="text-xs font-black uppercase tracking-wider text-slate-700 mb-4 flex items-center gap-1.5">
+        <i class="fa-solid fa-user-plus text-emerald-600"></i> Register / Update Partner Account
+      </h2>
+
+      <form id="userForm" onsubmit="saveUser(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div>
+          <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Username (Login ID) *</label>
+          <input type="text" id="formUsername" required placeholder="e.g. manohar" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Display Name *</label>
+          <input type="text" id="formDisplayName" required placeholder="e.g. Manohar" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Role / Permissions *</label>
+          <select id="formRole" class="w-full text-xs font-bold px-3 py-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="ADMIN">Admin (Full Operational)</option>
+            <option value="VIEWER">Viewer (Read-Only View)</option>
+            <option value="MASTER_ADMIN">Master Admin</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Password / Security PIN *</label>
+          <input type="text" id="formPassword" placeholder="Set or update password" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+        </div>
+        <div class="sm:col-span-2 lg:col-span-4 flex justify-between items-center pt-2">
+          <p class="text-[11px] text-slate-400">Master Admin only &bull; Passwords are salt-hashed securely.</p>
+          <button type="submit" id="saveUserBtn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition shadow flex items-center gap-1.5">
+            <i class="fa-solid fa-check"></i> <span>Save User</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Active Registered Users Directory -->
+    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+        <h2 class="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+          <i class="fa-solid fa-users text-indigo-600"></i> Active Registered Users
+        </h2>
+        <span id="userCountBadge" class="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">0 users</span>
+      </div>
+      <div id="usersListContainer" class="space-y-2.5">
+        <p class="text-xs text-slate-400 py-6 text-center"><i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i> Loading registered users...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      if (getAuthRole() !== "MASTER_ADMIN") {
+        alert("Access restricted to Master Admin only.");
+        window.location.replace("index.html");
+        return;
+      }
+      loadUsers();
+    });
+
+    async function loadUsers() {
+      const container = document.getElementById("usersListContainer");
+      const countBadge = document.getElementById("userCountBadge");
+      try {
+        const res = await apiGet("getUsers");
+        if (res.status === "success") {
+          countBadge.innerText = (res.users ? res.users.length : 0) + " users";
+          renderUsers(res.users);
+        } else {
+          container.innerHTML = `<p class="text-xs text-rose-500 font-bold p-3">${esc(res.message)}</p>`;
+        }
+      } catch (err) {
+        container.innerHTML = `<p class="text-xs text-rose-500 font-bold p-3">Failed to load users: ${esc(err.message)}</p>`;
+      }
+    }
+
+    function renderUsers(users) {
+      const container = document.getElementById("usersListContainer");
+      if (!users || users.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 p-6 text-center italic">No users registered yet.</p>`;
+        return;
+      }
+      container.innerHTML = "";
+      users.forEach(u => {
+        const isMaster = u.role === "MASTER_ADMIN";
+        let roleBadge = "";
+        if (isMaster) {
+          roleBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-700 border border-purple-200">Master Admin</span>`;
+        } else if (u.role === "ADMIN") {
+          roleBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700 border border-emerald-200">Admin (Operational)</span>`;
+        } else {
+          roleBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-700 border border-amber-200">Viewer (Read-Only)</span>`;
+        }
+
+        const div = document.createElement("div");
+        div.className = "p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between gap-3 text-xs hover:border-slate-300 transition";
+        div.innerHTML = `
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-slate-800 text-sm">${esc(u.displayName)}</span>
+              ${roleBadge}
+            </div>
+            <p class="text-[11px] text-slate-400 mt-0.5 font-mono">Username: <span class="text-slate-600 font-semibold">@${esc(u.username)}</span></p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="editUserPrompt('${esc(u.username)}', '${esc(u.displayName)}', '${esc(u.role)}')" 
+                    class="px-2.5 py-1 text-xs text-indigo-600 hover:bg-indigo-50 font-bold rounded-lg border border-indigo-200 transition">
+              <i class="fa-solid fa-pen-to-square mr-1"></i> Edit
+            </button>
+            ${!isMaster ? `
+              <button onclick="deleteUser('${esc(u.username)}')" class="px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 font-bold rounded-lg border border-rose-200 transition">
+                <i class="fa-solid fa-trash-can mr-1"></i> Delete
+              </button>
+            ` : `<span class="text-[11px] text-slate-400 font-bold italic px-2">Owner</span>`}
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function editUserPrompt(username, displayName, role) {
+      document.getElementById("formUsername").value = username;
+      document.getElementById("formDisplayName").value = displayName;
+      document.getElementById("formRole").value = role;
+      document.getElementById("formPassword").placeholder = "Leave empty to keep existing password";
+      document.getElementById("formDisplayName").focus();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    async function saveUser(e) {
+      e.preventDefault();
+      const btn = document.getElementById("saveUserBtn");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-xs"></i> Saving...`;
+
+      const payload = {
+        action: "saveUser",
+        username: document.getElementById("formUsername").value.trim(),
+        displayName: document.getElementById("formDisplayName").value.trim(),
+        role: document.getElementById("formRole").value,
+        password: document.getElementById("formPassword").value.trim()
+      };
+
+      try {
+        const res = await apiPost(payload);
+        alert(res.message || "User saved successfully.");
+        if (res.status === "success") {
+          document.getElementById("userForm").reset();
+          document.getElementById("formPassword").placeholder = "Set or update password";
+          loadUsers();
+        }
+      } catch (err) {
+        alert("Error saving user: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> <span>Save User</span>`;
+      }
+    }
+
+    async function deleteUser(username) {
+      if (!confirm(`Are you sure you want to remove user @${username}?`)) return;
+      try {
+        const res = await apiPost({ action: "deleteUser", username });
+        alert(res.message || "User deleted.");
+        loadUsers();
+      } catch (err) {
+        alert("Failed to delete user: " + err.message);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Elysium PG - Portal Login</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="auth.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4">
+
+  <div class="bg-slate-800 border border-slate-700/60 rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl">
+    <div class="text-center mb-6">
+      <div class="w-16 h-16 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl shadow-inner">
+        <i class="fa-solid fa-hotel"></i>
+      </div>
+      <h1 class="text-2xl font-black tracking-tight text-white">Elysium PG</h1>
+      <p class="text-xs text-slate-400 mt-1">Management Portal Authentication</p>
+    </div>
+
+    <form id="loginForm" onsubmit="handleLoginSubmit(event)" class="space-y-4">
+      <div>
+        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Username / Identifier</label>
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500 text-xs pointer-events-none">
+            <i class="fa-solid fa-user"></i>
+          </span>
+          <input type="text" id="loginUsername" required autocomplete="username" autofocus
+                 class="w-full pl-10 pr-3 py-2.5 bg-slate-900/70 border border-slate-700 rounded-xl text-sm font-semibold text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition" 
+                 placeholder="e.g. sreekaran" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Password / Security PIN</label>
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500 text-xs pointer-events-none">
+            <i class="fa-solid fa-key"></i>
+          </span>
+          <input type="password" id="loginPassword" required autocomplete="current-password"
+                 class="w-full pl-10 pr-3 py-2.5 bg-slate-900/70 border border-slate-700 rounded-xl text-sm font-semibold text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition" 
+                 placeholder="••••••••" />
+        </div>
+      </div>
+
+      <div id="loginError" class="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs font-semibold hidden flex items-center gap-2">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span id="loginErrorText">Invalid credentials.</span>
+      </div>
+
+      <button type="submit" id="loginSubmitBtn"
+              class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-bold py-3 rounded-xl transition shadow-lg shadow-emerald-900/40 flex items-center justify-center gap-2 text-sm mt-2">
+        <span>Sign In</span>
+        <i class="fa-solid fa-arrow-right text-xs"></i>
+      </button>
+    </form>
+
+    <div class="mt-6 text-center text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
+      <i class="fa-solid fa-shield-halved text-[10px] text-emerald-500"></i>
+      <span>Session auto-expires in 1 hr &bull; Closes upon exit</span>
+    </div>
+  </div>
+
+  <script>
+    async function handleLoginSubmit(e) {
+      e.preventDefault();
+      const btn = document.getElementById("loginSubmitBtn");
+      const errBox = document.getElementById("loginError");
+      const errText = document.getElementById("loginErrorText");
+      
+      const username = document.getElementById("loginUsername").value.trim();
+      const password = document.getElementById("loginPassword").value.trim();
+
+      errBox.classList.add("hidden");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-sm"></i> Authenticating...`;
+
+      try {
+        const res = await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "login", username, password })
+        });
+        const raw = await res.text();
+        let data = {};
+        try {
+          data = JSON.parse(raw);
+        } catch (jsonErr) {
+          throw new Error("Server warming up or invalid response. Please try again.");
+        }
+
+        if (data.status === "success" && data.session) {
+          saveSession(data.session);
+          const params = new URLSearchParams(window.location.search);
+          const redirect = params.get("redirect") || "index.html";
+          window.location.replace(redirect);
+        } else {
+          errText.innerText = data.message || "Invalid credentials.";
+          errBox.classList.remove("hidden");
+          btn.disabled = false;
+          btn.innerHTML = `<span>Sign In</span> <i class="fa-solid fa-arrow-right text-xs"></i>`;
+        }
+      } catch (err) {
+        errText.innerText = err.message || "Connection error. Please try again.";
+        errBox.classList.remove("hidden");
+        btn.disabled = false;
+        btn.innerHTML = `<span>Sign In</span> <i class="fa-solid fa-arrow-right text-xs"></i>`;
+      }
+    }
+  </script>
+</body>
+</html>
