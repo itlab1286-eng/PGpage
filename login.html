@@ -54,6 +54,13 @@
         <span>Sign In</span>
         <i class="fa-solid fa-arrow-right text-xs"></i>
       </button>
+
+      <!-- Biometric Quick Unlock (App Exclusive) -->
+      <button type="button" id="biometricBtn" onclick="triggerNativeBiometric()"
+              class="hidden w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-xs">
+        <i class="fa-solid fa-fingerprint text-emerald-400 text-sm"></i>
+        <span>Unlock with Fingerprint</span>
+      </button>
     </form>
 
     <div class="mt-6 text-center text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
@@ -63,6 +70,20 @@
   </div>
 
   <script>
+    // Reveal fingerprint button if running inside Android APK with saved credentials
+    window.addEventListener("DOMContentLoaded", () => {
+      if (window.AndroidBiometric && typeof window.AndroidBiometric.hasSavedProfile === "function" && window.AndroidBiometric.hasSavedProfile()) {
+        const bioBtn = document.getElementById("biometricBtn");
+        if (bioBtn) bioBtn.classList.remove("hidden");
+      }
+    });
+
+    function triggerNativeBiometric() {
+      if (window.AndroidBiometric && typeof window.AndroidBiometric.requestBiometric === "function") {
+        window.AndroidBiometric.requestBiometric();
+      }
+    }
+
     async function handleLoginSubmit(e) {
       e.preventDefault();
       const btn = document.getElementById("loginSubmitBtn");
@@ -92,6 +113,12 @@
 
         if (data.status === "success" && data.session) {
           saveSession(data.session);
+
+          // Save credentials into Android storage for future fingerprint unlock
+          if (window.AndroidBiometric && typeof window.AndroidBiometric.saveSessionOnLogin === "function") {
+            window.AndroidBiometric.saveSessionOnLogin(JSON.stringify(data.session));
+          }
+
           const params = new URLSearchParams(window.location.search);
           const redirect = params.get("redirect") || "index.html";
           window.location.replace(redirect);
