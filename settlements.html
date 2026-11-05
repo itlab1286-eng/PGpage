@@ -75,7 +75,6 @@
         </div>
       </div>
       <div id="monthChipsContainer" class="flex flex-wrap gap-2 pt-1">
-        <!-- Dynamically rendered month toggle pills -->
         <span class="text-xs text-slate-400 py-1">Loading months...</span>
       </div>
     </div>
@@ -200,6 +199,9 @@
     let barChartInstance = null;
     let pieChartInstance = null;
 
+    // Concurrency lock: Discards older asynchronous responses if user clicks rapidly
+    let currentFetchRequestId = 0;
+
     window.addEventListener("DOMContentLoaded", async () => {
       if (isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
@@ -224,7 +226,6 @@
         const json = await apiGet("getAvailableMonths");
         availableMonths = (json.months || []).slice().sort((a, b) => monthSortKey(a) - monthSortKey(b));
         
-        // Pick current active month or latest available as initial selection
         const fallback = getActiveMonthFallback();
         selectedMonths = availableMonths.includes(fallback) 
           ? [fallback] 
@@ -258,7 +259,7 @@
 
     function toggleMonth(m) {
       if (selectedMonths.includes(m)) {
-        if (selectedMonths.length === 1) return; // Keep at least one month active
+        if (selectedMonths.length === 1) return;
         selectedMonths = selectedMonths.filter(x => x !== m);
       } else {
         selectedMonths.push(m);
@@ -279,23 +280,44 @@
     }
 
     // -------------------------------------------------------------
-    // DATA FETCHING & UI HYDRATION
+    // DATA FETCHING & FLICKER-FREE UI HYDRATION
     // -------------------------------------------------------------
+    function setMetricsLoadingState() {
+      // Clean skeleton loading to prevent stale metric flickering
+      const loaderHtml = `<span class="inline-block animate-pulse text-slate-300 text-base">...</span>`;
+      document.getElementById("metricTotalInflow").innerHTML = loaderHtml;
+      document.getElementById("metricTotalExpenses").innerHTML = loaderHtml;
+      document.getElementById("metricTotalRefunds").innerHTML = loaderHtml;
+      document.getElementById("metricNetRetained").innerHTML = loaderHtml;
+
+      document.getElementById("partnerCardsContainer").innerHTML = `
+        <div class="col-span-full py-8 text-center text-xs text-slate-400 font-semibold">
+          <i class="fa-solid fa-circle-notch fa-spin mr-1.5 text-indigo-500"></i> Calculating partner settlements...
+        </div>`;
+    }
+
     async function loadSettlementData(force = false) {
+      const requestId = ++currentFetchRequestId;
       const monthsParam = selectedMonths.join(",");
       const txContainer = document.getElementById("txListContainer");
+
+      setMetricsLoadingState();
       txContainer.innerHTML = `<div class="text-center py-8 text-xs text-slate-400 font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i> Aggregating multi-month ledger...</div>`;
 
       try {
         const json = await apiGet("getPartnerCashflow", { months: monthsParam, forceRefresh: force ? "true" : "" });
-        cachedPayload = json;
 
+        // Discard result if user clicked another month while this request was traveling
+        if (requestId !== currentFetchRequestId) return;
+
+        cachedPayload = json;
         renderTopMetrics(json);
         renderCharts(json);
-        renderPartnerCards(json.partners);
+        renderPartnerCards(json.partners || {});
         renderFilteredTransactions();
 
       } catch (err) {
+        if (requestId !== currentFetchRequestId) return;
         txContainer.innerHTML = `<div class="p-4 text-center text-xs text-rose-500 font-bold bg-rose-50 rounded-xl">Error: ${esc(err.message)}</div>`;
       }
     }
@@ -415,7 +437,9 @@
 
       // 1. Grouped Bar Chart
       const barCtx = document.getElementById("partnerBarChart").getContext("2d");
-      if (barChartInstance) barChartInstance.destroy();
+      if (barChartInstance) {
+        barChartInstance.destroy();
+      }
 
       barChartInstance = new Chart(barCtx, {
         type: "bar",
@@ -469,7 +493,7 @@
         }
       });
 
-      // 2. Outflow Distribution (Expenses vs Refunds)
+      // 2. Outflow Distribution
       let sumExp = 0;
       let sumRef = 0;
       Object.values(data.monthlyBreakdown || {}).forEach(m => {
@@ -478,7 +502,9 @@
       });
 
       const pieCtx = document.getElementById("outflowPieChart").getContext("2d");
-      if (pieChartInstance) pieChartInstance.destroy();
+      if (pieChartInstance) {
+        pieChartInstance.destroy();
+      }
 
       pieChartInstance = new Chart(pieCtx, {
         type: "doughnut",
@@ -508,7 +534,7 @@
     }
 
     // -------------------------------------------------------------
-    // INSTANT TRANSACTION LEDGER FILTERING (NO REFETCHING)
+    // INSTANT TRANSACTION LEDGER FILTERING
     // -------------------------------------------------------------
     function filterByPartner(partnerName) {
       document.getElementById("partnerTxFilter").value = partnerName;
@@ -565,6 +591,10 @@
         `;
         container.appendChild(row);
       });
+    }
+
+    function esc(s) {
+      return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     }
   </script>
 </body>
