@@ -19,6 +19,28 @@
       <p class="text-xs text-slate-400 mt-1">Management Portal Authentication</p>
     </div>
 
+    <!-- OPTION C: IDENTIFIED BIOMETRIC UNLOCK CARD (Only shows when an account is linked) -->
+    <div id="biometricCard" class="hidden mb-4 p-4 rounded-2xl bg-slate-900/80 border border-emerald-500/30 text-center">
+      <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-2">
+        <i class="fa-solid fa-link text-[9px]"></i> Linked Device
+      </div>
+      <h3 id="bioDisplayName" class="text-sm font-bold text-white leading-tight">Master Admin</h3>
+      <p id="bioUsername" class="text-xs text-slate-400 mb-3">@sreekaran</p>
+
+      <button type="button" onclick="triggerNativeBiometric()"
+              class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-bold py-2.5 rounded-xl transition shadow-lg shadow-emerald-900/40 flex items-center justify-center gap-2 text-xs">
+        <i class="fa-solid fa-fingerprint text-base"></i>
+        <span id="bioUnlockBtnText">Unlock with Fingerprint</span>
+      </button>
+
+      <div class="mt-3 pt-3 border-t border-slate-800 flex items-center justify-center">
+        <button type="button" onclick="toggleFormVisibility(true)" class="text-[11px] text-slate-400 hover:text-slate-200 transition underline underline-offset-2">
+          Sign in with another user
+        </button>
+      </div>
+    </div>
+
+    <!-- STANDARD LOGIN FORM -->
     <form id="loginForm" onsubmit="handleLoginSubmit(event)" class="space-y-4">
       <div>
         <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Username / Identifier</label>
@@ -44,6 +66,15 @@
         </div>
       </div>
 
+      <!-- OPTION A: EXPLICIT BIOMETRIC TOGGLE (Only in Android APK, unchecked by default) -->
+      <div id="biometricCheckboxContainer" class="hidden">
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" id="enableBiometricCheckbox"
+                 class="w-4 h-4 rounded border-slate-700 bg-slate-900/70 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-800 transition" />
+          <span class="text-xs text-slate-300 font-medium">Enable Fingerprint Unlock on this device</span>
+        </label>
+      </div>
+
       <div id="loginError" class="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs font-semibold hidden flex items-center gap-2">
         <i class="fa-solid fa-triangle-exclamation"></i>
         <span id="loginErrorText">Invalid credentials.</span>
@@ -55,11 +86,10 @@
         <i class="fa-solid fa-arrow-right text-xs"></i>
       </button>
 
-      <!-- Biometric Quick Unlock (App Exclusive) -->
-      <button type="button" id="biometricBtn" onclick="triggerNativeBiometric()"
-              class="hidden w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-xs">
-        <i class="fa-solid fa-fingerprint text-emerald-400 text-sm"></i>
-        <span>Unlock with Fingerprint</span>
+      <!-- Back to Quick Unlock Button (visible when switched from linked card) -->
+      <button type="button" id="backToBioBtn" onclick="toggleFormVisibility(false)"
+              class="hidden w-full text-center text-xs text-slate-400 hover:text-slate-200 mt-2 py-1">
+        <i class="fa-solid fa-arrow-left text-[10px]"></i> Back to Fingerprint Unlock
       </button>
     </form>
 
@@ -70,13 +100,61 @@
   </div>
 
   <script>
-    // Reveal fingerprint button if running inside Android APK with saved credentials
+    let currentSavedBioUser = null;
+
     window.addEventListener("DOMContentLoaded", () => {
-      if (window.AndroidBiometric && typeof window.AndroidBiometric.hasSavedProfile === "function" && window.AndroidBiometric.hasSavedProfile()) {
-        const bioBtn = document.getElementById("biometricBtn");
-        if (bioBtn) bioBtn.classList.remove("hidden");
-      }
+      initBiometricUI();
     });
+
+    function initBiometricUI() {
+      if (!window.AndroidBiometric || typeof window.AndroidBiometric.isApp !== "function" || !window.AndroidBiometric.isApp()) {
+        return; // Normal Web: keep biometric UI completely hidden
+      }
+
+      // 1. Show the explicit checkbox inside the app
+      const checkContainer = document.getElementById("biometricCheckboxContainer");
+      if (checkContainer) checkContainer.classList.remove("hidden");
+
+      // 2. Check if a profile is already saved
+      if (typeof window.AndroidBiometric.getSavedUser === "function") {
+        const raw = window.AndroidBiometric.getSavedUser();
+        if (raw) {
+          try {
+            currentSavedBioUser = JSON.parse(raw);
+            if (currentSavedBioUser && currentSavedBioUser.username) {
+              document.getElementById("bioDisplayName").innerText = currentSavedBioUser.displayName || currentSavedBioUser.username;
+              document.getElementById("bioUsername").innerText = "@" + currentSavedBioUser.username + (currentSavedBioUser.role ? ` • ${currentSavedBioUser.role}` : "");
+              document.getElementById("bioUnlockBtnText").innerText = `Unlock as ${currentSavedBioUser.displayName || currentSavedBioUser.username}`;
+              
+              toggleFormVisibility(false);
+
+              // Auto-launch biometric bottom sheet
+              triggerNativeBiometric();
+              return;
+            }
+          } catch (e) {
+            console.error("Error reading saved user:", e);
+          }
+        }
+      }
+      toggleFormVisibility(true);
+    }
+
+    function toggleFormVisibility(showForm) {
+      const bioCard = document.getElementById("biometricCard");
+      const form = document.getElementById("loginForm");
+      const backBtn = document.getElementById("backToBioBtn");
+
+      if (showForm) {
+        if (bioCard) bioCard.classList.add("hidden");
+        form.classList.remove("hidden");
+        if (currentSavedBioUser && backBtn) backBtn.classList.remove("hidden");
+      } else {
+        if (bioCard) bioCard.classList.remove("hidden");
+        form.classList.add("hidden");
+        if (backBtn) backBtn.classList.add("hidden");
+      }
+    }
 
     function triggerNativeBiometric() {
       if (window.AndroidBiometric && typeof window.AndroidBiometric.requestBiometric === "function") {
@@ -92,6 +170,7 @@
       
       const username = document.getElementById("loginUsername").value.trim();
       const password = document.getElementById("loginPassword").value.trim();
+      const wantsBiometric = document.getElementById("enableBiometricCheckbox").checked;
 
       errBox.classList.add("hidden");
       btn.disabled = true;
@@ -114,14 +193,27 @@
         if (data.status === "success" && data.session) {
           saveSession(data.session);
 
-          // Save credentials into Android storage for future fingerprint unlock
+          // Handle Option A + Option C biometric binding
           if (window.AndroidBiometric && typeof window.AndroidBiometric.saveSessionOnLogin === "function") {
-            window.AndroidBiometric.saveSessionOnLogin(JSON.stringify(data.session));
+            if (wantsBiometric) {
+              let proceedToSave = true;
+              if (currentSavedBioUser && currentSavedBioUser.username.toLowerCase() !== username.toLowerCase()) {
+                proceedToSave = confirm(
+                  `Fingerprint is currently linked to @${currentSavedBioUser.username}.\n\nDo you want to replace it with @${username} on this device?`
+                );
+              }
+              if (proceedToSave) {
+                window.AndroidBiometric.saveSessionOnLogin(JSON.stringify(data.session));
+              }
+            }
           }
 
-          const params = new URLSearchParams(window.location.search);
-          const redirect = params.get("redirect") || "index.html";
-          window.location.replace(redirect);
+          setTimeout(() => {
+            const params = new URLSearchParams(window.location.search);
+            const redirect = params.get("redirect") || "index.html";
+            window.location.replace(redirect);
+          }, 250);
+
         } else {
           errText.innerText = data.message || "Invalid credentials.";
           errBox.classList.remove("hidden");
