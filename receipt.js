@@ -171,12 +171,12 @@ function closeReceiptModal() {
   currentJsPdfDoc = null;
 }
 
-// Universal PDF export handling: Android App Bridge -> Mobile Browser Tab -> Desktop File Download
+// 1. DOWNLOAD PDF BUTTON: Strictly downloads/saves the PDF
 function downloadReceiptPdf() {
   if (!currentReceiptFile && !currentJsPdfDoc) return;
   const fileName = currentReceipt ? receiptFileName(currentReceipt) : "Elysium_Receipt.pdf";
 
-  // 1. Android APK Bridge: Send Base64 data directly to Kotlin
+  // Android APK Bridge: Write directly to Scoped Storage Downloads
   if (window.AndroidBiometric && typeof window.AndroidBiometric.savePdf === "function") {
     try {
       if (currentJsPdfDoc) {
@@ -190,7 +190,7 @@ function downloadReceiptPdf() {
     }
   }
 
-  // 2. Mobile Browser (Chrome/Safari on Android or iOS)
+  // Mobile Web Browser: Open view tab
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   if (isMobile) {
     const url = URL.createObjectURL(currentReceiptFile);
@@ -207,7 +207,7 @@ function downloadReceiptPdf() {
     return;
   }
 
-  // 3. Desktop Browser
+  // Desktop Browser: Download anchor
   const url = URL.createObjectURL(currentReceiptFile);
   const a = document.createElement("a");
   a.href = url;
@@ -218,6 +218,7 @@ function downloadReceiptPdf() {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
+// 2. OPEN RESIDENT CHAT BUTTON: Strictly opens WhatsApp chat with text details
 function openReceiptChat() {
   if (!currentReceipt) return;
   const num = whatsappNumber(currentReceipt.mobile);
@@ -225,31 +226,43 @@ function openReceiptChat() {
   window.open(`https://wa.me/${num}?text=${encodeURIComponent(receiptMessage(currentReceipt))}`, "_blank");
 }
 
+// 3. SHARE PDF BUTTON: Strictly shares the PDF file document (Zero wa.me text collisions)
 async function shareReceiptPdf() {
   if (!currentReceipt || !currentReceiptFile) return;
-  const text = receiptMessage(currentReceipt);
+  const fileName = receiptFileName(currentReceipt);
 
-  // 1. Native Mobile Web Share API
+  // A. Inside Android App: Trigger native Android Intent.ACTION_SEND
+  if (window.AndroidBiometric && typeof window.AndroidBiometric.sharePdf === "function") {
+    try {
+      if (currentJsPdfDoc) {
+        const dataUri = currentJsPdfDoc.output("datauristring");
+        window.AndroidBiometric.sharePdf(dataUri, fileName);
+        setReceiptStatus("Opening share sheet... Select WhatsApp to send the file.", "ok");
+        return;
+      }
+    } catch (err) {
+      console.error("Native sharePdf error:", err);
+    }
+  }
+
+  // B. Standard Web Browser: Use Web Share API for files
   try {
     if (navigator.canShare && navigator.canShare({ files: [currentReceiptFile] })) {
-      await navigator.share({ files: [currentReceiptFile], title: "Rent receipt", text: text });
-      setReceiptStatus("Shared. Pick the resident's chat in WhatsApp to send it.", "ok");
+      await navigator.share({
+        files: [currentReceiptFile],
+        title: "Rent Receipt - " + currentReceipt.name
+      });
+      setReceiptStatus("Shared successfully.", "ok");
       return;
     }
   } catch (err) {
-    if (err && err.name === "AbortError") return;
-    console.warn("File share failed, using fallback", err);
+    if (err && err.name === "AbortError") return; // Dismissed by user
+    console.warn("Web Share API unavailable or aborted:", err);
   }
 
-  // 2. Fallback: Save PDF using universal handler and open WhatsApp
+  // C. Desktop fallback: Just download the PDF
   downloadReceiptPdf();
-  const num = whatsappNumber(currentReceipt.mobile);
-  if (num) {
-    window.open(`https://wa.me/${num}?text=${encodeURIComponent(text)}`, "_blank");
-    setReceiptStatus("PDF ready and WhatsApp chat is opening. Attach the downloaded PDF and send.", "info");
-  } else {
-    setReceiptStatus("PDF ready. Open WhatsApp and attach it to the resident's chat.", "info");
-  }
+  setReceiptStatus("PDF downloaded. You can drag and drop it into WhatsApp Web.", "info");
 }
 
 // Builds a receipt object from a Payments-tab history row
