@@ -171,7 +171,7 @@ function closeReceiptModal() {
   currentJsPdfDoc = null;
 }
 
-// 1. DOWNLOAD PDF BUTTON: Strictly downloads/saves the PDF
+// 1. DOWNLOAD PDF: Strictly downloads and saves the PDF
 function downloadReceiptPdf() {
   if (!currentReceiptFile && !currentJsPdfDoc) return;
   const fileName = currentReceipt ? receiptFileName(currentReceipt) : "Elysium_Receipt.pdf";
@@ -218,7 +218,7 @@ function downloadReceiptPdf() {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-// 2. OPEN RESIDENT CHAT BUTTON: Strictly opens WhatsApp chat with text details
+// 2. OPEN RESIDENT CHAT: Strictly opens WhatsApp chat with text breakdown
 function openReceiptChat() {
   if (!currentReceipt) return;
   const num = whatsappNumber(currentReceipt.mobile);
@@ -226,18 +226,18 @@ function openReceiptChat() {
   window.open(`https://wa.me/${num}?text=${encodeURIComponent(receiptMessage(currentReceipt))}`, "_blank");
 }
 
-// 3. SHARE PDF BUTTON: Strictly shares the PDF file document (Zero wa.me text collisions)
+// 3. SHARE PDF ON WHATSAPP: Exclusively triggers file share sheet (No text collision)
 async function shareReceiptPdf() {
   if (!currentReceipt || !currentReceiptFile) return;
   const fileName = receiptFileName(currentReceipt);
 
-  // A. Inside Android App: Trigger native Android Intent.ACTION_SEND
+  // A. Inside Android App: Trigger native Android Intent.ACTION_SEND via FileProvider
   if (window.AndroidBiometric && typeof window.AndroidBiometric.sharePdf === "function") {
     try {
       if (currentJsPdfDoc) {
         const dataUri = currentJsPdfDoc.output("datauristring");
         window.AndroidBiometric.sharePdf(dataUri, fileName);
-        setReceiptStatus("Opening share sheet... Select WhatsApp to send the file.", "ok");
+        setReceiptStatus("Select WhatsApp to send the receipt PDF.", "ok");
         return;
       }
     } catch (err) {
@@ -256,11 +256,11 @@ async function shareReceiptPdf() {
       return;
     }
   } catch (err) {
-    if (err && err.name === "AbortError") return; // Dismissed by user
-    console.warn("Web Share API unavailable or aborted:", err);
+    if (err && err.name === "AbortError") return;
+    console.warn("Web Share API error:", err);
   }
 
-  // C. Desktop fallback: Just download the PDF
+  // C. Desktop fallback: Just download the file
   downloadReceiptPdf();
   setReceiptStatus("PDF downloaded. You can drag and drop it into WhatsApp Web.", "info");
 }
