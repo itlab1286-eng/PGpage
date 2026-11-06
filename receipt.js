@@ -178,22 +178,24 @@ function downloadReceiptPdf() {
 
   // 1. Android APK Bridge: Send Base64 data directly to Kotlin
   if (window.AndroidBiometric && typeof window.AndroidBiometric.savePdf === "function") {
-    if (currentJsPdfDoc) {
-      const dataUri = currentJsPdfDoc.output("datauristring");
-      window.AndroidBiometric.savePdf(dataUri, fileName);
-      setReceiptStatus("Receipt saved to device Downloads folder.", "ok");
-      return;
+    try {
+      if (currentJsPdfDoc) {
+        const dataUri = currentJsPdfDoc.output("datauristring");
+        window.AndroidBiometric.savePdf(dataUri, fileName);
+        setReceiptStatus("Receipt saved to device Downloads folder.", "ok");
+        return;
+      }
+    } catch (err) {
+      console.error("Android PDF export error:", err);
     }
   }
 
-  // 2. Mobile Browser (Chrome/Safari on Android or iOS):
+  // 2. Mobile Browser (Chrome/Safari on Android or iOS)
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   if (isMobile) {
     const url = URL.createObjectURL(currentReceiptFile);
-    // Open in a new tab so mobile browser handles viewing and saving natively
     const win = window.open(url, "_blank");
     if (!win) {
-      // Fallback if popup blocker intercepted
       const a = document.createElement("a");
       a.href = url;
       a.download = fileName;
@@ -205,7 +207,7 @@ function downloadReceiptPdf() {
     return;
   }
 
-  // 3. Desktop Browser: Standard anchor download
+  // 3. Desktop Browser
   const url = URL.createObjectURL(currentReceiptFile);
   const a = document.createElement("a");
   a.href = url;
@@ -239,7 +241,7 @@ async function shareReceiptPdf() {
     console.warn("File share failed, using fallback", err);
   }
 
-  // 2. Fallback: Save PDF using the universal handler and open WhatsApp
+  // 2. Fallback: Save PDF using universal handler and open WhatsApp
   downloadReceiptPdf();
   const num = whatsappNumber(currentReceipt.mobile);
   if (num) {
