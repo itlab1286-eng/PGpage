@@ -19,10 +19,10 @@
       <p class="text-xs text-slate-400 mt-1">Management Portal Authentication</p>
     </div>
 
-    <!-- OPTION C: IDENTIFIED BIOMETRIC UNLOCK CARD (Only shows when an account is linked) -->
+    <!-- IDENTIFIED BIOMETRIC UNLOCK CARD (Only shows when an account is linked to this device) -->
     <div id="biometricCard" class="hidden mb-4 p-4 rounded-2xl bg-slate-900/80 border border-emerald-500/30 text-center">
       <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-2">
-        <i class="fa-solid fa-link text-[9px]"></i> Linked Device
+        <i class="fa-solid fa-fingerprint text-[10px]"></i> Quick Unlock
       </div>
       <h3 id="bioDisplayName" class="text-sm font-bold text-white leading-tight">Master Admin</h3>
       <p id="bioUsername" class="text-xs text-slate-400 mb-3">@sreekaran</p>
@@ -33,9 +33,12 @@
         <span id="bioUnlockBtnText">Unlock with Fingerprint</span>
       </button>
 
-      <div class="mt-3 pt-3 border-t border-slate-800 flex items-center justify-center">
+      <div class="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between px-1">
         <button type="button" onclick="toggleFormVisibility(true)" class="text-[11px] text-slate-400 hover:text-slate-200 transition underline underline-offset-2">
           Sign in with another user
+        </button>
+        <button type="button" onclick="unlinkDeviceBiometrics()" class="text-[11px] text-rose-400/80 hover:text-rose-400 transition flex items-center gap-1">
+          <i class="fa-solid fa-trash-can text-[10px]"></i> Unlink
         </button>
       </div>
     </div>
@@ -66,12 +69,17 @@
         </div>
       </div>
 
-      <!-- OPTION A: EXPLICIT BIOMETRIC TOGGLE (Only in Android APK, unchecked by default) -->
+      <!-- EXPLICIT BIOMETRIC CHECKBOX (Only visible inside Android APK, unchecked by default) -->
       <div id="biometricCheckboxContainer" class="hidden">
-        <label class="flex items-center gap-2 cursor-pointer select-none">
+        <label class="flex items-start gap-2 cursor-pointer select-none">
           <input type="checkbox" id="enableBiometricCheckbox"
-                 class="w-4 h-4 rounded border-slate-700 bg-slate-900/70 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-800 transition" />
-          <span class="text-xs text-slate-300 font-medium">Enable Fingerprint Unlock on this device</span>
+                 class="w-4 h-4 mt-0.5 rounded border-slate-700 bg-slate-900/70 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-800 transition" />
+          <div class="text-xs text-slate-300 font-medium leading-tight">
+            <span>Enable Fingerprint Unlock on this device</span>
+            <p id="bioOverrideNotice" class="text-[10px] text-amber-400/90 mt-0.5 hidden">
+              Replaces the current linked biometric profile.
+            </p>
+          </div>
         </label>
       </div>
 
@@ -86,10 +94,10 @@
         <i class="fa-solid fa-arrow-right text-xs"></i>
       </button>
 
-      <!-- Back to Quick Unlock Button (visible when switched from linked card) -->
+      <!-- Return button if switching back to quick unlock -->
       <button type="button" id="backToBioBtn" onclick="toggleFormVisibility(false)"
               class="hidden w-full text-center text-xs text-slate-400 hover:text-slate-200 mt-2 py-1">
-        <i class="fa-solid fa-arrow-left text-[10px]"></i> Back to Fingerprint Unlock
+        <i class="fa-solid fa-arrow-left text-[10px]"></i> Back to Quick Unlock
       </button>
     </form>
 
@@ -108,14 +116,14 @@
 
     function initBiometricUI() {
       if (!window.AndroidBiometric || typeof window.AndroidBiometric.isApp !== "function" || !window.AndroidBiometric.isApp()) {
-        return; // Normal Web: keep biometric UI completely hidden
+        return; // Regular browser: stay pure web, keep all biometric UI hidden
       }
 
-      // 1. Show the explicit checkbox inside the app
+      // Show the opt-in checkbox inside the Android APK
       const checkContainer = document.getElementById("biometricCheckboxContainer");
       if (checkContainer) checkContainer.classList.remove("hidden");
 
-      // 2. Check if a profile is already saved
+      // Check if a user is currently registered for biometrics on this device
       if (typeof window.AndroidBiometric.getSavedUser === "function") {
         const raw = window.AndroidBiometric.getSavedUser();
         if (raw) {
@@ -126,14 +134,21 @@
               document.getElementById("bioUsername").innerText = "@" + currentSavedBioUser.username + (currentSavedBioUser.role ? ` • ${currentSavedBioUser.role}` : "");
               document.getElementById("bioUnlockBtnText").innerText = `Unlock as ${currentSavedBioUser.displayName || currentSavedBioUser.username}`;
               
+              // Indicate to any other user that ticking the box replaces the existing profile
+              const notice = document.getElementById("bioOverrideNotice");
+              if (notice) {
+                notice.innerText = `Replaces @${currentSavedBioUser.username}'s fingerprint on this device.`;
+                notice.classList.remove("hidden");
+              }
+
               toggleFormVisibility(false);
 
-              // Auto-launch biometric bottom sheet
+              // Auto-launch biometric bottom sheet on launch
               triggerNativeBiometric();
               return;
             }
           } catch (e) {
-            console.error("Error reading saved user:", e);
+            console.error("Error reading saved biometric user:", e);
           }
         }
       }
@@ -160,6 +175,22 @@
       if (window.AndroidBiometric && typeof window.AndroidBiometric.requestBiometric === "function") {
         window.AndroidBiometric.requestBiometric();
       }
+    }
+
+    function unlinkDeviceBiometrics() {
+      if (!confirm("Remove fingerprint unlock from this device? You will need to enter your password next time.")) return;
+
+      if (window.AndroidBiometric && typeof window.AndroidBiometric.clearSessionOnLogout === "function") {
+        window.AndroidBiometric.clearSessionOnLogout();
+      }
+
+      currentSavedBioUser = null;
+      const notice = document.getElementById("bioOverrideNotice");
+      if (notice) notice.classList.add("hidden");
+
+      toggleFormVisibility(true);
+      const backBtn = document.getElementById("backToBioBtn");
+      if (backBtn) backBtn.classList.add("hidden");
     }
 
     async function handleLoginSubmit(e) {
@@ -193,16 +224,20 @@
         if (data.status === "success" && data.session) {
           saveSession(data.session);
 
-          // Handle Option A + Option C biometric binding
+          // Biometric Registration & Override Handling
           if (window.AndroidBiometric && typeof window.AndroidBiometric.saveSessionOnLogin === "function") {
             if (wantsBiometric) {
               let proceedToSave = true;
+              // If another user had biometrics enabled, confirm override
               if (currentSavedBioUser && currentSavedBioUser.username.toLowerCase() !== username.toLowerCase()) {
                 proceedToSave = confirm(
-                  `Fingerprint is currently linked to @${currentSavedBioUser.username}.\n\nDo you want to replace it with @${username} on this device?`
+                  `Fingerprint unlock is currently registered to @${currentSavedBioUser.username}.\n\n` +
+                  `Registering @${username} will remove @${currentSavedBioUser.username}'s fingerprint access from this phone.\n\n` +
+                  `Do you want to proceed?`
                 );
               }
               if (proceedToSave) {
+                // Overwrites previous user's profile with the new user's credentials
                 window.AndroidBiometric.saveSessionOnLogin(JSON.stringify(data.session));
               }
             }
