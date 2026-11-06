@@ -6,6 +6,7 @@
 
 let currentReceipt = null;
 let currentReceiptFile = null;
+let currentJsPdfDoc = null; // Stored to allow direct Base64 export to Android App
 
 function inr(n) {
   return "Rs. " + (Number(n) || 0).toLocaleString("en-IN");
@@ -40,6 +41,8 @@ function buildReceiptFile(r) {
   if (!window.jspdf || !window.jspdf.jsPDF) return null;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: "mm", format: "a5", orientation: "portrait" });
+  currentJsPdfDoc = doc; // Keep reference for Android Bridge & Mobile Export
+
   const W = 148;
   const left = 14;
   const right = W - 14;
@@ -133,7 +136,7 @@ function setReceiptStatus(text, kind) {
 
 function openReceiptModal(receipt) {
   currentReceipt = receipt;
-  currentReceiptFile = buildReceiptFile(receipt); // built now so the share button can respond instantly
+  currentReceiptFile = buildReceiptFile(receipt);
 
   const rows = [
     ["Receipt", receipt.receiptNo && receipt.receiptNo !== "-" ? receipt.receiptNo : "Statement"],
@@ -165,14 +168,48 @@ function closeReceiptModal() {
   document.getElementById("receiptModal").classList.add("hidden");
   currentReceipt = null;
   currentReceiptFile = null;
+  currentJsPdfDoc = null;
 }
 
+// Universal PDF export handling: Android App Bridge -> Mobile Browser Tab -> Desktop File Download
 function downloadReceiptPdf() {
-  if (!currentReceiptFile) return;
+  if (!currentReceiptFile && !currentJsPdfDoc) return;
+  const fileName = currentReceipt ? receiptFileName(currentReceipt) : "Elysium_Receipt.pdf";
+
+  // 1. Android APK Bridge: Send Base64 data directly to Kotlin
+  if (window.AndroidBiometric && typeof window.AndroidBiometric.savePdf === "function") {
+    if (currentJsPdfDoc) {
+      const dataUri = currentJsPdfDoc.output("datauristring");
+      window.AndroidBiometric.savePdf(dataUri, fileName);
+      setReceiptStatus("Receipt saved to device Downloads folder.", "ok");
+      return;
+    }
+  }
+
+  // 2. Mobile Browser (Chrome/Safari on Android or iOS):
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile) {
+    const url = URL.createObjectURL(currentReceiptFile);
+    // Open in a new tab so mobile browser handles viewing and saving natively
+    const win = window.open(url, "_blank");
+    if (!win) {
+      // Fallback if popup blocker intercepted
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    return;
+  }
+
+  // 3. Desktop Browser: Standard anchor download
   const url = URL.createObjectURL(currentReceiptFile);
   const a = document.createElement("a");
   a.href = url;
-  a.download = currentReceiptFile.name;
+  a.download = fileName;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -186,13 +223,11 @@ function openReceiptChat() {
   window.open(`https://wa.me/${num}?text=${encodeURIComponent(receiptMessage(currentReceipt))}`, "_blank");
 }
 
-// One tap: opens the phone's share sheet with the PDF attached - choose WhatsApp, then the resident.
-// Where the browser cannot share files (most desktops), the PDF is downloaded and the resident's
-// WhatsApp chat opens with the message ready, so only the attach step is manual.
 async function shareReceiptPdf() {
   if (!currentReceipt || !currentReceiptFile) return;
   const text = receiptMessage(currentReceipt);
 
+  // 1. Native Mobile Web Share API
   try {
     if (navigator.canShare && navigator.canShare({ files: [currentReceiptFile] })) {
       await navigator.share({ files: [currentReceiptFile], title: "Rent receipt", text: text });
@@ -200,17 +235,18 @@ async function shareReceiptPdf() {
       return;
     }
   } catch (err) {
-    if (err && err.name === "AbortError") return; // person closed the share sheet
+    if (err && err.name === "AbortError") return;
     console.warn("File share failed, using fallback", err);
   }
 
+  // 2. Fallback: Save PDF using the universal handler and open WhatsApp
   downloadReceiptPdf();
   const num = whatsappNumber(currentReceipt.mobile);
   if (num) {
     window.open(`https://wa.me/${num}?text=${encodeURIComponent(text)}`, "_blank");
-    setReceiptStatus("PDF downloaded and the chat is opening. Attach the downloaded PDF (paperclip) and send.", "info");
+    setReceiptStatus("PDF ready and WhatsApp chat is opening. Attach the downloaded PDF and send.", "info");
   } else {
-    setReceiptStatus("PDF downloaded. Open WhatsApp and attach it to the resident's chat.", "info");
+    setReceiptStatus("PDF ready. Open WhatsApp and attach it to the resident's chat.", "info");
   }
 }
 
