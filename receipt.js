@@ -281,4 +281,4 @@ function receiptFromHistory(p, resident) {
     paymentDate: p.paymentDate,
     mode: p.mode
   };
-}
+}

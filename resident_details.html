@@ -477,7 +477,27 @@
       };
 
       try {
-        const json = await apiPost(payload);
+        let json = await apiPost(payload);
+
+        // Changing everyone's rent needs a confirmation: the server lists who would change and writes nothing yet
+        if (json.needsConfirm) {
+          const lines = (json.changes || []).map(c => `  • ${c.name}: ₹${c.oldRent} → ₹${c.newRent}`);
+          const skip = (json.skipped || []).map(s => `  • ${s.name} (${s.reason})`);
+          if (lines.length === 0) {
+            statusBox.className = "p-2 rounded-xl text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 block";
+            statusBox.innerText = "No current resident needs a rent change in this room.";
+            return;
+          }
+          const msg = `Change the rent for these residents of Room ${selectedRoom}?\n\n${lines.join("\n")}` +
+                      (skip.length ? `\n\nNot changed:\n${skip.join("\n")}` : "");
+          if (!confirm(msg)) {
+            statusBox.className = "p-2 rounded-xl text-[11px] font-semibold bg-slate-50 text-slate-600 border border-slate-200 block";
+            statusBox.innerText = "Cancelled - nothing was changed.";
+            return;
+          }
+          json = await apiPost(Object.assign({}, payload, { confirmed: true }));
+        }
+
         statusBox.className = "p-2 rounded-xl text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
         statusBox.innerHTML = `✓ ${esc(json.message)}`;
 
@@ -496,4 +516,4 @@
     }
   </script>
 </body>
-</html>
+</html>

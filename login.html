@@ -114,16 +114,27 @@
       initBiometricUI();
     });
 
+    // Only plain page names such as "rent.html" are allowed as a post-login destination.
+    // (Anything else - other sites, javascript: links - is ignored.)
+    function safeRedirectTarget() {
+      const wanted = new URLSearchParams(window.location.search).get("redirect") || "";
+      return /^[A-Za-z0-9_-]+\.html$/.test(wanted) && wanted !== "login.html" ? wanted : "index.html";
+    }
+
+    function isAndroidApp() {
+      return !!(window.AndroidBiometric && typeof window.AndroidBiometric.isApp === "function" && window.AndroidBiometric.isApp());
+    }
+
     function initBiometricUI() {
-      if (!window.AndroidBiometric || typeof window.AndroidBiometric.isApp !== "function" || !window.AndroidBiometric.isApp()) {
-        return; // Regular browser: stay pure web, keep all biometric UI hidden
+      if (!isAndroidApp()) {
+        return; // Regular browser: stay pure web, keep all fingerprint UI hidden
       }
 
-      // Show the opt-in checkbox inside the Android APK
+      // Show the opt-in checkbox inside the Android app
       const checkContainer = document.getElementById("biometricCheckboxContainer");
       if (checkContainer) checkContainer.classList.remove("hidden");
 
-      // Check if a user is currently registered for biometrics on this device
+      // Is a user already registered for fingerprint unlock on this phone?
       if (typeof window.AndroidBiometric.getSavedUser === "function") {
         const raw = window.AndroidBiometric.getSavedUser();
         if (raw) {
@@ -133,8 +144,7 @@
               document.getElementById("bioDisplayName").innerText = currentSavedBioUser.displayName || currentSavedBioUser.username;
               document.getElementById("bioUsername").innerText = "@" + currentSavedBioUser.username + (currentSavedBioUser.role ? ` • ${currentSavedBioUser.role}` : "");
               document.getElementById("bioUnlockBtnText").innerText = `Unlock as ${currentSavedBioUser.displayName || currentSavedBioUser.username}`;
-              
-              // Indicate to any other user that ticking the box replaces the existing profile
+
               const notice = document.getElementById("bioOverrideNotice");
               if (notice) {
                 notice.innerText = `Replaces @${currentSavedBioUser.username}'s fingerprint on this device.`;
@@ -142,13 +152,11 @@
               }
 
               toggleFormVisibility(false);
-
-              // Auto-launch biometric bottom sheet on launch
-              triggerNativeBiometric();
+              triggerNativeBiometric(); // open the fingerprint sheet straight away
               return;
             }
           } catch (e) {
-            console.error("Error reading saved biometric user:", e);
+            console.error("Error reading saved fingerprint user:", e);
           }
         }
       }
@@ -177,11 +185,50 @@
       }
     }
 
+    // The phone calls this after a successful fingerprint with the secret it stored at enrolment
+    window.onBiometricUnlock = async function (jsonText) {
+      const label = document.getElementById("bioUnlockBtnText");
+      try {
+        const creds = JSON.parse(jsonText);
+        if (label) label.innerText = "Verifying...";
+        const res = await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "deviceLogin", username: creds.username, deviceId: creds.deviceId, deviceSecret: creds.deviceSecret })
+        });
+        const data = JSON.parse(await res.text());
+        if (data.status === "success" && data.session) {
+          saveSession(data.session);
+          window.location.replace("index.html");
+          return;
+        }
+        if (data.code === "device_invalid" && window.AndroidBiometric && window.AndroidBiometric.clearDevice) {
+          window.AndroidBiometric.clearDevice();   // expired or revoked: forget it on the phone too
+          currentSavedBioUser = null;
+        }
+        alert(data.message || "Fingerprint login failed. Please sign in with your password.");
+      } catch (e) {
+        alert("Fingerprint login error: " + e.message);
+      }
+      if (label && currentSavedBioUser) label.innerText = `Unlock as ${currentSavedBioUser.displayName || currentSavedBioUser.username}`;
+      toggleFormVisibility(true);
+    };
+
+    // Called when the fingerprint sheet is cancelled or fails
+    window.onBiometricUnlockError = function (message) {
+      if (message) {
+        const err = document.getElementById("loginError");
+        const txt = document.getElementById("loginErrorText");
+        if (err && txt) { txt.innerText = message; err.classList.remove("hidden"); }
+      }
+      toggleFormVisibility(true);
+    };
+
     function unlinkDeviceBiometrics() {
       if (!confirm("Remove fingerprint unlock from this device? You will need to enter your password next time.")) return;
 
-      if (window.AndroidBiometric && typeof window.AndroidBiometric.clearSessionOnLogout === "function") {
-        window.AndroidBiometric.clearSessionOnLogout();
+      if (window.AndroidBiometric && typeof window.AndroidBiometric.clearDevice === "function") {
+        window.AndroidBiometric.clearDevice();
       }
 
       currentSavedBioUser = null;
@@ -193,12 +240,53 @@
       if (backBtn) backBtn.classList.add("hidden");
     }
 
+    // Registers this phone for fingerprint unlock (only when the user ticked the box).
+    // Returns a short message for the user, or "" when everything worked.
+    async function enrollFingerprint(session) {
+      if (!isAndroidApp() || typeof window.AndroidBiometric.enrollWithFingerprint !== "function") return "";
+
+      if (currentSavedBioUser && currentSavedBioUser.username.toLowerCase() !== session.username.toLowerCase()) {
+        const proceed = confirm(
+          `Fingerprint unlock is currently registered to @${currentSavedBioUser.username}.\n\n` +
+          `Registering @${session.username} will remove @${currentSavedBioUser.username}'s fingerprint access from this phone.\n\n` +
+          `Do you want to proceed?`
+        );
+        if (!proceed) return "";
+      }
+
+      let creds;
+      try {
+        creds = await apiPost({ action: "enrollDevice", label: "Android app" });
+      } catch (e) {
+        return "Could not set up fingerprint: " + e.message;
+      }
+
+      const outcome = await new Promise((resolve) => {
+        const timer = setTimeout(() => resolve({ ok: false, message: "Fingerprint setup timed out." }), 90000);
+        window.onBiometricEnrollResult = (ok, message) => { clearTimeout(timer); resolve({ ok: !!ok, message: message || "" }); };
+        window.AndroidBiometric.enrollWithFingerprint(JSON.stringify({
+          username: session.username,
+          displayName: session.displayName,
+          role: session.role,
+          deviceId: creds.deviceId,
+          deviceSecret: creds.deviceSecret
+        }));
+      });
+
+      if (!outcome.ok) {
+        // the phone could not store it, so cancel the server-side link as well
+        try { await apiPost({ action: "revokeDevice", deviceId: creds.deviceId }); } catch (e) {}
+        return "Fingerprint unlock was not enabled" + (outcome.message ? ": " + outcome.message : ".");
+      }
+      return "";
+    }
+
     async function handleLoginSubmit(e) {
       e.preventDefault();
       const btn = document.getElementById("loginSubmitBtn");
       const errBox = document.getElementById("loginError");
       const errText = document.getElementById("loginErrorText");
-      
+
       const username = document.getElementById("loginUsername").value.trim();
       const password = document.getElementById("loginPassword").value.trim();
       const wantsBiometric = document.getElementById("enableBiometricCheckbox").checked;
@@ -206,6 +294,11 @@
       errBox.classList.add("hidden");
       btn.disabled = true;
       btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-sm"></i> Authenticating...`;
+
+      const resetButton = () => {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Sign In</span> <i class="fa-solid fa-arrow-right text-xs"></i>`;
+      };
 
       try {
         const res = await fetch(APPS_SCRIPT_URL, {
@@ -224,44 +317,29 @@
         if (data.status === "success" && data.session) {
           saveSession(data.session);
 
-          // Biometric Registration & Override Handling
-          if (window.AndroidBiometric && typeof window.AndroidBiometric.saveSessionOnLogin === "function") {
-            if (wantsBiometric) {
-              let proceedToSave = true;
-              // If another user had biometrics enabled, confirm override
-              if (currentSavedBioUser && currentSavedBioUser.username.toLowerCase() !== username.toLowerCase()) {
-                proceedToSave = confirm(
-                  `Fingerprint unlock is currently registered to @${currentSavedBioUser.username}.\n\n` +
-                  `Registering @${username} will remove @${currentSavedBioUser.username}'s fingerprint access from this phone.\n\n` +
-                  `Do you want to proceed?`
-                );
-              }
-              if (proceedToSave) {
-                // Overwrites previous user's profile with the new user's credentials
-                window.AndroidBiometric.saveSessionOnLogin(JSON.stringify(data.session));
-              }
-            }
+          let notice = "";
+          if (wantsBiometric) {
+            btn.innerHTML = `<i class="fa-solid fa-fingerprint text-sm"></i> Setting up fingerprint...`;
+            notice = await enrollFingerprint(data.session);
+          }
+          if (notice) {
+            errText.innerText = notice + " You are signed in.";
+            errBox.classList.remove("hidden");
           }
 
-          setTimeout(() => {
-            const params = new URLSearchParams(window.location.search);
-            const redirect = params.get("redirect") || "index.html";
-            window.location.replace(redirect);
-          }, 250);
+          setTimeout(() => window.location.replace(safeRedirectTarget()), notice ? 1800 : 250);
 
         } else {
           errText.innerText = data.message || "Invalid credentials.";
           errBox.classList.remove("hidden");
-          btn.disabled = false;
-          btn.innerHTML = `<span>Sign In</span> <i class="fa-solid fa-arrow-right text-xs"></i>`;
+          resetButton();
         }
       } catch (err) {
         errText.innerText = err.message || "Connection error. Please try again.";
         errBox.classList.remove("hidden");
-        btn.disabled = false;
-        btn.innerHTML = `<span>Sign In</span> <i class="fa-solid fa-arrow-right text-xs"></i>`;
+        resetButton();
       }
     }
   </script>
 </body>
-</html>
+</html>

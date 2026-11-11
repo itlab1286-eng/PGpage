@@ -1099,9 +1099,14 @@
 
       const isSplit = document.getElementById("splitPaymentToggle").checked;
       let finalModeString = "";
+      let paymentParts = [];   // who received which part (feeds the partner cashflow exactly)
 
       if (isSplit) {
         finalModeString = buildSplitSummary();
+        paymentParts = [
+          { mode: document.getElementById("splitMode1").value, receiver: document.getElementById("splitReceiver1").value, amount: parseFloat(document.getElementById("splitAmt1").value) || 0 },
+          { mode: document.getElementById("splitMode2").value, receiver: document.getElementById("splitReceiver2").value, amount: parseFloat(document.getElementById("splitAmt2").value) || 0 }
+        ].filter(p => p.amount > 0);
       } else {
         const selectedMode = document.getElementById("payMode").value;
         const selectedReceiver = document.getElementById("payReceiver").value;
@@ -1110,6 +1115,7 @@
         } else {
           finalModeString = selectedMode;
         }
+        paymentParts = [{ mode: selectedMode, receiver: selectedReceiver, amount: parseFloat(document.getElementById("payAmount").value) || 0 }];
       }
 
       const payload = {
@@ -1122,6 +1128,7 @@
         entryType: document.getElementById("payReplaceToggle").checked ? "replace" : "add",
         paymentDate: document.getElementById("payDate").value,
         mode: finalModeString,
+        parts: paymentParts,
         remarks: document.getElementById("payRemarks").value !== loadedRemarks ? document.getElementById("payRemarks").value : undefined
       };
 
@@ -1712,4 +1719,4 @@
     }
   </script>
 </body>
-</html>
+</html>

@@ -107,8 +107,9 @@ function getActiveSession() {
 
 function saveSession(session) {
   if (!session) return;
+  // The session lives in sessionStorage only (cleared when the tab / app closes).
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  localStorage.setItem(TOKEN_KEY, session.token);
+  localStorage.removeItem(TOKEN_KEY); // remove any copy left by older versions
 }
 
 function getAuthToken() {
@@ -283,8 +284,11 @@ async function apiGet(action, params = {}, retries = 2) {
 
 const uncertainWrites = new Map();
 
+// Actions every logged-in user may perform on their own account (even view-only accounts)
+const SELF_SERVICE_ACTIONS = ["enrollDevice", "revokeDevice"];
+
 async function apiPost(payload) {
-  if (getAuthRole() === "VIEWER") {
+  if (getAuthRole() === "VIEWER" && SELF_SERVICE_ACTIONS.indexOf(payload && payload.action) === -1) {
     alert("Action blocked: Your account has View-Only permissions.");
     throw new Error("FORBIDDEN: View-Only accounts cannot modify data.");
   }
@@ -451,4 +455,4 @@ async function prepareUploadFile(file) {
   });
 
   return { base64: String(dataUrl).split(",")[1] || "", mimeType: outType, fileName: outName, size: blob.size };
-}
+}

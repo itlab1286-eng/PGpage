@@ -332,7 +332,7 @@
               <button type="button" onclick="editWalkin(${item.rowIndex})" class="p-2 rounded-xl bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 transition" title="Edit">
                 <i class="fa-solid fa-pen text-xs"></i>
               </button>
-              <button type="button" onclick="deleteWalkin(${item.rowIndex}, '${esc(item.name)}')" class="p-2 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 transition" title="Delete">
+              <button type="button" onclick="deleteWalkin(${item.rowIndex})" class="p-2 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 transition" title="Delete">
                 <i class="fa-solid fa-trash text-xs"></i>
               </button>
             </div>
@@ -405,6 +405,7 @@
         action: "saveWalkin",
         month: month,
         rowIndex: document.getElementById("entryRowIndex").value,
+        expected: document.getElementById("entryRowIndex").value ? walkinExpected(document.getElementById("entryRowIndex").value) : undefined,
         requirement: document.getElementById("inputRequirement").value,
         persons: document.getElementById("inputPersons").value,
         name: document.getElementById("inputName").value,
@@ -435,8 +436,15 @@
       }
     }
 
-    async function deleteWalkin(rowIndex, name) {
-      const displayName = name ? `"${name}"` : `this inquiry`;
+    // What the row looked like when the list loaded - the server re-checks it before editing / deleting
+    function walkinExpected(rowIndex) {
+      const w = walkinsData.find(x => x.rowIndex === Number(rowIndex));
+      return w ? { requirement: w.requirement, name: w.name, phone: w.phone } : undefined;
+    }
+
+    async function deleteWalkin(rowIndex) {
+      const item = walkinsData.find(x => x.rowIndex === Number(rowIndex));
+      const displayName = item && item.name ? `"${item.name}"` : `this inquiry`;
       if (!confirm(`Are you sure you want to delete ${displayName}?`)) return;
 
       const month = document.getElementById("monthSelect").value;
@@ -444,7 +452,8 @@
         const res = await apiPost({
           action: "deleteWalkin",
           month: month,
-          rowIndex: rowIndex
+          rowIndex: rowIndex,
+          expected: walkinExpected(rowIndex)
         });
 
         if (res.status === "success") {
@@ -457,9 +466,7 @@
       }
     }
 
-    function esc(s) {
-      return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    }
+    // esc() now comes from auth.js (it also escapes apostrophes)
   </script>
 </body>
-</html>
+</html>
