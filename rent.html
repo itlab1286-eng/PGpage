@@ -343,6 +343,47 @@
       </div>
     </header>
 
+    <!-- LIVE RENT FINANCIAL METRICS BAR -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-5">
+      <!-- Total Rent Collected Card (Building-Wide from All Tenants) -->
+      <div class="bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-2xl p-4 shadow-sm relative overflow-hidden flex items-center justify-between">
+        <div class="relative z-10">
+          <div class="flex items-center gap-1.5 text-emerald-100 text-[11px] font-bold uppercase tracking-wider">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Total Rent Collected (All Tenants)</span>
+          </div>
+          <div class="text-2xl sm:text-3xl font-black font-mono mt-1 text-white flex items-baseline gap-1">
+            <span id="metricCollectedAmount">₹0</span>
+          </div>
+          <p id="metricCollectedSubtext" class="text-[10px] text-emerald-100/90 font-medium mt-0.5">
+            Loading total collections...
+          </p>
+        </div>
+        <div class="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white/80 text-xl shrink-0">
+          <i class="fa-solid fa-indian-rupee-sign"></i>
+        </div>
+      </div>
+
+      <!-- Total Pending Rent Card (Adjusted for Exceptions) -->
+      <div class="bg-gradient-to-br from-rose-500 to-rose-700 text-white rounded-2xl p-4 shadow-sm relative overflow-hidden flex items-center justify-between">
+        <div class="relative z-10">
+          <div class="flex items-center gap-1.5 text-rose-100 text-[11px] font-bold uppercase tracking-wider">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+            <span>Total Pending Rent</span>
+          </div>
+          <div class="text-2xl sm:text-3xl font-black font-mono mt-1 text-white flex items-baseline gap-1">
+            <span id="metricPendingAmount">₹0</span>
+          </div>
+          <p id="metricPendingSubtext" class="text-[10px] text-rose-100/90 font-medium mt-0.5">
+            Calculating pending dues...
+          </p>
+        </div>
+        <div class="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white/80 text-xl shrink-0">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+      </div>
+    </div>
+
     <!-- NAVIGATION TABS -->
     <div class="flex gap-2 mb-6 bg-slate-200/70 p-1 rounded-2xl">
       <button type="button" onclick="switchView('roomView')" id="tabBtnRooms" 
@@ -650,6 +691,7 @@
     let currentAdvResident = null;
 
     let allDuesList = [];
+    let buildingTotalRentCollected = 0;
     let ignoredDuesKeys = JSON.parse(sessionStorage.getItem("elysium_ignored_dues") || "{}");
     let currentDuesFilter = "ALL";
 
@@ -692,6 +734,7 @@
         loadAllDues(true);
       } else {
         loadRoomResidents(2, true);
+        loadAllDues(true);
       }
     }
 
@@ -800,7 +843,7 @@
 
         container.innerHTML = "";
         activeResidents.forEach((r, idx) => {
-          const expectedRent = (parseFloat(r.expectedRent) || 0) + (parseFloat(r.arrears) || 0); // rent + carried-forward arrears
+          const expectedRent = (parseFloat(r.expectedRent) || 0) + (parseFloat(r.arrears) || 0);
           const rentPaid = parseFloat(r.rentPaid) || 0;
           const dueAmt = Math.max(0, expectedRent - rentPaid);
           const isFullyPaid = (expectedRent > 0 && rentPaid >= expectedRent);
@@ -841,7 +884,6 @@
           }
 
           card.innerHTML = `
-            <!-- Top Row: Name, Subtext & Status Badge (Tapping selects resident) -->
             <div class="flex items-start justify-between gap-2" onclick="chooseResident(${idx})">
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-black text-slate-800 flex items-center gap-1.5 flex-wrap">
@@ -858,7 +900,6 @@
               </div>
             </div>
 
-            <!-- Bottom Row: Independent Action Buttons -->
             <div class="flex items-center gap-1.5 flex-wrap pt-2 border-t border-slate-100">
               <button type="button" onclick="event.stopPropagation(); openShiftFor(${idx})" 
                       class="px-2.5 py-1 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg transition flex items-center gap-1">
@@ -887,7 +928,6 @@
       }
     }
 
-    // Button helpers: look the resident up by position instead of putting names inside onclick strings
     function openShiftFor(idx) {
       const r = activeResidents[idx];
       if (!r) return;
@@ -913,7 +953,6 @@
       document.getElementById("targetExpectedRent").innerText = "₹" + (currentSelectedResident.expectedRent || 0);
       document.getElementById("targetRowIndex").value = currentSelectedResident.rowIndex || "";
       
-      // Configure Reset button visibility
       const clearBtn = document.getElementById("clearPaymentBtn");
       const alreadyPaid = parseFloat(currentSelectedResident.rentPaid) || 0;
       if (clearBtn) {
@@ -921,7 +960,6 @@
         else clearBtn.classList.add("hidden");
       }
 
-      // Default mode setup
       cancelCorrectionMode();
       
       const dueTotal = residentTotalDue(currentSelectedResident);
@@ -1008,7 +1046,7 @@
             </div>
           </div>`).join("");
         box.classList.remove("hidden");
-      } catch (e) { /* history is optional */ }
+      } catch (e) { /* optional */ }
     }
 
     let paymentHistory = [];
@@ -1035,7 +1073,6 @@
       const total = Math.round((rent / prorateDays(document.getElementById("monthSelect").value)) * days);
       document.getElementById("payAmount").value = total;
       document.getElementById("payRemarks").value = `Pro-rated for ${days} days`;
-      // A pro-rated amount is the whole month's due: record it as the total, not as an extra payment
       if ((parseFloat(currentSelectedResident.rentPaid) || 0) > 0) {
         document.getElementById("payReplaceToggle").checked = true;
         document.getElementById("payAmountLabel").innerText = "Correct Total Paid This Month (₹)";
@@ -1099,7 +1136,7 @@
 
       const isSplit = document.getElementById("splitPaymentToggle").checked;
       let finalModeString = "";
-      let paymentParts = [];   // who received which part (feeds the partner cashflow exactly)
+      let paymentParts = [];
 
       if (isSplit) {
         finalModeString = buildSplitSummary();
@@ -1294,7 +1331,7 @@
     }
 
     // ==========================================
-    // ROOM SHIFT SYSTEM (FEATURE 2)
+    // ROOM SHIFT SYSTEM
     // ==========================================
     function openShiftModal(fromRoom, residentName, mobile, currentRent, advance, alreadyPaid) {
       document.getElementById("shiftFromRoom").value = fromRoom;
@@ -1439,28 +1476,92 @@
     }
 
     // ==========================================
-    // DUES VIEW HANDLERS
+    // DUES VIEW HANDLERS & TOTAL METRICS CALCULATION
     // ==========================================
     async function loadAllDues(force = false) {
-      if (allDuesList.length > 0 && !force) {
-        renderDues();
-        return;
-      }
-
       const month = document.getElementById("monthSelect").value;
       const container = document.getElementById("duesCardsContainer");
-      if (container) {
+      if (container && (!allDuesList.length || force)) {
         container.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Checking all resident balances for ${month}...</div>`;
       }
 
       try {
-        const json = await apiGet("getAllPendingDues", { month: month, forceRefresh: force ? "true" : "" });
+        // Fetch pending dues and building-wide cashflow in parallel for accurate totals
+        const [duesRes, cashflowRes] = await Promise.allSettled([
+          apiGet("getAllPendingDues", { month: month, forceRefresh: force ? "true" : "" }),
+          apiGet("getPartnerCashflow", { month: month, forceRefresh: force ? "true" : "" })
+        ]);
 
-        allDuesList = json.dues || [];
+        if (duesRes.status === "fulfilled" && duesRes.value) {
+          allDuesList = duesRes.value.dues || [];
+        }
+
+        if (cashflowRes.status === "fulfilled" && cashflowRes.value && cashflowRes.value.monthlyBreakdown) {
+          const breakdown = cashflowRes.value.monthlyBreakdown[month];
+          buildingTotalRentCollected = breakdown && breakdown.rent !== undefined ? Number(breakdown.rent) : 0;
+        } else {
+          // Fallback sum if cashflow calculation is pending
+          buildingTotalRentCollected = allDuesList.reduce((acc, cur) => acc + (parseFloat(cur.rentPaid) || 0), 0);
+        }
+
         renderDues();
+        updateFinancialMetrics();
       } catch (err) {
         if (container) {
           container.innerHTML = `<div class="p-6 text-center text-xs text-red-500 font-bold bg-red-50 rounded-2xl">Error: ${esc(err.message)}</div>`;
+        }
+      }
+    }
+
+    // Updates top metric cards reflecting real collections from all tenants and adjusted pending dues
+    function updateFinancialMetrics() {
+      const collectedElem = document.getElementById("metricCollectedAmount");
+      const pendingElem = document.getElementById("metricPendingAmount");
+      const collectedSubtext = document.getElementById("metricCollectedSubtext");
+      const pendingSubtext = document.getElementById("metricPendingSubtext");
+      if (!collectedElem || !pendingElem) return;
+
+      let grossPending = 0;
+      let ignoredPendingTotal = 0;
+      let activeDuesCount = 0;
+      let ignoredDuesCount = 0;
+
+      allDuesList.forEach(item => {
+        const key = `${item.roomNumber}_${item.name}`;
+        const isIgnored = Boolean(ignoredDuesKeys[key]);
+        const bal = parseFloat(item.balance) || 0;
+
+        grossPending += bal;
+
+        if (isIgnored) {
+          ignoredPendingTotal += bal;
+          ignoredDuesCount++;
+        } else {
+          activeDuesCount++;
+        }
+      });
+
+      // Active Pending excludes approved exceptions
+      const activePending = Math.max(0, grossPending - ignoredPendingTotal);
+      
+      // Effective Demand accounts for ignored uncollectible amounts
+      const effectiveDemand = buildingTotalRentCollected + activePending;
+      const collectionPercent = effectiveDemand > 0 
+        ? Math.min(100, (buildingTotalRentCollected / effectiveDemand) * 100).toFixed(1)
+        : 100;
+
+      collectedElem.innerText = "₹" + Math.round(buildingTotalRentCollected).toLocaleString("en-IN");
+      pendingElem.innerText = "₹" + Math.round(activePending).toLocaleString("en-IN");
+
+      if (collectedSubtext) {
+        collectedSubtext.innerText = `${collectionPercent}% collected across all active & fully paid tenants`;
+      }
+
+      if (pendingSubtext) {
+        if (ignoredDuesCount > 0) {
+          pendingSubtext.innerText = `${activeDuesCount} pending • ₹${Math.round(ignoredPendingTotal).toLocaleString("en-IN")} waived in ${ignoredDuesCount} exception${ignoredDuesCount === 1 ? '' : 's'}`;
+        } else {
+          pendingSubtext.innerText = `${activeDuesCount} resident${activeDuesCount === 1 ? '' : 's'} with unpaid balance`;
         }
       }
     }
@@ -1493,6 +1594,7 @@
       }
       sessionStorage.setItem("elysium_ignored_dues", JSON.stringify(ignoredDuesKeys));
       renderDues();
+      updateFinancialMetrics();
       loadRoomResidents();
     }
 
@@ -1719,4 +1821,4 @@
     }
   </script>
 </body>
-</html>
+</html>
