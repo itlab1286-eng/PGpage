@@ -152,7 +152,10 @@
               }
 
               toggleFormVisibility(false);
-              triggerNativeBiometric(); // open the fingerprint sheet straight away
+              // Allow WebView to complete its first visual paint frame before launching native biometric prompt
+              requestAnimationFrame(() => {
+                setTimeout(() => triggerNativeBiometric(), 250);
+              });
               return;
             }
           } catch (e) {
@@ -342,4 +345,4 @@
     }
   </script>
 </body>
-</html>
+</html>

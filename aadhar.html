@@ -49,9 +49,6 @@
       </div>
       <div class="flex items-center gap-2">
         <select id="monthSelect" onchange="loadAadhaarAudit(true)" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="October 2026">October 2026</option>
-          <option value="November 2026">November 2026</option>
-          <option value="December 2026">December 2026</option>
         </select>
         <a href="index.html" class="px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-2 transition">
           <i class="fa-solid fa-arrow-left"></i> Home
@@ -390,6 +387,13 @@
       }
 
       const file = fileInput.files[0];
+      try {
+        validateMobileInput(document.getElementById("residentPhone"), false);
+      } catch (valErr) {
+        statusBox.className = "mt-4 p-3 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
+        statusBox.innerText = valErr.message;
+        return;
+      }
       const resident = document.getElementById("residentName").value.trim();
       const finalFileName = updatePreviewName();
       const submitBtn = document.getElementById("submitBtn");

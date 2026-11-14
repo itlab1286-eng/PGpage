@@ -83,6 +83,65 @@ function whatsappNumber(mobile) {
 }
 
 // ---------------------------------------------------------------------------
+// Smart Indian Mobile Number Sanitization & Validation
+// ---------------------------------------------------------------------------
+function cleanIndianMobile(raw) {
+  let digits = String(raw || "").replace(/\D/g, "");
+  if (digits.length > 10 && digits.startsWith(PG_CONFIG.countryCode)) {
+    digits = digits.slice(PG_CONFIG.countryCode.length);
+  }
+  digits = digits.replace(/^0+/, "");
+  if (digits.length > 10) {
+    digits = digits.slice(-10);
+  }
+  return digits;
+}
+
+function isValidIndianMobile(digits) {
+  return /^[6-9]\d{9}$/.test(String(digits || ""));
+}
+
+function validateMobileInput(inputEl, required = false) {
+  if (!inputEl) return "";
+  const cleaned = cleanIndianMobile(inputEl.value);
+  inputEl.value = cleaned;
+  if (!cleaned) {
+    if (required) {
+      inputEl.setCustomValidity("Please enter a 10-digit Indian mobile number.");
+      inputEl.reportValidity();
+      throw new Error("Mobile number is required (10 digits starting with 6-9).");
+    }
+    inputEl.setCustomValidity("");
+    return "";
+  }
+  if (!isValidIndianMobile(cleaned)) {
+    inputEl.setCustomValidity("Enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.");
+    inputEl.reportValidity();
+    throw new Error("Invalid mobile number: must be 10 digits starting with 6-9.");
+  }
+  inputEl.setCustomValidity("");
+  return cleaned;
+}
+
+function attachMobileSanitizers() {
+  document.querySelectorAll('input[type="tel"], input[data-mobile="true"]').forEach(el => {
+    if (el.dataset.mobileBound) return;
+    el.dataset.mobileBound = "true";
+    el.removeAttribute("maxlength");
+    el.setAttribute("inputmode", "numeric");
+    const sanitize = () => {
+      const cleaned = cleanIndianMobile(el.value);
+      if (el.value !== cleaned) el.value = cleaned;
+      el.setCustomValidity("");
+    };
+    el.addEventListener("input", sanitize);
+    el.addEventListener("paste", () => setTimeout(sanitize, 0));
+    el.addEventListener("blur", sanitize);
+  });
+}
+
+
+// ---------------------------------------------------------------------------
 // Session & Auth Handling (1-Hour Expiry + Session Closure via sessionStorage)
 // ---------------------------------------------------------------------------
 function getActiveSession() {
@@ -217,6 +276,7 @@ window.addEventListener("DOMContentLoaded", () => {
   if (legacyPinModal && isAuthenticated()) {
     legacyPinModal.classList.add("hidden");
   }
+  attachMobileSanitizers();
   applyViewerRestrictions();
 });
 
@@ -361,13 +421,11 @@ async function initDynamicMonthSelect(selectId = "monthSelect") {
   const currentMonthName = MONTH_NAMES[now.getMonth()] + " " + now.getFullYear();
   const targetInitialMonth = getActiveMonthFallback();
 
-  let hasTarget = Array.from(select.options).some(o => o.value === targetInitialMonth);
-  if (!hasTarget) {
-    const opt = document.createElement("option");
-    opt.value = targetInitialMonth;
-    opt.textContent = targetInitialMonth;
-    select.prepend(opt);
-  }
+  select.innerHTML = "";
+  const initOpt = document.createElement("option");
+  initOpt.value = targetInitialMonth;
+  initOpt.textContent = targetInitialMonth;
+  select.appendChild(initOpt);
   select.value = targetInitialMonth;
 
   if (!select.dataset.listenerAttached) {
@@ -455,4 +513,4 @@ async function prepareUploadFile(file) {
   });
 
   return { base64: String(dataUrl).split(",")[1] || "", mimeType: outType, fileName: outName, size: blob.size };
-}
+}

@@ -1,0 +1,6 @@
+{
+  "versionCode": 3,
+  "versionName": "1.2",
+  "apkUrl": "https://github.com/itlab1286-eng/PGpage/releases/download/v1.2/app-release.apk",
+  "releaseNotes": "Added OTA auto-updater, fixed startup white screen, and improved split payments."
+}

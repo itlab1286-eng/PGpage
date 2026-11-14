@@ -53,7 +53,6 @@
 
       <div class="flex items-center gap-2">
         <select id="monthSelect" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700">
-          <option value="October 2026">October 2026</option>
         </select>
         <button onclick="logoutApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition" title="Lock">
           <i class="fa-solid fa-arrow-right-from-bracket"></i>
@@ -94,7 +93,7 @@
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Mobile Number *</label>
-            <input type="tel" id="resMobile" required maxlength="10" placeholder="10-digit mobile"
+            <input type="tel" id="resMobile" required placeholder="10-digit mobile (paste or type)"
                    class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
           </div>
         </div>
@@ -175,7 +174,7 @@
           </div>
 
           <!-- SINGLE PAYMENT MODE (Default) -->
-          <div id="singlePaySection" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div id="singlePaySection" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-bold text-slate-700 mb-1">Payment Mode</label>
               <select id="payMode" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -196,12 +195,6 @@
                 <option value="Manager">Manager</option>
                 <option value="Warden">Warden</option>
               </select>
-            </div>
-
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Payment Date</label>
-              <input type="date" id="initialPayDate"
-                     class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
 
@@ -270,6 +263,13 @@
               <span class="text-slate-500 font-semibold">Mode Preview:</span>
               <span id="splitStringPreview" class="font-mono font-bold text-indigo-700">Cash (0)+ PPay to Manohar (0)</span>
             </div>
+          </div>
+
+          <!-- SHARED PAYMENT DATE (Visible for both Single & Split) -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Payment Date</label>
+            <input type="date" id="initialPayDate"
+                   class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
         </div>
       </div>
@@ -450,6 +450,17 @@
       statusBox.className = "p-4 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
       statusBox.innerText = "Writing resident to sheet and uploading document to Google Drive...";
 
+      let cleanMobile = "";
+      try {
+        cleanMobile = validateMobileInput(document.getElementById("resMobile"), true);
+      } catch (valErr) {
+        statusBox.className = "p-4 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
+        statusBox.innerText = valErr.message;
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-check-circle"></i> <span>Register Resident & Save to Sheet</span>`;
+        return;
+      }
+
       const cleanName = document.getElementById("resName").value.trim();
       const month = document.getElementById("monthSelect").value;
 
@@ -482,7 +493,7 @@
         month: month,
         roomNumber: selectedRoom,
         name: cleanName,
-        mobile: document.getElementById("resMobile").value.trim(),
+        mobile: cleanMobile,
         joiningDate: document.getElementById("resJoiningDate").value,
         vacatedOn: document.getElementById("resVacatedOn").value,
         rent: document.getElementById("resRent").value,

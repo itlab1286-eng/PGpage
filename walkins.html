@@ -53,6 +53,7 @@
           <div>
             <label class="block text-slate-600 font-bold mb-1">Requirement *</label>
             <select id="inputRequirement" required class="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <option value="1 sharing">1 sharing</option>
               <option value="2 sharing">2 sharing</option>
               <option value="3 sharing" selected>3 sharing</option>
               <option value="4 sharing">4 sharing</option>
@@ -158,6 +159,7 @@
       <!-- Sharing Filters -->
       <div class="flex items-center gap-1.5 text-xs font-bold">
         <button type="button" onclick="setFilter('ALL')" id="filterALL" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white">All (<span id="countAll">0</span>)</button>
+        <button type="button" onclick="setFilter('1 sharing')" id="filter1" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600">1S</button>
         <button type="button" onclick="setFilter('2 sharing')" id="filter2" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600">2S</button>
         <button type="button" onclick="setFilter('3 sharing')" id="filter3" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600">3S</button>
         <button type="button" onclick="setFilter('4 sharing')" id="filter4" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600">4S</button>
@@ -197,28 +199,10 @@
     }
 
     async function initPage() {
-      await loadMonthsList();
-      loadWalkins();
-    }
-
-    async function loadMonthsList() {
-      const select = document.getElementById("monthSelect");
-      try {
-        const json = await apiGet("getAvailableMonths");
-        if (json.status === "success" && Array.isArray(json.months) && json.months.length > 0) {
-          select.innerHTML = "";
-          json.months.forEach(m => {
-  const opt = document.createElement("option");
-  // Use m.id or m.key first if your system uses Sheet IDs for month selection
-  opt.value = m.id || m.key || m.name || m; 
-  opt.textContent = m.name || m.label || m;
-  if (m.current || m.active) opt.selected = true;
-  select.appendChild(opt);
-});
-        }
-      } catch (e) {
-        select.innerHTML = `<option value="">Active Sheet</option>`;
+      if (typeof initDynamicMonthSelect === "function") {
+        await initDynamicMonthSelect("monthSelect");
       }
+      loadWalkins();
     }
 
     function onMonthChange() {
@@ -246,8 +230,8 @@
 
     function setFilter(sharing) {
       currentFilter = sharing;
-      ["ALL", "2 sharing", "3 sharing", "4 sharing"].forEach(key => {
-        const id = key === "ALL" ? "filterALL" : (key === "2 sharing" ? "filter2" : (key === "3 sharing" ? "filter3" : "filter4"));
+      ["ALL", "1 sharing", "2 sharing", "3 sharing", "4 sharing"].forEach(key => {
+        const id = key === "ALL" ? "filterALL" : (key === "1 sharing" ? "filter1" : (key === "2 sharing" ? "filter2" : (key === "3 sharing" ? "filter3" : "filter4")));
         const btn = document.getElementById(id);
         if (!btn) return;
         if (key === sharing) {
@@ -401,6 +385,17 @@
       statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
       statusBox.innerText = "Writing to Walkin sheet...";
 
+      let cleanPhone = "";
+      try {
+        cleanPhone = validateMobileInput(document.getElementById("inputPhone"), false);
+      } catch (valErr) {
+        statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block";
+        statusBox.innerText = valErr.message;
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>Save Entry</span>`;
+        return;
+      }
+
       const payload = {
         action: "saveWalkin",
         month: month,
@@ -409,7 +404,7 @@
         requirement: document.getElementById("inputRequirement").value,
         persons: document.getElementById("inputPersons").value,
         name: document.getElementById("inputName").value,
-        phone: document.getElementById("inputPhone").value,
+        phone: cleanPhone,
         amountSaid: document.getElementById("inputAmountSaid").value,
         remarks: document.getElementById("inputRemarks").value
       };
@@ -469,4 +464,4 @@
     // esc() now comes from auth.js (it also escapes apostrophes)
   </script>
 </body>
-</html>
+</html>
