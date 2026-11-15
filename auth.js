@@ -278,6 +278,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
   attachMobileSanitizers();
   applyViewerRestrictions();
+  injectQuickNavDock();
 });
 
 function unlockApp() {
@@ -513,4 +514,204 @@ async function prepareUploadFile(file) {
   });
 
   return { base64: String(dataUrl).split(",")[1] || "", mimeType: outType, fileName: outName, size: blob.size };
+}
+
+
+// ---------------------------------------------------------------------------
+// Elysium OS v3 Shell: Dark/Light Theme + Bottom Dock + Universal App Drawer
+// ---------------------------------------------------------------------------
+const THEME_KEY = "elysium_ui_theme_v3";
+
+function applySavedTheme() {
+  const saved = localStorage.getItem(THEME_KEY) || "dark";
+  if (saved === "light") {
+    document.documentElement.classList.add("light-theme");
+    document.documentElement.classList.remove("dark-theme");
+  } else {
+    document.documentElement.classList.remove("light-theme");
+    document.documentElement.classList.add("dark-theme");
+  }
+  const icon = document.getElementById("dockThemeIcon");
+  const label = document.getElementById("dockThemeLabel");
+  if (icon && label) {
+    const isLight = document.documentElement.classList.contains("light-theme");
+    icon.className = isLight ? "fa-solid fa-moon text-indigo-400" : "fa-solid fa-sun text-amber-400";
+    label.textContent = isLight ? "Dark" : "Light";
+  }
+}
+
+function toggleAppTheme() {
+  const isCurrentlyLight = document.documentElement.classList.contains("light-theme");
+  localStorage.setItem(THEME_KEY, isCurrentlyLight ? "dark" : "light");
+  applySavedTheme();
+  window.dispatchEvent(new CustomEvent("elysium:themechange"));
+}
+
+applySavedTheme();
+
+function toggleElysiumDrawer(forceState) {
+  const drawer = document.getElementById("elysiumAppDrawer");
+  if (!drawer) return;
+  const shouldOpen = forceState !== undefined ? forceState : !drawer.classList.contains("open");
+  if (shouldOpen) drawer.classList.add("open");
+  else drawer.classList.remove("open");
+}
+
+function quickJumpToRoom(targetPage) {
+  const inp = document.getElementById("globalQuickRoomInput");
+  const rm = inp ? String(inp.value || "").trim() : "";
+  if (!/^[1-6]0[1-7]$/.test(rm)) {
+    alert("Enter a valid room number between 101 and 607 (e.g. 101, 304, 607).");
+    return;
+  }
+  localStorage.setItem("elysium_quick_room", rm);
+  window.location.href = `${targetPage}?room=${encodeURIComponent(rm)}`;
+}
+
+function injectQuickNavDock() {
+  applySavedTheme();
+  const path = (window.location.pathname.split("/").pop() || "index.html").toLowerCase();
+  if (path === "login.html" || document.getElementById("elysiumBottomDock")) return;
+
+  // Auto-select room if navigated via Quick Room Jump
+  const urlRoom = new URLSearchParams(window.location.search).get("room") || localStorage.getItem("elysium_quick_room");
+  if (urlRoom && /^[1-6]0[1-7]$/.test(urlRoom)) {
+    localStorage.removeItem("elysium_quick_room");
+    setTimeout(() => {
+      if (typeof showFloor === "function" && typeof selectRoom === "function") {
+        showFloor(parseInt(urlRoom[0], 10));
+        selectRoom(urlRoom);
+      }
+    }, 350);
+  }
+
+  const navItems = [
+    { href: "index.html", icon: "fa-compass", label: "Hub" },
+    { href: "vacancies.html", icon: "fa-door-open", label: "Beds" },
+    { href: "rent.html", icon: "fa-indian-rupee-sign", label: "Rents" },
+    { href: "daily_staying.html", icon: "fa-bed-pulse", label: "Daily" },
+    { href: "expenses.html", icon: "fa-bolt", label: "Spends" },
+    { href: "settlements.html", icon: "fa-chart-simple", label: "Cashflow" }
+  ];
+
+  const dock = document.createElement("nav");
+  dock.id = "elysiumBottomDock";
+  dock.setAttribute("aria-label", "Elysium OS Dock");
+
+  navItems.forEach(item => {
+    const a = document.createElement("a");
+    a.href = item.href;
+    if (path === item.href) a.className = "dock-active";
+    a.innerHTML = `<i class="fa-solid ${item.icon}"></i><span>${item.label}</span>`;
+    dock.appendChild(a);
+  });
+
+  // All-Modules & Quick Jump Launcher Button
+  const menuBtn = document.createElement("button");
+  menuBtn.type = "button";
+  menuBtn.className = "dock-action-btn";
+  menuBtn.onclick = () => toggleElysiumDrawer();
+  menuBtn.innerHTML = `<i class="fa-solid fa-grip text-indigo-400"></i><span>Menu</span>`;
+  dock.appendChild(menuBtn);
+
+  // Theme Switcher Button
+  const themeBtn = document.createElement("button");
+  themeBtn.type = "button";
+  themeBtn.className = "dock-action-btn";
+  themeBtn.onclick = toggleAppTheme;
+  const isLight = document.documentElement.classList.contains("light-theme");
+  themeBtn.innerHTML = `<i id="dockThemeIcon" class="fa-solid ${isLight ? 'fa-moon text-indigo-400' : 'fa-sun text-amber-400'}"></i><span id="dockThemeLabel">${isLight ? 'Dark' : 'Light'}</span>`;
+  dock.appendChild(themeBtn);
+
+  document.body.appendChild(dock);
+
+  // Universal Slide-Up App Drawer (Quick Room Jump + All 10 Modules)
+  const role = getAuthRole();
+  const drawer = document.createElement("div");
+  drawer.id = "elysiumAppDrawer";
+  drawer.onclick = (e) => { if (e.target === drawer) toggleElysiumDrawer(false); };
+  drawer.innerHTML = `
+    <div class="drawer-sheet">
+      <div class="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-4"></div>
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <p class="text-[10px] font-extrabold uppercase tracking-widest text-indigo-400">Elysium OS Command</p>
+          <h3 class="text-base font-bold text-white">Quick Jump &amp; All Modules</h3>
+        </div>
+        <button type="button" onclick="toggleElysiumDrawer(false)" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Instant Room Jump Box -->
+      <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 mb-4">
+        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+          <i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Instant Room Jump (101 – 607)
+        </label>
+        <div class="flex items-center gap-2">
+          <input type="number" id="globalQuickRoomInput" placeholder="Room # (e.g. 406)" class="w-36 text-xs font-mono font-bold px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white" />
+          <button type="button" onclick="quickJumpToRoom('rent.html')" class="flex-1 py-2 px-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold rounded-xl">
+            Rent
+          </button>
+          <button type="button" onclick="quickJumpToRoom('resident_details.html')" class="flex-1 py-2 px-2.5 bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-bold rounded-xl">
+            Specs
+          </button>
+          <button type="button" onclick="quickJumpToRoom('new_resident.html')" class="flex-1 py-2 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-xl">
+            Join
+          </button>
+        </div>
+      </div>
+
+      <!-- Full Module Matrix -->
+      <div class="grid grid-cols-2 gap-2.5 text-xs font-bold">
+        <a href="vacancies.html" class="p-3 rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-2.5 text-white no-underline">
+          <span class="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center"><i class="fa-solid fa-door-open"></i></span>
+          <span>Vacancies</span>
+        </a>
+        <a href="rent.html" class="p-3 rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-2.5 text-white no-underline">
+          <span class="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center"><i class="fa-solid fa-receipt"></i></span>
+          <span>Rent Ledger</span>
+        </a>
+        <a href="new_resident.html" class="p-3 rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-2.5 text-white no-underline">
+          <span class="w-8 h-8 rounded-xl bg-violet-500/20 text-violet-400 flex items-center justify-center"><i class="fa-solid fa-user-plus"></i></span>
+          <span>New Check-In</span>
+        </a>
+        <a href="daily_staying.html" class="p-3 rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-2.5 text-white no-underline">
+          <span class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center"><i class="fa-solid fa-bed-pulse"></i></span>
+          <span>Daily Staying</span>
+        </a>
+        <a href="walkins.html" class="p-3 rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-2.5 text-white no-underline">
+          <span class="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center"><i class="fa-solid fa-person-walking-arrow-right"></i></span>
+          <span>Walk-in Leads</span>
+        </a>
+        <a href="expenses.html" class="p-3 rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-2.5 text-white no-underline">
+          <span class="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center"><i class="fa-solid fa-wallet"></i></span>
+          <span>Expenses</span>
+        </a>
+        <a href="resident_details.html" class="p-3 rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-2.5 text-white no-underline">
+          <span class="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center"><i class="fa-solid fa-sliders"></i></span>
+          <span>Room Specs</span>
+        </a>
+        <a href="settlements.html" class="p-3 rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-2.5 text-white no-underline">
+          <span class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center"><i class="fa-solid fa-scale-balanced"></i></span>
+          <span>Settlements</span>
+        </a>
+        <a href="rollover.html" class="${role === 'VIEWER' ? 'col-span-2' : ''} p-3 rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-2.5 text-white no-underline">
+          <span class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center"><i class="fa-solid fa-calendar-plus"></i></span>
+          <span>Month Rollover</span>
+        </a>
+        ${role !== "VIEWER" ? `
+        <a href="aadhar.html" class="p-3 rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-2.5 text-white no-underline">
+          <span class="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center"><i class="fa-solid fa-id-card"></i></span>
+          <span>ID Uploader</span>
+        </a>` : ""}
+        ${role === "MASTER_ADMIN" ? `
+        <a href="users.html" class="col-span-2 p-3 rounded-2xl bg-purple-950/60 hover:bg-purple-900/60 border border-purple-500/30 flex items-center justify-center gap-2.5 text-purple-200 no-underline">
+          <i class="fa-solid fa-user-shield text-purple-400"></i>
+          <span>Master Admin: Partner &amp; User Access Control</span>
+        </a>` : ""}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(drawer);
 }

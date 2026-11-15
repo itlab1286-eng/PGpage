@@ -3,207 +3,898 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Elysium PG - Operations Portal</title>
+  <title>Elysium OS - Command Hub</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="auth.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-</head>
-<body class="bg-slate-100 text-slate-800 min-h-screen pb-12">
 
-  <div class="max-w-4xl mx-auto px-4 pt-6 sm:pt-10">
-    
-    <header class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-6 flex items-center justify-between">
-      <div>
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 mb-2">
-          <i class="fa-solid fa-circle text-[8px] text-emerald-500 animate-pulse"></i> Operational &bull; 42 Rooms
+  <!-- Space Grotesk, Plus Jakarta Sans & JetBrains Mono Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <style id="elysium-modern-ui">
+    :root {
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-display: 'Space Grotesk', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --bg-primary: #090d16;
+      --bg-elevated: #111827;
+      --bg-card: rgba(17, 24, 39, 0.90);
+      --bg-subtle: rgba(30, 41, 59, 0.78);
+      --border-subtle: rgba(255, 255, 255, 0.10);
+      --border-input: rgba(148, 163, 184, 0.28);
+      --text-primary: #f8fafc;
+      --text-secondary: #cbd5e1;
+      --card-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.55);
+    }
+
+    html.light-theme {
+      --bg-primary: #eef2f7;
+      --bg-elevated: #ffffff;
+      --bg-card: rgba(255, 255, 255, 0.96);
+      --bg-subtle: #e2e8f0;
+      --border-subtle: rgba(15, 23, 42, 0.10);
+      --border-input: #cbd5e1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --card-shadow: 0 10px 26px -6px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: var(--font-sans) !important;
+      background-color: var(--bg-primary) !important;
+      color: var(--text-primary) !important;
+      background-image:
+        radial-gradient(circle at 10% 0%, rgba(99, 102, 241, 0.16) 0%, transparent 42%),
+        radial-gradient(circle at 90% 5%, rgba(16, 185, 129, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 50% 95%, rgba(14, 165, 233, 0.10) 0%, transparent 45%) !important;
+      background-attachment: fixed !important;
+      padding-top: 0.25rem !important;
+      padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px)) !important;
+      margin: 0;
+      letter-spacing: -0.012em;
+      overflow-x: hidden;
+      transition: background-color 0.22s ease, color 0.22s ease;
+    }
+
+    h1, h2, h3 {
+      font-family: var(--font-display) !important;
+      letter-spacing: -0.025em !important;
+    }
+
+    .font-mono {
+      font-family: var(--font-mono) !important;
+    }
+
+    /* =====================================================================
+       DARK MODE HIGH-CONTRAST SURFACES & TYPOGRAPHY
+       ===================================================================== */
+    html:not(.light-theme) .bg-white,
+    html:not(.light-theme) .focus\:bg-white:focus {
+      background: var(--bg-card) !important;
+      backdrop-filter: blur(16px) saturate(180%) !important;
+      -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+      color: #f8fafc !important;
+      border-color: var(--border-subtle) !important;
+    }
+    /* Catch ALL slate surface shades including opacity modifiers like bg-slate-50/60 */
+    html:not(.light-theme) [class*="bg-slate-50"],
+    html:not(.light-theme) [class*="bg-slate-100"],
+    html:not(.light-theme) [class*="bg-slate-200"] {
+      background: var(--bg-subtle) !important;
+      color: #f1f5f9 !important;
+      border-color: var(--border-subtle) !important;
+    }
+    html:not(.light-theme) .hover\:bg-slate-50:hover,
+    html:not(.light-theme) .hover\:bg-slate-100:hover,
+    html:not(.light-theme) .hover\:bg-slate-200:hover {
+      background: rgba(51, 65, 85, 0.9) !important;
+      color: #ffffff !important;
+    }
+
+    /* Crisp Neutral Text Hierarchy in Dark Mode */
+    html:not(.light-theme) .text-slate-900,
+    html:not(.light-theme) .text-slate-800 {
+      color: #f8fafc !important;
+    }
+    html:not(.light-theme) .text-slate-700,
+    html:not(.light-theme) .text-slate-600 {
+      color: #e2e8f0 !important;
+    }
+    html:not(.light-theme) .text-slate-500,
+    html:not(.light-theme) .text-slate-400 {
+      color: #94a3b8 !important;
+    }
+    html:not(.light-theme) .border-slate-100,
+    html:not(.light-theme) .border-slate-200,
+    html:not(.light-theme) .border-slate-300 {
+      border-color: rgba(255, 255, 255, 0.12) !important;
+    }
+
+    /* Luminous Accent Text in Dark Mode (Prevents dark-on-dark dullness) */
+    html:not(.light-theme) .text-indigo-600,
+    html:not(.light-theme) .text-indigo-700,
+    html:not(.light-theme) .text-indigo-800,
+    html:not(.light-theme) .text-indigo-900,
+    html:not(.light-theme) .text-indigo-950 { color: #a5b4fc !important; }
+
+    html:not(.light-theme) .text-blue-600,
+    html:not(.light-theme) .text-blue-700,
+    html:not(.light-theme) .text-blue-800 { color: #93c5fd !important; }
+
+    html:not(.light-theme) .text-emerald-600,
+    html:not(.light-theme) .text-emerald-700,
+    html:not(.light-theme) .text-emerald-800,
+    html:not(.light-theme) .text-emerald-900 { color: #6ee7b7 !important; }
+
+    html:not(.light-theme) .text-teal-600,
+    html:not(.light-theme) .text-teal-700,
+    html:not(.light-theme) .text-teal-800,
+    html:not(.light-theme) .text-teal-900 { color: #5eead4 !important; }
+
+    html:not(.light-theme) .text-cyan-600,
+    html:not(.light-theme) .text-cyan-700,
+    html:not(.light-theme) .text-cyan-800 { color: #67e8f9 !important; }
+
+    html:not(.light-theme) .text-rose-600,
+    html:not(.light-theme) .text-rose-700,
+    html:not(.light-theme) .text-rose-800,
+    html:not(.light-theme) .text-rose-900,
+    html:not(.light-theme) .text-red-500,
+    html:not(.light-theme) .text-red-600,
+    html:not(.light-theme) .text-red-700 { color: #fda4af !important; }
+
+    html:not(.light-theme) .text-amber-600,
+    html:not(.light-theme) .text-amber-700,
+    html:not(.light-theme) .text-amber-800,
+    html:not(.light-theme) .text-amber-900 { color: #fcd34d !important; }
+
+    html:not(.light-theme) .text-purple-600,
+    html:not(.light-theme) .text-purple-700,
+    html:not(.light-theme) .text-purple-800 { color: #d8b4fe !important; }
+
+    /* Tinted Badges & Containers in Dark Mode (Both -50, -100, and hover states) */
+    html:not(.light-theme) [class*="bg-indigo-50"],
+    html:not(.light-theme) .bg-indigo-100,
+    html:not(.light-theme) [class*="bg-blue-50"],
+    html:not(.light-theme) .bg-blue-100 {
+      background: rgba(99, 102, 241, 0.20) !important;
+      border-color: rgba(129, 140, 248, 0.35) !important;
+      color: #c7d2fe !important;
+    }
+    html:not(.light-theme) .hover\:bg-indigo-50:hover,
+    html:not(.light-theme) .hover\:bg-indigo-100:hover,
+    html:not(.light-theme) .hover\:bg-blue-100:hover {
+      background: rgba(99, 102, 241, 0.32) !important;
+    }
+
+    html:not(.light-theme) [class*="bg-emerald-50"],
+    html:not(.light-theme) .bg-emerald-100,
+    html:not(.light-theme) [class*="bg-teal-50"],
+    html:not(.light-theme) .bg-teal-100,
+    html:not(.light-theme) .bg-cyan-100 {
+      background: rgba(16, 185, 129, 0.20) !important;
+      border-color: rgba(52, 211, 153, 0.35) !important;
+      color: #a7f3d0 !important;
+    }
+    html:not(.light-theme) .hover\:bg-emerald-100:hover,
+    html:not(.light-theme) .hover\:bg-teal-100:hover {
+      background: rgba(16, 185, 129, 0.32) !important;
+    }
+
+    html:not(.light-theme) [class*="bg-rose-50"],
+    html:not(.light-theme) .bg-rose-100,
+    html:not(.light-theme) [class*="bg-red-50"],
+    html:not(.light-theme) .bg-red-100 {
+      background: rgba(244, 63, 94, 0.20) !important;
+      border-color: rgba(251, 113, 133, 0.35) !important;
+      color: #fecdd3 !important;
+    }
+    html:not(.light-theme) .hover\:bg-rose-50:hover,
+    html:not(.light-theme) .hover\:bg-rose-100:hover,
+    html:not(.light-theme) .hover\:bg-red-50:hover,
+    html:not(.light-theme) .hover\:bg-red-100:hover {
+      background: rgba(244, 63, 94, 0.32) !important;
+    }
+
+    html:not(.light-theme) [class*="bg-amber-50"],
+    html:not(.light-theme) .bg-amber-100 {
+      background: rgba(245, 158, 11, 0.20) !important;
+      border-color: rgba(251, 191, 36, 0.35) !important;
+      color: #fde68a !important;
+    }
+    html:not(.light-theme) .hover\:bg-amber-50:hover,
+    html:not(.light-theme) .hover\:bg-amber-100:hover {
+      background: rgba(245, 158, 11, 0.32) !important;
+    }
+
+    html:not(.light-theme) [class*="bg-purple-50"],
+    html:not(.light-theme) .bg-purple-100 {
+      background: rgba(168, 85, 247, 0.20) !important;
+      border-color: rgba(192, 132, 252, 0.35) !important;
+      color: #e9d5ff !important;
+    }
+    html:not(.light-theme) .hover\:bg-purple-100:hover {
+      background: rgba(168, 85, 247, 0.32) !important;
+    }
+
+    /* Border color overrides for colored pills in Dark Mode */
+    html:not(.light-theme) .border-indigo-200 { border-color: rgba(129, 140, 248, 0.35) !important; }
+    html:not(.light-theme) .border-emerald-200 { border-color: rgba(52, 211, 153, 0.35) !important; }
+    html:not(.light-theme) .border-rose-200 { border-color: rgba(251, 113, 133, 0.35) !important; }
+    html:not(.light-theme) .border-amber-200 { border-color: rgba(251, 191, 36, 0.35) !important; }
+    html:not(.light-theme) .border-purple-200 { border-color: rgba(192, 132, 252, 0.35) !important; }
+
+    /* Active Tab & Filter Pill Clarity in Dark Mode */
+    html:not(.light-theme) #tabBtnCurrent.bg-white,
+    html:not(.light-theme) #tabBtnReserved.bg-white,
+    html:not(.light-theme) #tabBtnFuture.bg-white,
+    html:not(.light-theme) #tabBtnRooms.bg-white,
+    html:not(.light-theme) #tabBtnDues.bg-white,
+    html:not(.light-theme) #btnTabActive.bg-white,
+    html:not(.light-theme) #btnTabCompleted.bg-white {
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+      color: #ffffff !important;
+      box-shadow: 0 6px 16px -2px rgba(99, 102, 241, 0.5) !important;
+    }
+    html:not(.light-theme) #tabBtnCurrent.bg-white i,
+    html:not(.light-theme) #tabBtnReserved.bg-white i,
+    html:not(.light-theme) #tabBtnFuture.bg-white i,
+    html:not(.light-theme) #tabBtnRooms.bg-white i,
+    html:not(.light-theme) #tabBtnDues.bg-white i {
+      color: #ffffff !important;
+    }
+
+    /* Solid Colored Buttons Always Keep Crisp White Text in Both Themes */
+    .bg-indigo-600, .bg-blue-600, .bg-emerald-600, .bg-teal-600, .bg-rose-600, .bg-purple-600,
+    [class*="from-emerald-600"], [class*="from-rose-500"], [class*="from-indigo-600"], [class*="from-rose-600"] {
+      color: #ffffff !important;
+    }
+    .bg-indigo-600 *, .bg-blue-600 *, .bg-emerald-600 *, .bg-teal-600 *, .bg-rose-600 *, .bg-purple-600 *,
+    [class*="from-emerald-600"] *, [class*="from-rose-500"] *, [class*="from-indigo-600"] *, [class*="from-rose-600"] * {
+      color: #ffffff !important;
+    }
+
+    /* =====================================================================
+       LIGHT MODE HIGH-CONTRAST SURFACES & TYPOGRAPHY
+       ===================================================================== */
+    html.light-theme .bg-white {
+      background: var(--bg-card) !important;
+      color: #0f172a !important;
+      border-color: rgba(15, 23, 42, 0.10) !important;
+    }
+    html.light-theme .text-slate-900,
+    html.light-theme .text-slate-800 {
+      color: #0f172a !important;
+    }
+    html.light-theme .text-slate-700,
+    html.light-theme .text-slate-600 {
+      color: #334155 !important;
+    }
+    html.light-theme .text-slate-500,
+    html.light-theme .text-slate-400 {
+      color: #475569 !important;
+    }
+    /* Ensure any pastel -200/-300 text inside light cards becomes rich, high-contrast -700/-800 */
+    html.light-theme .bg-white .text-indigo-200,
+    html.light-theme .bg-white .text-indigo-300,
+    html.light-theme .text-indigo-300 { color: #4338ca !important; }
+
+    html.light-theme .bg-white .text-violet-200,
+    html.light-theme .bg-white .text-violet-300,
+    html.light-theme .text-violet-300 { color: #6d28d9 !important; }
+
+    html.light-theme .bg-white .text-emerald-200,
+    html.light-theme .bg-white .text-emerald-300,
+    html.light-theme .text-emerald-300 { color: #047857 !important; }
+
+    html.light-theme .bg-white .text-teal-200,
+    html.light-theme .bg-white .text-teal-300,
+    html.light-theme .text-teal-300 { color: #0f766e !important; }
+
+    html.light-theme .bg-white .text-cyan-200,
+    html.light-theme .bg-white .text-cyan-300,
+    html.light-theme .text-cyan-300 { color: #0e7490 !important; }
+
+    html.light-theme .bg-white .text-sky-200,
+    html.light-theme .bg-white .text-sky-300,
+    html.light-theme .text-sky-300 { color: #0369a1 !important; }
+
+    html.light-theme .bg-white .text-rose-200,
+    html.light-theme .bg-white .text-rose-300,
+    html.light-theme .text-rose-300 { color: #be123c !important; }
+
+    html.light-theme .bg-white .text-amber-200,
+    html.light-theme .bg-white .text-amber-300,
+    html.light-theme .text-amber-300 { color: #b45309 !important; }
+
+    html.light-theme .bg-white .text-purple-200,
+    html.light-theme .bg-white .text-purple-300,
+    html.light-theme .text-purple-300 { color: #6b21a8 !important; }
+
+    html.light-theme .bg-white .text-blue-200,
+    html.light-theme .bg-white .text-blue-300,
+    html.light-theme .text-blue-300 { color: #1d4ed8 !important; }
+
+    /* Adaptive Cloud/Rollover Cards in Light Mode */
+    html.light-theme .elysium-adaptive-card {
+      background: #ffffff !important;
+      border-color: rgba(15, 23, 42, 0.10) !important;
+      color: #0f172a !important;
+      box-shadow: var(--card-shadow) !important;
+    }
+    html.light-theme .elysium-adaptive-card p.text-white {
+      color: #0f172a !important;
+    }
+
+    /* =====================================================================
+       EXECUTIVE DARK-GLASS TOP COMMAND BAR (Always High-Contrast White Text)
+       ===================================================================== */
+    header {
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 27, 75, 0.92) 100%) !important;
+      backdrop-filter: blur(22px) saturate(190%) !important;
+      -webkit-backdrop-filter: blur(22px) saturate(190%) !important;
+      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.35) !important;
+      border-radius: 1.6rem !important;
+      position: sticky !important;
+      top: 0.5rem !important;
+      z-index: 30 !important;
+      padding: 1rem 1.15rem !important;
+      color: #ffffff !important;
+    }
+    header h1 {
+      color: #ffffff !important;
+      font-size: 1.25rem !important;
+      line-height: 1.3 !important;
+    }
+    header p, header span.text-slate-500, header label {
+      color: #cbd5e1 !important;
+    }
+    header .text-indigo-300 { color: #a5b4fc !important; }
+    header .text-purple-200 { color: #e9d5ff !important; }
+    header .text-rose-300 { color: #fda4af !important; }
+    header .text-emerald-300 { color: #6ee7b7 !important; }
+    header a[href="index.html"] {
+      background: rgba(255, 255, 255, 0.12) !important;
+      color: #ffffff !important;
+      padding: 0.4rem 0.8rem !important;
+      border-radius: 9999px !important;
+      border: 1px solid rgba(255, 255, 255, 0.18) !important;
+      font-weight: 700 !important;
+    }
+    header select, header input[type="date"], header input[type="number"] {
+      background: rgba(15, 23, 42, 0.82) !important;
+      color: #ffffff !important;
+      border: 1px solid rgba(255, 255, 255, 0.22) !important;
+      border-radius: 0.9rem !important;
+      padding: 0.45rem 0.75rem !important;
+      font-weight: 700 !important;
+      color-scheme: dark;
+    }
+    header select option {
+      background: #0f172a !important;
+      color: #ffffff !important;
+    }
+
+    /* Bento Cards */
+    div.bg-white.rounded-2xl, div.bg-white.rounded-3xl {
+      border-radius: 1.5rem !important;
+      box-shadow: var(--card-shadow) !important;
+      border: 1px solid var(--border-subtle) !important;
+      transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease, border-color 0.22s ease !important;
+    }
+
+    /* Inputs, Selects & Textareas */
+    input[type="text"], input[type="number"], input[type="tel"], input[type="date"], input[type="time"], input[type="password"], select, textarea {
+      background-color: rgba(15, 23, 42, 0.72) !important;
+      color: #f8fafc !important;
+      border: 1px solid var(--border-input) !important;
+      border-radius: 0.95rem !important;
+      min-height: 2.75rem;
+      padding-left: 0.85rem;
+      padding-right: 0.85rem;
+      transition: all 0.18s ease !important;
+      color-scheme: dark;
+    }
+    input.pl-7 { padding-left: 2.15rem !important; }
+    input.pl-8 { padding-left: 2.45rem !important; }
+    input.pl-9 { padding-left: 2.65rem !important; }
+    input.pl-10 { padding-left: 2.85rem !important; }
+    .relative > i + input,
+    .relative > span + input {
+      padding-left: 2.5rem !important;
+    }
+    html.light-theme input[type="text"],
+    html.light-theme input[type="number"],
+    html.light-theme input[type="tel"],
+    html.light-theme input[type="date"],
+    html.light-theme input[type="time"],
+    html.light-theme input[type="password"],
+    html.light-theme select,
+    html.light-theme textarea {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      border-color: #cbd5e1 !important;
+      color-scheme: light;
+    }
+    header input[type="number"],
+    header input[type="date"],
+    header select {
+      background-color: rgba(15, 23, 42, 0.85) !important;
+      color: #ffffff !important;
+      border-color: rgba(255, 255, 255, 0.22) !important;
+    }
+    input::placeholder, textarea::placeholder {
+      color: #64748b !important;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #6366f1 !important;
+      box-shadow: 0 0 0 3.5px rgba(99, 102, 241, 0.25) !important;
+      outline: none !important;
+    }
+
+    /* 3D Tactile Room Matrix Pills */
+    .room-btn {
+      min-height: 3.5rem;
+      border-radius: 1.1rem !important;
+      background: rgba(30, 41, 59, 0.72) !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      color: #f8fafc !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 10px rgba(0, 0, 0, 0.2);
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      position: relative;
+      overflow: hidden;
+    }
+    html.light-theme .room-btn:not(.active) {
+      background: #ffffff !important;
+      border-color: #cbd5e1 !important;
+      color: #0f172a !important;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+    }
+    .room-btn:hover:not(.active) {
+      transform: translateY(-2px);
+      border-color: rgba(99, 102, 241, 0.55) !important;
+    }
+    .room-btn.active {
+      background: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%) !important;
+      color: #ffffff !important;
+      border-color: rgba(255, 255, 255, 0.35) !important;
+      box-shadow: 0 10px 24px -4px rgba(99, 102, 241, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.35) !important;
+      transform: translateY(-2px) scale(1.03);
+    }
+    .room-btn.active span {
+      color: #ffffff !important;
+    }
+
+    /* Floor Selector Pills */
+    .floor-tab, .floor-btn {
+      min-height: 2.4rem;
+      border-radius: 0.85rem !important;
+      font-weight: 800 !important;
+      transition: all 0.18s ease !important;
+    }
+    .floor-tab.active, .floor-btn.active {
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+      color: #ffffff !important;
+      box-shadow: 0 6px 14px -2px rgba(99, 102, 241, 0.5) !important;
+    }
+
+    /* Interactive Resident Cards */
+    .resident-card {
+      border-radius: 1.25rem !important;
+      padding: 1rem !important;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    .resident-card.active {
+      border: 2px solid #6366f1 !important;
+      background: rgba(99, 102, 241, 0.16) !important;
+      box-shadow: 0 12px 28px -6px rgba(99, 102, 241, 0.3) !important;
+    }
+
+    /* Tactile Buttons */
+    button, a.rounded-xl, a.rounded-2xl {
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      user-select: none;
+    }
+    button:active:not(:disabled) {
+      transform: scale(0.95) !important;
+    }
+
+    /* Mobile Bottom Sheet Modals */
+    @media (max-width: 640px) {
+      input[type="text"], input[type="number"], input[type="tel"], input[type="date"], input[type="time"], select, textarea {
+        font-size: 15px !important;
+      }
+      .fixed.inset-0.z-40:not(.hidden),
+      #deleteConfirmModal:not(.hidden) {
+        align-items: flex-end !important;
+        padding: 0 !important;
+      }
+      .fixed.inset-0.z-40:not(.hidden) > div,
+      #deleteConfirmModal:not(.hidden) > div {
+        max-width: 100% !important;
+        width: 100% !important;
+        border-bottom-left-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+        border-top-left-radius: 2rem !important;
+        border-top-right-radius: 2rem !important;
+        padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)) !important;
+        animation: mobileSheetSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+      }
+      .fixed.inset-0.z-40:not(.hidden) > div::before {
+        content: "";
+        display: block;
+        width: 3rem;
+        height: 0.32rem;
+        background: rgba(148, 163, 184, 0.45);
+        border-radius: 9999px;
+        margin: -0.35rem auto 0.9rem auto;
+      }
+    }
+    @keyframes mobileSheetSlideUp {
+      0% { opacity: 0; transform: translateY(100%); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Floating Glass Bottom App Dock */
+    #elysiumBottomDock {
+      position: fixed;
+      bottom: calc(0.65rem + env(safe-area-inset-bottom, 0px));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 35;
+      background: rgba(11, 15, 25, 0.92);
+      backdrop-filter: blur(24px) saturate(200%);
+      -webkit-backdrop-filter: blur(24px) saturate(200%);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 22px 48px -8px rgba(0, 0, 0, 0.65);
+      border-radius: 1.5rem;
+      padding: 0.38rem 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.15rem;
+      width: min(96vw, 520px);
+    }
+    #elysiumBottomDock a,
+    #elysiumBottomDock button.dock-action-btn {
+      flex: 1 0 auto;
+      color: #cbd5e1;
+      font-size: 0.64rem;
+      font-weight: 700;
+      padding: 0.45rem 0.5rem;
+      border-radius: 1.1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.22rem;
+      white-space: nowrap;
+      text-decoration: none;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    #elysiumBottomDock a i,
+    #elysiumBottomDock button.dock-action-btn i {
+      font-size: 1rem;
+    }
+    #elysiumBottomDock a.dock-active {
+      color: #ffffff;
+      background: linear-gradient(135deg, #6366f1 0%, #10b981 100%);
+      box-shadow: 0 6px 16px -2px rgba(99, 102, 241, 0.55);
+      transform: translateY(-2px);
+    }
+
+    /* Slide-Up All-Modules Launcher Drawer (#elysiumAppDrawer) */
+    #elysiumAppDrawer {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: rgba(5, 8, 15, 0.78);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 0;
+    }
+    #elysiumAppDrawer.open {
+      display: flex;
+    }
+    #elysiumAppDrawer .drawer-sheet {
+      width: min(100vw, 540px);
+      max-height: 86vh;
+      overflow-y: auto;
+      background: #111827;
+      border-top: 1px solid rgba(255, 255, 255, 0.16);
+      border-top-left-radius: 2rem;
+      border-top-right-radius: 2rem;
+      padding: 1.25rem 1.25rem calc(1.75rem + env(safe-area-inset-bottom, 0px)) 1.25rem;
+      color: #f8fafc;
+      animation: mobileSheetSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+  <div class="max-w-4xl mx-auto px-3.5 pt-3 sm:pt-6">
+
+    <!-- ELYSIUM OS NEO-GLASS TOP BAR -->
+    <header class="mb-5">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 via-violet-600 to-emerald-500 p-0.5 shadow-lg shadow-indigo-500/30 shrink-0">
+            <div class="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-white font-black text-base">
+              <i class="fa-solid fa-layer-group text-indigo-400"></i>
+            </div>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Live OS
+              </span>
+              <span id="userRoleBadge" class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-white/10 text-slate-200 border border-white/15">Role</span>
+            </div>
+            <h1 class="text-lg sm:text-xl font-extrabold text-white truncate mt-0.5">
+              Hey, <span id="userGreeting" class="bg-gradient-to-r from-white via-indigo-200 to-emerald-200 bg-clip-text text-transparent">Operator</span>
+            </h1>
+          </div>
         </div>
-        <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-          Elysium PG Hub
-        </h1>
-        <p class="text-xs sm:text-sm text-slate-500 mt-1 flex items-center gap-2">
-          <span>Logged in as:</span>
-          <span id="userGreeting" class="font-bold text-slate-800">User</span>
-          <span id="userRoleBadge" class="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-700">Role</span>
-        </p>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" onclick="toggleElysiumDrawer(true)" class="w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-indigo-300 flex items-center justify-center" title="Quick Room Jump">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </button>
+          <a id="masterAdminLink" href="users.html" class="hidden w-10 h-10 rounded-2xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/30 text-purple-200 flex items-center justify-center" title="User Access">
+            <i class="fa-solid fa-user-shield"></i>
+          </a>
+          <button onclick="logoutApp()" class="w-10 h-10 rounded-2xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/30 text-rose-300 flex items-center justify-center" title="Sign Out">
+            <i class="fa-solid fa-power-off"></i>
+          </button>
+        </div>
       </div>
 
-      <div class="flex items-center gap-2">
-        <a id="masterAdminLink" href="users.html" class="hidden p-3 text-sm font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-2xl transition" title="User Management">
-          <i class="fa-solid fa-user-gear"></i>
-        </a>
-        <button onclick="logoutApp()" class="p-3 text-sm font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl transition" title="Log Out">
-          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+      <!-- INSTANT ROOM COMMAND BAR -->
+      <div class="mt-4 pt-3.5 border-t border-white/10 flex flex-wrap items-center gap-2">
+        <div class="relative flex-1 min-w-[155px]">
+          <i class="fa-solid fa-bolt text-amber-400 text-xs absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+          <input type="number" id="hubRoomJumpInput" placeholder="Quick Room # (101–607)"
+                 class="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl bg-slate-950/80 border border-white/15 text-white placeholder-slate-400" />
+        </div>
+        <button type="button" onclick="hubJump('rent.html')" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold shadow-md shadow-indigo-600/30 flex items-center gap-1.5">
+          <i class="fa-solid fa-indian-rupee-sign text-[10px]"></i> <span>Rent</span>
+        </button>
+        <button type="button" onclick="hubJump('resident_details.html')" class="px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-extrabold shadow-md shadow-teal-600/30 flex items-center gap-1.5">
+          <i class="fa-solid fa-sliders text-[10px]"></i> <span>Specs</span>
+        </button>
+        <button type="button" onclick="hubJump('new_resident.html')" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold shadow-md shadow-emerald-600/30 flex items-center gap-1.5">
+          <i class="fa-solid fa-user-plus text-[10px]"></i> <span>Onboard</span>
         </button>
       </div>
     </header>
 
-    <div class="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-center">
-        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Rooms</p>
-        <p class="text-xl sm:text-2xl font-black text-slate-800 mt-0.5">42</p>
-      </div>
-      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-center">
-        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Floors</p>
-        <p class="text-xl sm:text-2xl font-black text-blue-600 mt-0.5">1 – 6</p>
-      </div>
-      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-center">
-        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">System</p>
-        <p class="text-xl sm:text-2xl font-black text-emerald-600 mt-0.5">Cloud</p>
-      </div>
+    <!-- HORIZONTAL QUICK-ACTION PILLS -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-2 mb-5 no-scrollbar">
+      <a href="rent.html" class="shrink-0 px-3.5 py-2 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-extrabold flex items-center gap-2 no-underline">
+        <i class="fa-solid fa-bolt text-amber-400"></i> Collect Rent
+      </a>
+      <a href="vacancies.html" class="shrink-0 px-3.5 py-2 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-extrabold flex items-center gap-2 no-underline">
+        <i class="fa-solid fa-bed"></i> Open Beds
+      </a>
+      <a href="daily_staying.html" class="shrink-0 px-3.5 py-2 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-extrabold flex items-center gap-2 no-underline">
+        <i class="fa-solid fa-clock"></i> Short Stay
+      </a>
+      <a href="expenses.html" class="shrink-0 px-3.5 py-2 rounded-2xl bg-teal-500/15 border border-teal-500/30 text-teal-300 text-xs font-extrabold flex items-center gap-2 no-underline">
+        <i class="fa-solid fa-plus"></i> Add Expense
+      </a>
+      <a href="rollover.html" class="shrink-0 px-3.5 py-2 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-300 text-xs font-extrabold flex items-center gap-2 no-underline">
+        <i class="fa-solid fa-calendar-plus"></i> Month Rollover
+      </a>
     </div>
 
-    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 px-1">Management Modules</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <!-- NEO-BENTO MODULE GRID -->
+    <div class="grid grid-cols-2 sm:grid-cols-12 gap-3.5">
 
-      <a href="vacancies.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-rose-500 hover:shadow-md transition flex items-start gap-4">
-        <div class="w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
-          <i class="fa-solid fa-door-open"></i>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between">
-            <h3 class="text-base font-bold text-slate-800 group-hover:text-rose-600 transition">Vacancies &amp; Availability</h3>
-            <span class="text-[10px] uppercase font-bold tracking-wide bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full shrink-0">Live</span>
+      <!-- FEATURED BENTO 1: RENT & DUES LEDGER -->
+      <a href="rent.html" class="col-span-2 sm:col-span-7 group relative overflow-hidden rounded-3xl p-5 bg-gradient-to-br from-indigo-600 via-indigo-700 to-slate-900 text-white shadow-xl border border-indigo-400/30 flex flex-col justify-between min-h-[155px] no-underline">
+        <div class="absolute -right-8 -bottom-8 w-36 h-36 rounded-full bg-white/10 blur-2xl pointer-events-none"></div>
+        <div class="flex items-center justify-between">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/15 text-white backdrop-blur-md">
+            Primary Ledger
+          </span>
+          <div class="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center text-lg group-hover:translate-x-1 transition">
+            <i class="fa-solid fa-arrow-right"></i>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Live beds available now and upcoming vacancies with departure dates.</p>
         </div>
-      </a>
-      
-      <a href="rent.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-indigo-500 hover:shadow-md transition flex items-start gap-4">
-        <div class="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
-          <i class="fa-solid fa-receipt"></i>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between">
-            <h3 class="text-base font-bold text-slate-800 group-hover:text-indigo-600 transition">Rent &amp; Dues Ledger</h3>
-            <span class="text-[10px] uppercase font-bold tracking-wide bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">Active</span>
+        <div class="mt-4">
+          <div class="flex items-center gap-2.5">
+            <i class="fa-solid fa-receipt text-2xl text-indigo-200"></i>
+            <h2 class="text-xl font-black text-white">Rent &amp; Dues Ledger</h2>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Select room, choose specific resident, verify rent, and log payments.</p>
+          <p class="text-xs text-indigo-100/90 mt-1">Record single or split payments, generate instant WhatsApp PDF receipts &amp; track defaulters.</p>
         </div>
       </a>
 
-      <a href="new_resident.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-indigo-500 hover:shadow-md transition flex items-start gap-4">
-        <div class="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
-          <i class="fa-solid fa-user-plus"></i>
+      <!-- FEATURED BENTO 2: LIVE VACANCIES -->
+      <a href="vacancies.html" class="col-span-2 sm:col-span-5 group relative overflow-hidden rounded-3xl p-5 bg-gradient-to-br from-rose-600 via-pink-700 to-slate-900 text-white shadow-xl border border-rose-400/30 flex flex-col justify-between min-h-[155px] no-underline">
+        <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/10 blur-2xl pointer-events-none"></div>
+        <div class="flex items-center justify-between">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/15 text-white backdrop-blur-md flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-ping"></span> Live Beds
+          </span>
+          <i class="fa-solid fa-door-open text-2xl text-rose-200"></i>
         </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between">
-            <h3 class="text-base font-bold text-slate-800 group-hover:text-indigo-600 transition">New Resident Check-in</h3>
-            <span class="text-[10px] uppercase font-bold tracking-wide bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full shrink-0">New</span>
-          </div>
-          <p class="text-xs text-slate-500 mt-1">Register new tenants, capture advance/rent, and upload Aadhaar to Drive.</p>
-        </div>
-      </a>
-
-      <a href="walkins.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-indigo-400 hover:shadow-md transition flex items-start gap-4">
-        <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
-          <i class="fa-solid fa-person-walking-arrow-right"></i>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between">
-            <h3 class="font-bold text-slate-800 text-base group-hover:text-indigo-600 transition">Walk-in Inquiries</h3>
-            <span class="text-[10px] uppercase font-bold tracking-wide bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full shrink-0">Inquiry</span>
-          </div>
-          <p class="text-xs text-slate-500 mt-1">Track inquiries, quotes & sharing requests.</p>
+        <div class="mt-4">
+          <h2 class="text-lg font-black text-white">Vacancies &amp; Notices</h2>
+          <p class="text-xs text-rose-100/90 mt-1">Ready beds now, future reservations &amp; departure pro-rating.</p>
         </div>
       </a>
 
-      <a href="daily_staying.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-emerald-500 hover:shadow-md transition flex items-start gap-4">
-        <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
-          <i class="fa-solid fa-clock-rotate-left"></i>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between">
-            <h3 class="text-base font-bold text-slate-800 group-hover:text-emerald-600 transition">Daily Staying</h3>
-            <span class="text-[10px] uppercase font-bold tracking-wide bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">Short Stay</span>
+      <!-- COMPACT BENTO 3: NEW RESIDENT CHECK-IN -->
+      <a href="new_resident.html" class="col-span-1 sm:col-span-4 group bg-white rounded-3xl p-4 border border-slate-200 flex flex-col justify-between min-h-[130px] no-underline">
+        <div class="flex items-center justify-between">
+          <div class="w-10 h-10 rounded-2xl bg-violet-500/20 text-violet-400 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-user-plus"></i>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Manage day-wise guests, auto-calculate stay duration, and process refunds.</p>
+          <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-300">Onboard</span>
+        </div>
+        <div class="mt-3">
+          <h3 class="text-sm font-black text-slate-900">New Check-In</h3>
+          <p class="text-[11px] text-slate-500 mt-0.5 line-clamp-2">Register tenant, advance &amp; ID upload.</p>
         </div>
       </a>
 
-      <a href="expenses.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-teal-500 hover:shadow-md transition flex items-start gap-4">
-        <div class="w-12 h-12 rounded-xl bg-teal-100 text-teal-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
-          <i class="fa-solid fa-receipt"></i>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between">
-            <h3 class="text-base font-bold text-slate-800 group-hover:text-teal-600 transition">Expenses</h3>
-            <span class="text-[10px] uppercase font-bold tracking-wide bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full shrink-0">Expenses</span>
+      <!-- COMPACT BENTO 4: DAILY STAYING -->
+      <a href="daily_staying.html" class="col-span-1 sm:col-span-4 group bg-white rounded-3xl p-4 border border-slate-200 flex flex-col justify-between min-h-[130px] no-underline">
+        <div class="flex items-center justify-between">
+          <div class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-bed-pulse"></i>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Track groceries, utilities, and partner cash outflow.</p>
+          <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300">Short Stay</span>
+        </div>
+        <div class="mt-3">
+          <h3 class="text-sm font-black text-slate-900">Daily Staying</h3>
+          <p class="text-[11px] text-slate-500 mt-0.5 line-clamp-2">Day guests, extensions &amp; deposit refunds.</p>
         </div>
       </a>
 
-      <a href="resident_details.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-teal-500 hover:shadow-md transition flex items-start gap-4">
-        <div class="w-12 h-12 rounded-xl bg-teal-100 text-teal-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
-          <i class="fa-solid fa-user-pen"></i>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between">
-            <h3 class="text-base font-bold text-slate-800 group-hover:text-teal-600 transition">Resident &amp; Room Details</h3>
-            <span class="text-[10px] uppercase font-bold tracking-wide bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full shrink-0">Specs</span>
+      <!-- COMPACT BENTO 5: WALK-IN INQUIRIES -->
+      <a href="walkins.html" class="col-span-1 sm:col-span-4 group bg-white rounded-3xl p-4 border border-slate-200 flex flex-col justify-between min-h-[130px] no-underline">
+        <div class="flex items-center justify-between">
+          <div class="w-10 h-10 rounded-2xl bg-sky-500/20 text-sky-400 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-person-walking-arrow-right"></i>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Edit fixed rents, advances, phone numbers, and configure room AC usage.</p>
+          <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300">Leads</span>
         </div>
-      </a>
-      
-      <a href="settlements.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-emerald-500 hover:shadow-md transition flex items-start gap-4">
-        <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
-          <i class="fa-solid fa-scale-balanced"></i>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between">
-            <h3 class="text-base font-bold text-slate-800 group-hover:text-emerald-600 transition">Cashflow &amp; Settlements</h3>
-            <span class="text-[10px] uppercase font-bold tracking-wide bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">Audit</span>
-          </div>
-          <p class="text-xs text-slate-500 mt-1">Multi-month partner balances, collections, expenses, and advance returns.</p>
-        </div>
-      </a>
-      
-      <a id="aadharTile" href="aadhar.html" class="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-blue-500 hover:shadow-md transition flex items-start gap-4">
-        <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
-          <i class="fa-solid fa-id-card"></i>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between">
-            <h3 class="text-base font-bold text-slate-800 group-hover:text-blue-600 transition">Document Uploader</h3>
-            <span class="text-[10px] uppercase font-bold tracking-wide bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">Active</span>
-          </div>
-          <p class="text-xs text-slate-500 mt-1">Upload Aadhaar, PAN, and agreements to Room 101–607 folders.</p>
+        <div class="mt-3">
+          <h3 class="text-sm font-black text-slate-900">Walk-In Leads</h3>
+          <p class="text-[11px] text-slate-500 mt-0.5 line-clamp-2">Track visitors, quotes &amp; 1–4 sharing.</p>
         </div>
       </a>
 
-      <!-- 10. Partner & User Management (Master Admin Only) -->
-      <a id="usersCardTile" href="users.html" class="hidden group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-purple-500 hover:shadow-md transition flex items-start gap-4">
-        <div class="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
-          <i class="fa-solid fa-user-shield"></i>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between">
-            <h3 class="text-base font-bold text-slate-800 group-hover:text-purple-600 transition">User Management</h3>
-            <span class="text-[10px] uppercase font-bold tracking-wide bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full shrink-0">Master</span>
+      <!-- COMPACT BENTO 6: EXPENSES -->
+      <a href="expenses.html" class="col-span-1 sm:col-span-4 group bg-white rounded-3xl p-4 border border-slate-200 flex flex-col justify-between min-h-[130px] no-underline">
+        <div class="flex items-center justify-between">
+          <div class="w-10 h-10 rounded-2xl bg-teal-500/20 text-teal-400 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-wallet"></i>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Add partner accounts, configure viewer permissions, and set security PINs.</p>
+          <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-300">Outflow</span>
         </div>
+        <div class="mt-3">
+          <h3 class="text-sm font-black text-slate-900">PG Expenses</h3>
+          <p class="text-[11px] text-slate-500 mt-0.5 line-clamp-2">Log groceries, bills &amp; partner spends.</p>
+        </div>
+      </a>
+
+      <!-- COMPACT BENTO 7: ROOM & RESIDENT SPECS -->
+      <a href="resident_details.html" class="col-span-1 sm:col-span-4 group bg-white rounded-3xl p-4 border border-slate-200 flex flex-col justify-between min-h-[130px] no-underline">
+        <div class="flex items-center justify-between">
+          <div class="w-10 h-10 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-sliders"></i>
+          </div>
+          <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300">Config</span>
+        </div>
+        <div class="mt-3">
+          <h3 class="text-sm font-black text-slate-900">Room &amp; Specs</h3>
+          <p class="text-[11px] text-slate-500 mt-0.5 line-clamp-2">Edit sharing (1–4), AC &amp; fixed rents.</p>
+        </div>
+      </a>
+
+      <!-- COMPACT BENTO 8: CASHFLOW & SETTLEMENTS -->
+      <a href="settlements.html" class="col-span-1 sm:col-span-4 group bg-white rounded-3xl p-4 border border-slate-200 flex flex-col justify-between min-h-[130px] no-underline">
+        <div class="flex items-center justify-between">
+          <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-scale-balanced"></i>
+          </div>
+          <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300">Audit</span>
+        </div>
+        <div class="mt-3">
+          <h3 class="text-sm font-black text-slate-900">Settlements</h3>
+          <p class="text-[11px] text-slate-500 mt-0.5 line-clamp-2">Partner net holdings &amp; visual charts.</p>
+        </div>
+      </a>
+
+      <!-- COMPACT BENTO 9: DOCUMENT UPLOADER -->
+      <a id="aadharTile" href="aadhar.html" class="col-span-2 sm:col-span-12 group bg-white rounded-3xl p-4 border border-slate-200 flex items-center justify-between gap-4 no-underline">
+        <div class="flex items-center gap-3.5">
+          <div class="w-11 h-11 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center text-xl shrink-0">
+            <i class="fa-solid fa-id-card"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-black text-slate-900">ID &amp; Document Vault</h3>
+            <p class="text-[11px] text-slate-500 mt-0.5">Verify missing IDs &amp; auto-upload to Room 101–607 Drive folders.</p>
+          </div>
+        </div>
+        <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+      </a>
+
+      <!-- COMPACT BENTO 10: USER ACCESS (MASTER ADMIN) -->
+      <a id="usersCardTile" href="users.html" class="hidden col-span-2 sm:col-span-6 group bg-white rounded-3xl p-4 border border-slate-200 flex items-center justify-between gap-4 no-underline">
+        <div class="flex items-center gap-3.5">
+          <div class="w-11 h-11 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-xl shrink-0">
+            <i class="fa-solid fa-user-shield"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-black text-slate-900">Partner &amp; User Access</h3>
+            <p class="text-[11px] text-slate-500 mt-0.5">Manage Admin/Viewer roles, passwords &amp; biometric devices.</p>
+          </div>
+        </div>
+        <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
       </a>
 
     </div>
 
-    <div class="mt-6 bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <i class="fa-brands fa-google-drive text-2xl text-blue-600"></i>
-        <div>
-          <p class="text-xs font-bold text-slate-800">Master Google Drive Folder</p>
-          <p class="text-[11px] text-slate-500">View centralized Elysium PG folders directly in Google Drive</p>
+    <!-- CLOUD DRIVE & ROLLOVER STRIP -->
+    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <a href="https://drive.google.com" target="_blank" class="elysium-adaptive-card p-4 rounded-3xl bg-slate-900/90 border border-white/10 flex items-center justify-between text-white no-underline">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center text-lg">
+            <i class="fa-brands fa-google-drive"></i>
+          </div>
+          <div>
+            <p class="text-xs font-extrabold text-white">Google Drive Master Folder</p>
+            <p class="text-[10px] text-slate-400">42 Room folders &amp; monthly workbooks</p>
+          </div>
         </div>
-      </div>
-      <a href="https://drive.google.com" target="_blank" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition">
-        Open Drive
+        <i class="fa-solid fa-arrow-up-right-from-square text-xs text-slate-400"></i>
+      </a>
+
+      <a href="rollover.html" class="elysium-adaptive-card p-4 rounded-3xl bg-slate-900/90 border border-white/10 flex items-center justify-between text-white no-underline">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+          </div>
+          <div>
+            <p class="text-xs font-extrabold text-white">Monthly Sheet Rollover Console</p>
+            <p class="text-[10px] text-slate-400">Generate next month's sheet &amp; carry arrears</p>
+          </div>
+        </div>
+        <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
       </a>
     </div>
 
   </div>
 
   <script>
+    function hubJump(page) {
+      const val = (document.getElementById("hubRoomJumpInput").value || "").trim();
+      if (!/^[1-6]0[1-7]$/.test(val)) {
+        alert("Enter a valid room number between 101 and 607 (e.g. 101, 205, 406).");
+        return;
+      }
+      localStorage.setItem("elysium_quick_room", val);
+      window.location.href = `${page}?room=${encodeURIComponent(val)}`;
+    }
+
     window.addEventListener("DOMContentLoaded", () => {
       const user = getAuthUser();
       const role = getAuthRole();
@@ -213,17 +904,22 @@
       const badge = document.getElementById("userRoleBadge");
       if (role === "MASTER_ADMIN") {
         badge.innerText = "Master Admin";
-        badge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-700 border border-purple-200";
+        badge.className = "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-200 border border-purple-400/30";
         document.getElementById("masterAdminLink").classList.remove("hidden");
         document.getElementById("usersCardTile").classList.remove("hidden");
+        const aadharTile = document.getElementById("aadharTile");
+        if (aadharTile) {
+          aadharTile.classList.remove("sm:col-span-12");
+          aadharTile.classList.add("sm:col-span-6");
+        }
       } else if (role === "ADMIN") {
         badge.innerText = "Admin";
-        badge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700 border border-emerald-200";
+        badge.className = "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-200 border border-emerald-400/30";
       } else if (role === "VIEWER") {
         const aadharTile = document.getElementById("aadharTile");
         if (aadharTile) aadharTile.classList.add("hidden");
-        badge.innerText = "Viewer (Read-Only)";
-        badge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-700 border border-amber-200";
+        badge.innerText = "View-Only";
+        badge.className = "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-200 border border-amber-400/30";
       }
     });
   </script>
