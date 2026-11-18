@@ -1279,16 +1279,25 @@
       document.getElementById("inVacatedTime").value = "11:00";
       recalculateCheckInDays();
 
+      const urlParams = new URLSearchParams(window.location.search);
+      const qTab = urlParams.get('tab');
+      const qSearch = urlParams.get('q');
+      const qMonth = (urlParams.get('month') || '').trim();
+      if (qTab === 'completed') filterList('completed');
+      if (qSearch) document.getElementById("guestSearchInput").value = qSearch;
+
       if (isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
         initDynamicMonthSelect("monthSelect").then(() => {
+          if (qMonth) {
+            const ms = document.getElementById("monthSelect");
+            if (ms && Array.from(ms.options).some(o => o.value === qMonth)) ms.value = qMonth;
+          }
           loadDailyGuests();
         });
       } else {
         document.getElementById("pinLockModal").classList.remove("hidden");
       }
-
-      const urlParams = new URLSearchParams(window.location.search);
       const prefillRoom = urlParams.get('room');
       const prefillSharing = urlParams.get('sharing');
 

@@ -1340,23 +1340,42 @@
 
     </div>
 
-    <!-- VIEW 2: DUES & PARTIAL PAYMENTS VIEW -->
-    <div id="sectionDuesView" class="hidden space-y-4">
+    <!-- VIEW 2: DUES & PARTIAL PAYMENTS VIEW (RENT + ADVANCE DUES) -->
+    <div id="sectionDuesView" class="hidden space-y-5">
       <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <button type="button" onclick="filterDuesType('ALL')" id="filterBtnAll" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white transition">All Dues</button>
-          <button type="button" onclick="filterDuesType('Partial')" id="filterBtnPartial" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition">Partial Paid Only</button>
-          <button type="button" onclick="filterDuesType('Unpaid')" id="filterBtnUnpaid" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition">Unpaid Only</button>
+          <button type="button" onclick="filterDuesType('Partial')" id="filterBtnPartial" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition">Partial Rent</button>
+          <button type="button" onclick="filterDuesType('Unpaid')" id="filterBtnUnpaid" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition">Unpaid Rent</button>
+          <button type="button" onclick="filterDuesType('Advance')" id="filterBtnAdvance" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition flex items-center gap-1.5">
+            <span>Advance Dues</span>
+            <span id="advDuesPillCount" class="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-600 text-[10px] font-black">0</span>
+          </button>
         </div>
         <button type="button" onclick="loadAllDues(true)" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center gap-1">
           <i class="fa-solid fa-rotate text-[11px]"></i> Refresh Dues
         </button>
       </div>
 
-      <div id="duesCardsContainer" class="space-y-3">
-        <div class="text-center py-10 text-slate-400 text-xs font-semibold">
-          <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Scanning all rooms for partial &amp; unpaid dues...
+      <!-- RENT DUES SECTION -->
+      <div id="rentDuesSectionBlock" class="space-y-3">
+        <div id="duesCardsContainer" class="space-y-3">
+          <div class="text-center py-10 text-slate-400 text-xs font-semibold">
+            <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Scanning all rooms for partial &amp; unpaid dues...
+          </div>
         </div>
+      </div>
+
+      <!-- ADVANCE DUES SECTION (JOINED >= OCT 1, 2026) -->
+      <div id="advanceDuesSectionBlock" class="space-y-3">
+        <div class="flex items-center justify-between px-1">
+          <h3 class="text-xs font-black uppercase tracking-wider text-emerald-600 flex items-center gap-1.5">
+            <i class="fa-solid fa-hand-holding-dollar"></i>
+            <span>Pending Security Advances (Joined Oct 2026+)</span>
+          </h3>
+          <span id="advDuesTotalBadge" class="text-xs font-mono font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200">₹0 pending</span>
+        </div>
+        <div id="advanceDuesCardsContainer" class="space-y-3"></div>
       </div>
 
       <div class="pt-2">
@@ -1399,6 +1418,7 @@
     let currentAdvResident = null;
 
     let allDuesList = [];
+    let allAdvanceDuesList = [];
     let buildingTotalRentCollected = 0;
     let ignoredDuesKeys = JSON.parse(sessionStorage.getItem("elysium_ignored_dues") || "{}");
     let currentDuesFilter = "ALL";
@@ -1409,10 +1429,32 @@
       buildRoomsGrid(1);
       document.getElementById("payDate").value = todayISO();
 
+      const urlParams = new URLSearchParams(window.location.search);
+      const qRoom = (urlParams.get("room") || "").trim();
+      const qResident = (urlParams.get("resident") || "").trim();
+      const qMonth = (urlParams.get("month") || "").trim();
+      if (qRoom && /^[1-6]0[1-7]$/.test(qRoom)) {
+        selectedRoom = qRoom;
+        const fl = parseInt(qRoom[0], 10);
+        if (fl >= 1 && fl <= 6) showFloor(fl);
+        const activeBadge = document.getElementById("activeRoomBadge");
+        const currentRoomTxt = document.getElementById("currentRoomText");
+        if (activeBadge) activeBadge.innerText = `Room ${selectedRoom}`;
+        if (currentRoomTxt) currentRoomTxt.innerText = selectedRoom;
+      }
+
       if (isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
-        initDynamicMonthSelect("monthSelect").then(() => {
-          loadRoomResidents();
+        initDynamicMonthSelect("monthSelect").then(async () => {
+          if (qMonth) {
+            const ms = document.getElementById("monthSelect");
+            if (ms && Array.from(ms.options).some(o => o.value === qMonth)) ms.value = qMonth;
+          }
+          await loadRoomResidents();
+          if (qResident) {
+            const idx = activeResidents.findIndex(r => r.name.toLowerCase() === qResident.toLowerCase());
+            if (idx !== -1) chooseResident(idx);
+          }
           loadAllDues();
         });
       } else {
@@ -1982,6 +2024,7 @@
         setTimeout(() => {
           closeCollectAdvanceModal();
           loadRoomResidents(2, true);
+          loadAllDues(true);
         }, 1200);
 
       } catch (err) {
@@ -2230,6 +2273,7 @@
 
         if (duesRes.status === "fulfilled" && duesRes.value) {
           allDuesList = duesRes.value.dues || [];
+          allAdvanceDuesList = duesRes.value.advanceDues || [];
         }
 
         if (cashflowRes.status === "fulfilled" && cashflowRes.value && cashflowRes.value.monthlyBreakdown) {
@@ -2293,26 +2337,36 @@
         collectedSubtext.innerText = `${collectionPercent}% collected across all active & fully paid tenants`;
       }
 
+      const activeAdvDuesCount = allAdvanceDuesList.filter(a => !ignoredDuesKeys[`adv_${a.roomNumber}_${a.name}`]).length;
       if (pendingSubtext) {
+        let parts = [];
         if (ignoredDuesCount > 0) {
-          pendingSubtext.innerText = `${activeDuesCount} pending • ₹${Math.round(ignoredPendingTotal).toLocaleString("en-IN")} waived in ${ignoredDuesCount} exception${ignoredDuesCount === 1 ? '' : 's'}`;
+          parts.push(`${activeDuesCount} rent pending (₹${Math.round(ignoredPendingTotal).toLocaleString("en-IN")} waived)`);
         } else {
-          pendingSubtext.innerText = `${activeDuesCount} resident${activeDuesCount === 1 ? '' : 's'} with unpaid balance`;
+          parts.push(`${activeDuesCount} rent due${activeDuesCount === 1 ? '' : 's'}`);
         }
+        if (activeAdvDuesCount > 0) {
+          parts.push(`${activeAdvDuesCount} advance due${activeAdvDuesCount === 1 ? '' : 's'}`);
+        }
+        pendingSubtext.innerText = parts.join(" • ");
       }
     }
 
     function filterDuesType(type) {
       currentDuesFilter = type;
-      ["ALL", "Partial", "Unpaid"].forEach(t => {
+      ["ALL", "Partial", "Unpaid", "Advance"].forEach(t => {
         const btn = document.getElementById(`filterBtn${t === "ALL" ? "All" : t}`);
         if (!btn) return;
         if (t === type) {
-          btn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white transition";
+          btn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white transition flex items-center gap-1.5";
         } else {
-          btn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition";
+          btn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition flex items-center gap-1.5";
         }
       });
+      const rentBlock = document.getElementById("rentDuesSectionBlock");
+      const advBlock = document.getElementById("advanceDuesSectionBlock");
+      if (rentBlock) rentBlock.classList.toggle("hidden", type === "Advance");
+      if (advBlock) advBlock.classList.toggle("hidden", type === "Partial" || type === "Unpaid");
       renderDues();
     }
 
@@ -2457,14 +2511,153 @@
         }
       });
 
+      // Also render Pending Security Advances (Oct 2026+ joiners)
+      const advContainer = document.getElementById("advanceDuesCardsContainer");
+      const advBlock = document.getElementById("advanceDuesSectionBlock");
+      let activeAdvCount = 0;
+      let totalAdvPending = 0;
+
+      if (advContainer) {
+        advContainer.innerHTML = "";
+        allAdvanceDuesList.forEach((adv, advIdx) => {
+          const advKey = `adv_${adv.roomNumber}_${adv.name}`;
+          const isAdvIgnored = Boolean(ignoredDuesKeys[advKey]);
+
+          const breakdownStr = (adv.paidHistory && adv.paidHistory.length > 0)
+            ? adv.paidHistory.map(h => `₹${h.amount.toLocaleString("en-IN")} (${esc(h.month)})`).join(" + ")
+            : "None recorded yet";
+
+          const statusPill = adv.status === "Partial"
+            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Paid ₹${esc(adv.totalAdvancePaid)} • Due ₹${esc(adv.balance)}</span>`
+            : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">Unpaid Adv ₹${esc(adv.balance)}</span>`;
+
+          const card = document.createElement("div");
+          card.className = `p-4 rounded-2xl border shadow-sm transition flex flex-wrap items-center justify-between gap-3 ${
+            isAdvIgnored ? "bg-slate-50 border-slate-200 opacity-60" : "bg-white border-emerald-200/80 hover:border-emerald-400"
+          }`;
+
+          card.innerHTML = `
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-emerald-100 text-emerald-800">Advance</span>
+                <span class="text-sm font-black text-slate-900">Room ${esc(adv.roomNumber)}</span>
+                <span class="text-slate-300">&bull;</span>
+                <span class="text-xs font-black text-slate-800">${esc(adv.name)}</span>
+                ${statusPill}
+              </div>
+              <p class="text-[11px] text-slate-500 mt-1 font-semibold">
+                Joined: <span class="text-slate-700 font-bold">${esc(adv.joiningDate)}</span> &bull; Agreed Adv: <span class="font-bold text-emerald-700">₹${esc(adv.agreedAdvance)}</span> &bull; Paid across months: <span class="font-mono">${breakdownStr}</span>
+                ${isAdvIgnored ? `<span class="text-indigo-600 font-bold ml-1.5">(Note: ${esc(ignoredDuesKeys[advKey])})</span>` : ''}
+              </p>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="toggleIgnoreAdvance(${advIdx})"
+                      class="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition">
+                <i class="fa-solid ${isAdvIgnored ? 'fa-arrow-rotate-left' : 'fa-eye-slash'}"></i>
+                <span>${isAdvIgnored ? 'Restore' : 'Ignore'}</span>
+              </button>
+
+              ${String(adv.mobile || '').replace(/\D/g, '').slice(-10).length === 10 ? `
+              <a href="tel:${String(adv.mobile).replace(/\D/g, '').slice(-10)}"
+                 class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 no-underline">
+                <i class="fa-solid fa-phone text-xs"></i>
+                <span>Call</span>
+              </a>` : ''}
+
+              <button type="button" onclick="sendAdvanceWhatsAppReminder(${advIdx})"
+                      class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5">
+                <i class="fa-brands fa-whatsapp text-sm"></i>
+                <span>Remind</span>
+              </button>
+
+              <button type="button" onclick="collectAdvanceFromDue(${advIdx})"
+                      class="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5">
+                <i class="fa-solid fa-hand-holding-dollar"></i>
+                <span>Collect Adv</span>
+              </button>
+            </div>
+          `;
+
+          if (isAdvIgnored) {
+            ignoredCount++;
+            ignoredContainer.appendChild(card);
+          } else {
+            activeAdvCount++;
+            totalAdvPending += Number(adv.balance) || 0;
+            advContainer.appendChild(card);
+          }
+        });
+
+        if (activeAdvCount === 0) {
+          if (currentDuesFilter === "Advance") {
+            advContainer.innerHTML = `<div class="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-semibold">🎉 All security advances for Oct 2026+ joiners are fully collected!</div>`;
+          } else if (advBlock) {
+            advBlock.classList.add("hidden");
+          }
+        } else if (advBlock && currentDuesFilter !== "Partial" && currentDuesFilter !== "Unpaid") {
+          advBlock.classList.remove("hidden");
+        }
+      }
+
+      const advPill = document.getElementById("advDuesPillCount");
+      const advTotalBadge = document.getElementById("advDuesTotalBadge");
+      if (advPill) advPill.innerText = activeAdvCount;
+      if (advTotalBadge) advTotalBadge.innerText = `₹${Math.round(totalAdvPending).toLocaleString("en-IN")} pending`;
+
       const duesBadge = document.getElementById("duesCountBadge");
       const ignoredBadge = document.getElementById("ignoredCountBadge");
-      if (duesBadge) duesBadge.innerText = activeCount;
+      if (duesBadge) duesBadge.innerText = activeCount + activeAdvCount;
       if (ignoredBadge) ignoredBadge.innerText = ignoredCount;
 
-      if (activeCount === 0) {
-        activeContainer.innerHTML = `<div class="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-semibold">🎉 All active dues are collected or marked as known exceptions for ${esc(month)}!</div>`;
+      if (activeCount === 0 && currentDuesFilter !== "Advance") {
+        activeContainer.innerHTML = `<div class="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-semibold">🎉 All active rent dues are collected or marked as known exceptions for ${esc(month)}!</div>`;
       }
+    }
+
+    function toggleIgnoreAdvance(idx) {
+      const item = allAdvanceDuesList[idx];
+      if (!item) return;
+      const key = `adv_${item.roomNumber}_${item.name}`;
+      if (ignoredDuesKeys[key]) {
+        delete ignoredDuesKeys[key];
+      } else {
+        const reason = prompt(`Enter advance exception reason for ${item.name} (e.g. Discounted deposit, Waived):`, "Approved advance exception");
+        if (reason === null) return;
+        ignoredDuesKeys[key] = reason.trim() || "Known exception";
+      }
+      sessionStorage.setItem("elysium_ignored_dues", JSON.stringify(ignoredDuesKeys));
+      renderDues();
+      updateFinancialMetrics();
+    }
+
+    function sendAdvanceWhatsAppReminder(idx) {
+      const item = allAdvanceDuesList[idx];
+      if (!item) return;
+      const num = whatsappNumber(item.mobile);
+      if (!num) {
+        alert("No valid mobile number is recorded for this resident.");
+        return;
+      }
+      const text = encodeURIComponent(`Hi ${item.name}, this is a gentle reminder from ${PG_CONFIG.pgName} regarding pending security advance balance of ₹${Number(item.balance).toLocaleString('en-IN')} (Agreed: ₹${Number(item.agreedAdvance).toLocaleString('en-IN')}, Paid so far: ₹${Number(item.totalAdvancePaid).toLocaleString('en-IN')}) for Room ${item.roomNumber}. Please clear it at your earliest convenience. Thank you!`);
+      window.open(`https://wa.me/${num}?text=${text}`, "_blank");
+    }
+
+    function collectAdvanceFromDue(idx) {
+      const item = allAdvanceDuesList[idx];
+      if (!item) return;
+      selectedRoom = String(item.roomNumber);
+      currentCollectAdvResident = {
+        rowIndex: item.rowIndex,
+        name: item.name,
+        advance: item.agreedAdvance,
+        advancePaid: item.totalAdvancePaid
+      };
+      document.getElementById("colAdvResidentName").innerText = `${item.name} (Room ${item.roomNumber})`;
+      document.getElementById("colAdvStatusText").innerText = `Agreed: ₹${item.agreedAdvance} • Paid Across Months: ₹${item.totalAdvancePaid}`;
+      document.getElementById("colAdvAmount").value = item.balance > 0 ? item.balance : "";
+      document.getElementById("colAdvStatusBox").classList.add("hidden");
+      document.getElementById("collectAdvanceModal").classList.remove("hidden");
     }
 
     // ==========================================

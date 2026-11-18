@@ -959,10 +959,31 @@
     window.addEventListener("DOMContentLoaded", () => {
       buildRoomsGrid(1);
 
+      const urlParams = new URLSearchParams(window.location.search);
+      const qRoom = (urlParams.get("room") || "").trim();
+      const qResident = (urlParams.get("resident") || "").trim();
+      const qMonth = (urlParams.get("month") || "").trim();
+      if (qRoom && /^[1-6]0[1-7]$/.test(qRoom)) {
+        selectedRoom = qRoom;
+        const fl = parseInt(qRoom[0], 10);
+        if (fl >= 1 && fl <= 6) showFloor(fl);
+        document.getElementById("activeRoomBadge").innerText = `Room ${selectedRoom}`;
+        document.getElementById("currentRoomText").innerText = selectedRoom;
+        document.getElementById("hwRoomNumberText").innerText = selectedRoom;
+      }
+
       if (isAuthenticated()) {
         document.getElementById("pinLockModal").classList.add("hidden");
-        initDynamicMonthSelect("monthSelect").then(() => {
-          loadRoomData();
+        initDynamicMonthSelect("monthSelect").then(async () => {
+          if (qMonth) {
+            const ms = document.getElementById("monthSelect");
+            if (ms && Array.from(ms.options).some(o => o.value === qMonth)) ms.value = qMonth;
+          }
+          await loadRoomData();
+          if (qResident) {
+            const idx = activeResidents.findIndex(r => r.name.toLowerCase() === qResident.toLowerCase());
+            if (idx !== -1) chooseResident(idx);
+          }
         });
       } else {
         document.getElementById("pinLockModal").classList.remove("hidden");

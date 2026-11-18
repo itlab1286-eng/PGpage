@@ -557,15 +557,111 @@ function toggleElysiumDrawer(forceState) {
   else drawer.classList.remove("open");
 }
 
-function quickJumpToRoom(targetPage) {
+function quickJumpToRoom(targetPage, roomOverride = "", residentName = "", monthOverride = "") {
   const inp = document.getElementById("globalQuickRoomInput");
-  const rm = inp ? String(inp.value || "").trim() : "";
+  const rm = roomOverride || (inp ? String(inp.value || "").trim() : "");
   if (!/^[1-6]0[1-7]$/.test(rm)) {
-    alert("Enter a valid room number between 101 and 607 (e.g. 101, 304, 607).");
+    alert("Enter a valid room number between 101 and 607 (e.g. 101, 304, 607), or pick a resident below.");
     return;
   }
   localStorage.setItem("elysium_quick_room", rm);
-  window.location.href = `${targetPage}?room=${encodeURIComponent(rm)}`;
+  let url = `${targetPage}?room=${encodeURIComponent(rm)}`;
+  if (residentName) url += `&resident=${encodeURIComponent(residentName)}`;
+  if (monthOverride) url += `&month=${encodeURIComponent(monthOverride)}`;
+  window.location.href = url;
+}
+
+let __globalDirCache = null;
+let __globalDirFetching = false;
+
+async function onGlobalDrawerSearch() {
+  const inp = document.getElementById("globalQuickRoomInput");
+  const box = document.getElementById("globalDrawerSearchResults");
+  if (!inp || !box) return;
+  const raw = (inp.value || "").trim();
+  if (!raw) {
+    box.classList.add("hidden");
+    return;
+  }
+  box.classList.remove("hidden");
+
+  if (!__globalDirCache) {
+    try {
+      const saved = sessionStorage.getItem("elysium_dir_cache_v3");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.list) && (Date.now() - parsed.ts < 180000)) {
+          __globalDirCache = parsed.list;
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (!__globalDirCache) {
+    if (__globalDirFetching) return;
+    __globalDirFetching = true;
+    box.innerHTML = `<p class="text-[11px] text-slate-400 py-2 text-center"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Loading directory...</p>`;
+    try {
+      const json = await apiGet("getAllResidentsIndex");
+      if (json && json.status === "success" && Array.isArray(json.residents)) {
+        __globalDirCache = json.residents;
+        try {
+          sessionStorage.setItem("elysium_dir_cache_v3", JSON.stringify({ ts: Date.now(), list: __globalDirCache }));
+        } catch (e) {}
+      }
+    } catch (e) {
+      box.innerHTML = `<p class="text-[11px] text-rose-400 py-1">${esc(e.message)}</p>`;
+      __globalDirFetching = false;
+      return;
+    }
+    __globalDirFetching = false;
+  }
+
+  const qLower = raw.toLowerCase();
+  const qDigits = raw.replace(/\D/g, "");
+  const matches = (__globalDirCache || []).filter(r => {
+    const roomMatch = String(r.roomNumber || "").includes(raw);
+    const nameMatch = String(r.name || "").toLowerCase().includes(qLower);
+    const mobDigits = String(r.mobile || "").replace(/\D/g, "");
+    const mobileMatch = qDigits.length >= 2 && mobDigits.includes(qDigits);
+    return roomMatch || nameMatch || mobileMatch;
+  });
+
+  if (matches.length === 0) {
+    box.innerHTML = `<p class="text-[11px] text-slate-400 py-1.5 px-1">No matches for "${esc(raw)}".</p>`;
+    return;
+  }
+
+  box.innerHTML = matches.slice(0, 10).map(r => {
+    const isDaily = r.type === "Daily";
+    const hasLeft = Boolean(r.hasLeft);
+    const bal = Number(r.balance) || 0;
+    const cleanMob = String(r.mobile || "").replace(/\D/g, "").slice(-10);
+    const tag = isDaily
+      ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px] font-bold">Daily &bull; ${esc(r.roomNumber)}</span>`
+      : `<span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[9px] font-bold">Rm ${esc(r.roomNumber)}</span>`;
+    const vacTag = hasLeft ? `<span class="px-1.5 py-0.5 rounded bg-slate-600/40 text-slate-300 text-[9px] font-bold">Vacated</span>` : "";
+    const recMonth = r.month || "";
+    const actions = isDaily
+      ? `<a href="daily_staying.html?tab=${hasLeft ? 'completed' : 'active'}&q=${encodeURIComponent(r.name)}${recMonth ? `&month=${encodeURIComponent(recMonth)}` : ""}" class="px-2 py-1 rounded bg-emerald-600 text-white text-[10px] font-bold no-underline">${hasLeft ? 'Past' : 'Daily'}</a>`
+      : `${(!hasLeft || bal > 0) ? `<button type="button" data-room="${esc(r.roomNumber)}" data-name="${esc(r.name)}" data-month="${esc(recMonth)}" onclick="quickJumpToRoom('rent.html', this.dataset.room, this.dataset.name, this.dataset.month)" class="px-2 py-1 rounded bg-indigo-600 text-white text-[10px] font-bold">Rent</button>` : ""}
+         <button type="button" data-room="${esc(r.roomNumber)}" data-name="${esc(r.name)}" data-month="${esc(recMonth)}" onclick="quickJumpToRoom('resident_details.html', this.dataset.room, this.dataset.name, this.dataset.month)" class="px-2 py-1 rounded bg-teal-600 text-white text-[10px] font-bold">Specs</button>`;
+    return `
+      <div class="p-2 rounded-xl bg-slate-800/80 flex items-center justify-between gap-2 text-xs">
+        <div class="min-w-0">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            ${tag}
+            <span class="font-bold text-white truncate">${esc(r.name)}</span>
+            ${vacTag}
+          </div>
+          <p class="text-[10px] text-slate-400 font-mono">${cleanMob || "No mobile"}${r.vacatedOn ? ` &bull; ${hasLeft ? 'Vacated' : 'Vacating'} ${esc(r.vacatedOn)}` : ''}</p>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          ${cleanMob ? `<a href="tel:${cleanMob}" class="w-6 h-6 rounded bg-blue-500/20 text-blue-300 flex items-center justify-center text-[10px] no-underline"><i class="fa-solid fa-phone"></i></a>` : ""}
+          ${actions}
+        </div>
+      </div>`;
+  }).join("");
 }
 
 function injectQuickNavDock() {

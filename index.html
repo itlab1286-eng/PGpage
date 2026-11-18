@@ -743,22 +743,43 @@
         </div>
       </div>
 
-      <!-- INSTANT ROOM COMMAND BAR -->
-      <div class="mt-4 pt-3.5 border-t border-white/10 flex flex-wrap items-center gap-2">
-        <div class="relative flex-1 min-w-[155px]">
-          <i class="fa-solid fa-bolt text-amber-400 text-xs absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
-          <input type="number" id="hubRoomJumpInput" placeholder="Quick Room # (101–607)"
-                 class="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl bg-slate-950/80 border border-white/15 text-white placeholder-slate-400" />
+      <!-- UNIVERSAL SMART SEARCH BAR (ROOM #, RESIDENT NAME, OR MOBILE) -->
+      <div class="mt-4 pt-3.5 border-t border-white/10 space-y-2.5">
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="relative flex-1 min-w-[210px]">
+            <i class="fa-solid fa-magnifying-glass text-amber-400 text-xs absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+            <input type="text" id="hubRoomJumpInput" oninput="onHubSmartSearch()" onfocus="onHubSmartSearch()"
+                   autocomplete="off"
+                   placeholder="Search Room #, Name, or Mobile..."
+                   class="w-full pl-9 pr-8 py-2 text-xs font-bold rounded-xl bg-slate-950/85 border border-white/15 text-white placeholder-slate-400" />
+            <button type="button" id="hubSearchClearBtn" onclick="clearHubSmartSearch()"
+                    class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs p-1" title="Clear search">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div id="hubRoomActionBtns" class="flex items-center gap-1.5">
+            <button type="button" onclick="hubJump('rent.html')" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold shadow-md shadow-indigo-600/30 flex items-center gap-1.5">
+              <i class="fa-solid fa-indian-rupee-sign text-[10px]"></i> <span>Rent</span>
+            </button>
+            <button type="button" onclick="hubJump('resident_details.html')" class="px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-extrabold shadow-md shadow-teal-600/30 flex items-center gap-1.5">
+              <i class="fa-solid fa-sliders text-[10px]"></i> <span>Specs</span>
+            </button>
+            <button type="button" onclick="hubJump('new_resident.html')" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold shadow-md shadow-emerald-600/30 flex items-center gap-1.5">
+              <i class="fa-solid fa-user-plus text-[10px]"></i> <span>Onboard</span>
+            </button>
+          </div>
         </div>
-        <button type="button" onclick="hubJump('rent.html')" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold shadow-md shadow-indigo-600/30 flex items-center gap-1.5">
-          <i class="fa-solid fa-indian-rupee-sign text-[10px]"></i> <span>Rent</span>
-        </button>
-        <button type="button" onclick="hubJump('resident_details.html')" class="px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-extrabold shadow-md shadow-teal-600/30 flex items-center gap-1.5">
-          <i class="fa-solid fa-sliders text-[10px]"></i> <span>Specs</span>
-        </button>
-        <button type="button" onclick="hubJump('new_resident.html')" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold shadow-md shadow-emerald-600/30 flex items-center gap-1.5">
-          <i class="fa-solid fa-user-plus text-[10px]"></i> <span>Onboard</span>
-        </button>
+
+        <!-- LIVE SEARCH RESULTS PANEL -->
+        <div id="hubSearchResultsBox" class="hidden rounded-2xl bg-slate-950/95 border border-white/15 p-2.5 space-y-2 max-h-80 overflow-y-auto shadow-2xl">
+          <div class="flex items-center justify-between px-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <span id="hubSearchStatusText">Matching Residents &amp; Guests</span>
+            <button type="button" onclick="refreshResidentDirectory()" class="text-indigo-300 hover:text-white flex items-center gap-1">
+              <i class="fa-solid fa-arrows-rotate text-[9px]"></i> Sync
+            </button>
+          </div>
+          <div id="hubSearchResultsList" class="space-y-1.5"></div>
+        </div>
       </div>
     </header>
 
@@ -965,19 +986,205 @@
   </div>
 
   <script>
-    function hubJump(page) {
-      const val = (document.getElementById("hubRoomJumpInput").value || "").trim();
+    let allDirectoryResidents = [];
+    let directoryLoading = false;
+    let directoryLoaded = false;
+
+    function hubJump(page, roomOverride = "", residentName = "", monthOverride = "") {
+      const val = roomOverride || (document.getElementById("hubRoomJumpInput").value || "").trim();
       if (!/^[1-6]0[1-7]$/.test(val)) {
-        alert("Enter a valid room number between 101 and 607 (e.g. 101, 205, 406).");
+        alert("Enter a valid room number between 101 and 607 (e.g. 101, 205, 406), or select a resident from the search results.");
         return;
       }
       localStorage.setItem("elysium_quick_room", val);
-      window.location.href = `${page}?room=${encodeURIComponent(val)}`;
+      let url = `${page}?room=${encodeURIComponent(val)}`;
+      if (residentName) {
+        url += `&resident=${encodeURIComponent(residentName)}`;
+      }
+      if (monthOverride) {
+        url += `&month=${encodeURIComponent(monthOverride)}`;
+      }
+      window.location.href = url;
     }
+
+    async function loadResidentDirectory(force = false) {
+      if (directoryLoading) return;
+      const cacheKey = "elysium_dir_cache_v3";
+      if (!force) {
+        try {
+          const cached = sessionStorage.getItem(cacheKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && Array.isArray(parsed.list) && (Date.now() - parsed.ts < 180000)) {
+              allDirectoryResidents = parsed.list;
+              directoryLoaded = true;
+              return;
+            }
+          }
+        } catch (e) {}
+      }
+
+      directoryLoading = true;
+      try {
+        const json = await apiGet("getAllResidentsIndex", { forceRefresh: force ? "true" : "" });
+        if (json && json.status === "success" && Array.isArray(json.residents)) {
+          allDirectoryResidents = json.residents;
+          directoryLoaded = true;
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), list: allDirectoryResidents }));
+          } catch (e) {}
+        }
+      } catch (err) {
+        console.warn("Could not preload resident directory:", err);
+      } finally {
+        directoryLoading = false;
+        const q = (document.getElementById("hubRoomJumpInput").value || "").trim();
+        if (q) onHubSmartSearch();
+      }
+    }
+
+    async function refreshResidentDirectory() {
+      const statusEl = document.getElementById("hubSearchStatusText");
+      if (statusEl) statusEl.innerText = "Refreshing directory...";
+      await loadResidentDirectory(true);
+      onHubSmartSearch();
+    }
+
+    function clearHubSmartSearch() {
+      const inp = document.getElementById("hubRoomJumpInput");
+      if (inp) inp.value = "";
+      document.getElementById("hubSearchClearBtn").classList.add("hidden");
+      document.getElementById("hubSearchResultsBox").classList.add("hidden");
+    }
+
+    function onHubSmartSearch() {
+      const inp = document.getElementById("hubRoomJumpInput");
+      const raw = (inp.value || "").trim();
+      const clearBtn = document.getElementById("hubSearchClearBtn");
+      const resultsBox = document.getElementById("hubSearchResultsBox");
+      const resultsList = document.getElementById("hubSearchResultsList");
+      const statusEl = document.getElementById("hubSearchStatusText");
+
+      if (!raw) {
+        clearBtn.classList.add("hidden");
+        resultsBox.classList.add("hidden");
+        return;
+      }
+
+      clearBtn.classList.remove("hidden");
+      resultsBox.classList.remove("hidden");
+
+      if (!directoryLoaded) {
+        statusEl.innerText = "Loading residents & daily guests...";
+        resultsList.innerHTML = `<div class="py-3 text-center text-xs text-slate-400"><i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i> Searching directory...</div>`;
+        loadResidentDirectory(false);
+        return;
+      }
+
+      const qLower = raw.toLowerCase();
+      const qDigits = raw.replace(/\D/g, "");
+      const isExactRoom = /^[1-6]0[1-7]$/.test(raw);
+
+      const matches = allDirectoryResidents.filter(r => {
+        const roomMatch = String(r.roomNumber || "").includes(raw);
+        const nameMatch = String(r.name || "").toLowerCase().includes(qLower);
+        const mobDigits = String(r.mobile || "").replace(/\D/g, "");
+        const mobileMatch = qDigits.length >= 2 && mobDigits.includes(qDigits);
+        return roomMatch || nameMatch || mobileMatch;
+      });
+
+      statusEl.innerText = isExactRoom
+        ? `Room ${raw} Occupants (${matches.length})`
+        : `${matches.length} Match${matches.length === 1 ? "" : "es"} Found`;
+
+      if (matches.length === 0) {
+        resultsList.innerHTML = `
+          <div class="p-3 rounded-xl bg-white/5 text-xs text-slate-300 flex items-center justify-between gap-2">
+            <span>No resident or guest matched "${esc(raw)}".</span>
+            ${isExactRoom ? `<button type="button" onclick="hubJump('new_resident.html', '${esc(raw)}')" class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[11px] shrink-0">+ Onboard in ${esc(raw)}</button>` : ""}
+          </div>`;
+        return;
+      }
+
+      resultsList.innerHTML = matches.slice(0, 15).map(r => {
+        const isDaily = r.type === "Daily";
+        const cleanMob = String(r.mobile || "").replace(/\D/g, "").slice(-10);
+        const waNum = typeof whatsappNumber === "function" ? whatsappNumber(r.mobile) : "";
+        const bal = Number(r.balance) || 0;
+        const paid = Number(r.rentPaid) || 0;
+
+        const hasLeft = Boolean(r.hasLeft);
+        let statusBadge = "";
+        if (hasLeft) {
+          statusBadge = bal > 0
+            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/25 text-rose-200 border border-rose-400/40">Vacated &bull; Due ₹${bal.toLocaleString("en-IN")}</span>`
+            : `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-500/30 text-slate-300 border border-slate-400/30">Vacated</span>`;
+        } else if (bal > 0) {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-400/30">Due ₹${bal.toLocaleString("en-IN")}</span>`;
+        } else if (paid > 0) {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">Paid</span>`;
+        } else {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-slate-300">Unpaid</span>`;
+        }
+
+        const typeTag = isDaily
+          ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">Daily &bull; Rm ${esc(r.roomNumber)}</span>`
+          : `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">Room ${esc(r.roomNumber)}</span>`;
+
+        const recMonth = r.month || "";
+        const shortMonth = recMonth ? recMonth.replace(/^([A-Za-z]{3})[a-z]+\s+(\d{4})$/, "$1 $2") : "";
+        const monthTag = (hasLeft && shortMonth)
+          ? `<span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-200 border border-purple-400/30 text-[9px] font-bold">${esc(shortMonth)}</span>`
+          : "";
+        const showRentBtn = !isDaily && (!hasLeft || bal > 0);
+        const primaryBtns = isDaily
+          ? `<a href="daily_staying.html?tab=${hasLeft ? 'completed' : 'active'}&q=${encodeURIComponent(r.name)}${recMonth ? `&month=${encodeURIComponent(recMonth)}` : ""}" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] no-underline">${hasLeft ? 'Past Stay' : 'Daily Log'}</a>`
+          : `${showRentBtn ? `<button type="button" data-room="${esc(r.roomNumber)}" data-name="${esc(r.name)}" data-month="${esc(recMonth)}" onclick="hubJump('rent.html', this.dataset.room, this.dataset.name, this.dataset.month)"
+                     class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px]">
+               Rent
+             </button>` : ""}
+             <button type="button" data-room="${esc(r.roomNumber)}" data-name="${esc(r.name)}" data-month="${esc(recMonth)}" onclick="hubJump('resident_details.html', this.dataset.room, this.dataset.name, this.dataset.month)"
+                     class="px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-bold text-[11px]">
+               Specs
+             </button>`;
+
+        return `
+          <div class="p-2.5 rounded-xl ${hasLeft ? 'bg-white/[0.03] opacity-90' : 'bg-white/5'} hover:bg-white/10 border border-white/10 flex flex-wrap items-center justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                ${typeTag}
+                <span class="text-xs font-extrabold text-white truncate">${esc(r.name)}</span>
+                ${statusBadge}
+                ${monthTag}
+              </div>
+              <p class="text-[11px] text-slate-400 font-mono mt-0.5">
+                ${cleanMob ? `<i class="fa-solid fa-phone text-[9px] mr-1"></i>${esc(cleanMob)}` : "No mobile"}
+                ${r.vacatedOn ? ` &bull; <span class="${hasLeft ? 'text-slate-300' : 'text-amber-300'}">${hasLeft ? 'Vacated' : 'Vacating'} ${esc(r.vacatedOn)}</span>` : ""}
+              </p>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              ${cleanMob ? `<a href="tel:${cleanMob}" class="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 flex items-center justify-center text-xs no-underline" title="Call"><i class="fa-solid fa-phone"></i></a>` : ""}
+              ${waNum ? `<a href="https://wa.me/${waNum}" target="_blank" class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 flex items-center justify-center text-xs no-underline" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>` : ""}
+              ${primaryBtns}
+            </div>
+          </div>`;
+      }).join("");
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && document.activeElement && document.activeElement.id === "hubRoomJumpInput") {
+        e.preventDefault();
+        const val = (document.getElementById("hubRoomJumpInput").value || "").trim();
+        if (/^[1-6]0[1-7]$/.test(val)) {
+          hubJump("rent.html", val);
+        }
+      }
+    });
 
     window.addEventListener("DOMContentLoaded", () => {
       const user = getAuthUser();
       const role = getAuthRole();
+      loadResidentDirectory(false);
       
       document.getElementById("userGreeting").innerText = user;
       
