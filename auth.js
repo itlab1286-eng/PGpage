@@ -347,11 +347,415 @@ const uncertainWrites = new Map();
 
 // Actions every logged-in user may perform on their own account (even view-only accounts)
 const SELF_SERVICE_ACTIONS = ["enrollDevice", "revokeDevice"];
+// Silent/background actions that should NOT pop the pre-save re-validation modal
+const SILENT_POST_ACTIONS = ["login", "verifyPin", "deviceLogin", "enrollDevice", "revokeDevice", "saveDuesMeta"];
 
-async function apiPost(payload) {
+function formatRupeeVal_(v) {
+  const n = Number(v);
+  return isFinite(n) ? "₹" + n.toLocaleString("en-IN") : String(v || "");
+}
+
+function describeSavePayload_(payload) {
+  const act = String((payload && payload.action) || "");
+  const rows = [];
+  const push = (label, val) => {
+    if (val !== undefined && val !== null && String(val).trim() !== "") {
+      rows.push([label, String(val).trim()]);
+    }
+  };
+  let title = "Confirm Data Save";
+  let month = payload.targetMonth || payload.month || "";
+  let isDestructive = false;
+
+  switch (act) {
+    case "recordRentPayment":
+      isDestructive = Number(payload.rentPaid) === 0 && payload.entryType === "replace";
+      title = isDestructive ? "Reset Rent Payment to ₹0" : (payload.entryType === "replace" ? "Correct Total Rent Paid" : "Record Rent Payment");
+      push("Room", payload.roomNumber ? "Room " + payload.roomNumber : "");
+      push("Resident", payload.residentName);
+      push(payload.entryType === "replace" ? "New Total Paid" : "Amount Received", formatRupeeVal_(payload.rentPaid));
+      if (payload.currentMonthRent !== undefined && payload.currentMonthRent !== "") push("This Month Rent", formatRupeeVal_(payload.currentMonthRent));
+      push("Mode / Receiver", payload.mode);
+      push("Payment Date", payload.paymentDate);
+      push("Remarks", payload.remarks);
+      break;
+
+    case "onboardNewResident":
+      title = "Register New Resident";
+      push("Room", payload.roomNumber ? "Room " + payload.roomNumber : "");
+      push("Name", payload.name);
+      push("Mobile", payload.mobile);
+      push("Joining Date", payload.joiningDate);
+      push("Agreed Rent", payload.rent ? formatRupeeVal_(payload.rent) : "");
+      push("This Month Rent", payload.currentMonthRent ? formatRupeeVal_(payload.currentMonthRent) : "");
+      if (Number(payload.advance) > 0) push("Agreed Advance", formatRupeeVal_(payload.advance));
+      if (Number(payload.advancePaid) > 0) push("Advance Paid", formatRupeeVal_(payload.advancePaid) + (payload.advanceReceivedBy ? ` (${payload.advanceReceivedBy})` : ""));
+      if (Number(payload.rentPaid) > 0) push("Joining Rent Paid", formatRupeeVal_(payload.rentPaid) + (payload.paymentMode ? ` (${payload.paymentMode})` : ""));
+      if (payload.fileName) push("Document", payload.fileName);
+      break;
+
+    case "recordAdvancePayment":
+      title = "Collect Security Advance";
+      push("Room", payload.roomNumber ? "Room " + payload.roomNumber : "");
+      push("Resident", payload.residentName);
+      push("Advance Amount", formatRupeeVal_(payload.advancePaid));
+      push("Received By", payload.receivedBy);
+      break;
+
+    case "settleAdvanceReturn":
+      title = "Settle & Return Advance";
+      isDestructive = true;
+      push("Room", payload.room ? "Room " + payload.room : "");
+      push("Resident", payload.name);
+      push("Net Refund (Written as -₹)", "-" + formatRupeeVal_(payload.refundAmount));
+      push("Maint. Deduction", formatRupeeVal_(payload.maintenanceDeducted));
+      push("Returned By", payload.returnedBy);
+      push("Vacating Date", payload.vacatingDate);
+      break;
+
+    case "reportVacancy":
+      title = "Record Vacancy Notice";
+      push("Room", payload.roomNumber ? "Room " + payload.roomNumber : "");
+      push("Resident", payload.residentName);
+      push("Vacating Date", payload.vacancyDate);
+      push("Informed Date", payload.informedDate);
+      if (payload.adjustedRent !== undefined && payload.adjustedRent !== "") push("Departure Rent", formatRupeeVal_(payload.adjustedRent));
+      break;
+
+    case "cancelVacancyNotice":
+      title = "Cancel Vacate Notice (Continue Stay)";
+      push("Room", payload.roomNumber ? "Room " + payload.roomNumber : "");
+      push("Resident", payload.residentName);
+      if (payload.restoredRent) push("Restored Monthly Rent", formatRupeeVal_(payload.restoredRent));
+      break;
+
+    case "shiftResident":
+      title = "Shift Resident to New Room";
+      push("Resident", payload.residentName);
+      push("Transfer", `Room ${payload.fromRoom} → Room ${payload.toRoom}`);
+      push("Shift Date", payload.shiftDate);
+      push("Old Room Rent", formatRupeeVal_(payload.oldRoomRent));
+      push("New Room Rent", formatRupeeVal_(payload.newRoomProRatedRent || payload.newRoomStandardRent));
+      if (Number(payload.additionalRentPaidNow) > 0) push("Collected Now", formatRupeeVal_(payload.additionalRentPaidNow));
+      break;
+
+    case "checkInDailyGuest":
+      title = "Check-In Daily Guest";
+      push("Room", payload.roomNumber ? "Room " + payload.roomNumber : "");
+      push("Guest Name", payload.name);
+      push("Mobile", payload.mobile);
+      push("Duration", (payload.days || 1) + " day(s)");
+      push("Check-In", payload.joinedDate);
+      push("Expected Checkout", payload.vacatedDate);
+      push("Paid", formatRupeeVal_(payload.paid));
+      if (Number(payload.balance) > 0) push("Balance Due", formatRupeeVal_(payload.balance));
+      if (Number(payload.cautionDeposit) > 0) push("Caution Deposit", formatRupeeVal_(payload.cautionDeposit));
+      push("Mode", payload.mode);
+      break;
+
+    case "extendDailyStay":
+      title = "Extend Daily Stay";
+      push("Room", payload.roomNumber ? "Room " + payload.roomNumber : "");
+      push("Guest Name", payload.guestName);
+      push("New Checkout", payload.newVacatedDate);
+      push("Total Days", payload.newDays);
+      if (Number(payload.additionalPaid) > 0) push("Additional Paid", formatRupeeVal_(payload.additionalPaid));
+      if (Number(payload.additionalBalance) > 0) push("Additional Balance", formatRupeeVal_(payload.additionalBalance));
+      push("Mode", payload.additionalMode);
+      break;
+
+    case "checkOutDailyGuest":
+      title = "Checkout Daily Guest";
+      isDestructive = true;
+      push("Room", payload.roomNumber ? "Room " + payload.roomNumber : "");
+      push("Guest Name", payload.guestName);
+      push("Vacated Date", payload.vacatedDate);
+      if (Number(payload.balanceCollected) > 0) push("Balance Collected", formatRupeeVal_(payload.balanceCollected));
+      push("Deposit / Settled By", payload.returnedBy);
+      push("Note", payload.checkoutNote);
+      break;
+
+    case "recordExpense":
+    case "updateExpense":
+      title = act === "updateExpense" ? "Update Expense Entry" : "Record New Expense";
+      push("Item / Purpose", payload.itemPurpose);
+      push("Amount", formatRupeeVal_(payload.amount));
+      push("Spent By", payload.spentBy);
+      push("Date", payload.date);
+      push("Remarks", payload.remarks);
+      break;
+
+    case "deleteExpense":
+      title = "Delete Expense Row";
+      isDestructive = true;
+      if (payload.expected) {
+        push("Item", payload.expected.itemPurpose);
+        push("Amount", formatRupeeVal_(payload.expected.amount));
+        push("Spent By", payload.expected.spentBy);
+      }
+      break;
+
+    case "updateResidentDetails":
+      title = "Update Resident Details";
+      push("Room", payload.roomNumber ? "Room " + payload.roomNumber : "");
+      push("Resident", payload.residentName);
+      push("Agreed Rent", payload.standardRent ? formatRupeeVal_(payload.standardRent) : "");
+      push("This Month Rent", payload.currentMonthRent !== "" ? formatRupeeVal_(payload.currentMonthRent) : "");
+      push("Target Advance", payload.agreedAdvance ? formatRupeeVal_(payload.agreedAdvance) : "");
+      push("Mobile", payload.mobile);
+      push("Joining Date", payload.joiningDate);
+      push("Vacating Date", payload.vacatingDate || "(Cleared / Active)");
+      break;
+
+    case "updateRoomHardware":
+      title = "Update Room Hardware & Rent";
+      push("Room", payload.roomNumber ? "Room " + payload.roomNumber : "");
+      if (payload.roomSharing) push("New Sharing", payload.roomSharing + " Sharing");
+      push("AC Fitted", payload.ac);
+      push("AC In Use", payload.acUsing);
+      if (payload.updatedRentPerResident) push("New Rent (All Beds)", formatRupeeVal_(payload.updatedRentPerResident));
+      break;
+
+    case "saveWalkin":
+      title = payload.rowIndex ? "Update Walk-In Inquiry" : "Log New Walk-In Inquiry";
+      push("Contact Name", payload.name || "Walk-in Visitor");
+      push("Phone", payload.phone);
+      push("Requirement", `${payload.requirement || ""} (${payload.persons || 1} person)`);
+      push("Amount Said", payload.amountSaid);
+      push("Remarks", payload.remarks);
+      break;
+
+    case "deleteWalkin":
+      title = "Delete Walk-In Inquiry";
+      isDestructive = true;
+      if (payload.expected) {
+        push("Name", payload.expected.name || "Walk-in");
+        push("Phone", payload.expected.phone);
+        push("Requirement", payload.expected.requirement);
+      }
+      break;
+
+    case "recordPartnerSettlement":
+      title = "Log Partner Settlement Transfer";
+      push("Transfer", `${payload.fromPartner} → ${payload.toPartner}`);
+      push("Amount", formatRupeeVal_(payload.amount));
+      push("Note", payload.note || "Partner settlement transfer");
+      break;
+
+    case "uploadResidentDocument":
+      title = "Upload Resident Document";
+      push("Folder", "Room " + payload.roomNumber);
+      push("Resident", payload.resident);
+      push("File Name", payload.fileName);
+      break;
+
+    case "executeRollover":
+      title = payload.forceOverwrite ? "Overwrite & Re-Create Target Month" : "Generate Next Month Workbook";
+      isDestructive = Boolean(payload.forceOverwrite);
+      push("Source Month", payload.sourceMonth);
+      push("Target Month", payload.targetMonth);
+      break;
+
+    case "saveUser":
+      title = "Save Partner / Staff Account";
+      push("Username", "@" + payload.username);
+      push("Display Name", payload.displayName);
+      push("Role", payload.role);
+      break;
+
+    case "deleteUser":
+      title = "Delete User Account";
+      isDestructive = true;
+      push("Username", "@" + payload.username);
+      break;
+
+    case "revokeUserAccess":
+      title = "Sign Out User Everywhere";
+      isDestructive = true;
+      push("Username", "@" + payload.username);
+      break;
+
+    default:
+      title = "Confirm Save (" + act + ")";
+      break;
+  }
+
+  return { title, month, rows, isDestructive };
+}
+
+function ensureSaveModal_() {
+  let modal = document.getElementById("elysiumSaveModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "elysiumSaveModal";
+    modal.className = "fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden";
+    modal.innerHTML = `<div id="elysiumSaveModalCard" class="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-200 max-h-[88vh] overflow-y-auto"></div>`;
+    document.body.appendChild(modal);
+  }
+  return modal;
+}
+
+function closeSaveModal_() {
+  const modal = document.getElementById("elysiumSaveModal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function showSaveConfirmModal_(meta) {
+  return new Promise((resolve) => {
+    const modal = ensureSaveModal_();
+    const card = document.getElementById("elysiumSaveModalCard");
+    const now = new Date();
+    const currentCalMonth = MONTH_NAMES[now.getMonth()] + " " + now.getFullYear();
+    const isMonthMismatch = Boolean(meta.month && meta.month !== currentCalMonth && !meta.title.includes("Workbook") && !meta.title.includes("Target Month"));
+
+    const monthBanner = meta.month ? `
+      <div class="p-3 rounded-2xl border ${isMonthMismatch ? 'bg-amber-50 border-amber-300' : 'bg-indigo-50 border-indigo-200'} flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-calendar-check ${isMonthMismatch ? 'text-amber-600' : 'text-indigo-600'}"></i>
+          <div>
+            <p class="text-[10px] font-extrabold uppercase tracking-wider ${isMonthMismatch ? 'text-amber-700' : 'text-indigo-600'}">Target Month</p>
+            <p class="text-sm font-black ${isMonthMismatch ? 'text-amber-900' : 'text-indigo-950'}">${esc(meta.month)}</p>
+          </div>
+        </div>
+        ${isMonthMismatch ? `<span class="px-2 py-0.5 rounded-lg bg-amber-200/80 text-amber-900 text-[10px] font-black">Not ${esc(currentCalMonth)}!</span>` : `<span class="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-700 text-[10px] font-bold">Current Month</span>`}
+      </div>` : "";
+
+    const rowsHtml = meta.rows.length ? `
+      <div class="rounded-2xl bg-slate-50 border border-slate-200 divide-y divide-slate-200/70 text-xs">
+        ${meta.rows.map(([k, v]) => `
+          <div class="px-3.5 py-2 flex items-start justify-between gap-3">
+            <span class="text-slate-500 font-semibold shrink-0">${esc(k)}</span>
+            <span class="text-slate-900 font-extrabold text-right break-words">${esc(v)}</span>
+          </div>`).join("")}
+      </div>` : "";
+
+    const confirmBtnClass = meta.isDestructive
+      ? "bg-rose-600 hover:bg-rose-700 shadow-rose-600/30"
+      : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/30";
+
+    card.innerHTML = `
+      <div class="space-y-4">
+        <div class="flex items-center gap-3 pb-3 border-b border-slate-100">
+          <div class="w-10 h-10 rounded-2xl ${meta.isDestructive ? 'bg-rose-100 text-rose-600' : 'bg-indigo-100 text-indigo-600'} flex items-center justify-center text-lg shrink-0">
+            <i class="fa-solid ${meta.isDestructive ? 'fa-triangle-exclamation' : 'fa-clipboard-check'}"></i>
+          </div>
+          <div>
+            <p class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Re-Validate Before Saving</p>
+            <h3 class="text-base font-black text-slate-900">${esc(meta.title)}</h3>
+          </div>
+        </div>
+        ${monthBanner}
+        ${rowsHtml}
+        <p class="text-[11px] text-slate-500 text-center">Please verify the details and target month above before writing to Google Sheets.</p>
+        <div class="flex gap-2.5 pt-1">
+          <button type="button" id="elySaveCancelBtn" class="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+            Cancel / Edit
+          </button>
+          <button type="button" id="elySaveConfirmBtn" class="flex-1 py-2.5 rounded-xl ${confirmBtnClass} text-white font-black text-xs shadow-lg transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-check"></i>
+            <span>Confirm &amp; Save</span>
+          </button>
+        </div>
+      </div>`;
+
+    modal.classList.remove("hidden");
+    document.getElementById("elySaveCancelBtn").onclick = () => {
+      closeSaveModal_();
+      resolve(false);
+    };
+    document.getElementById("elySaveConfirmBtn").onclick = () => {
+      resolve(true);
+    };
+  });
+}
+
+function showSaveProgressModal_(meta) {
+  const modal = ensureSaveModal_();
+  const card = document.getElementById("elysiumSaveModalCard");
+  card.innerHTML = `
+    <div class="py-6 text-center space-y-3">
+      <div class="w-14 h-14 mx-auto rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-2xl">
+        <i class="fa-solid fa-circle-notch fa-spin"></i>
+      </div>
+      <h3 class="text-base font-black text-slate-900">Saving to Google Sheets...</h3>
+      <p class="text-xs text-slate-500">${esc(meta.title)}${meta.month ? ` &bull; <b>${esc(meta.month)}</b>` : ""}</p>
+      <p class="text-[11px] text-slate-400">Please wait until confirmation appears.</p>
+    </div>`;
+  modal.classList.remove("hidden");
+}
+
+function showSaveResultModal_(kind, title, message, meta, warningText) {
+  return new Promise((resolve) => {
+    const modal = ensureSaveModal_();
+    const card = document.getElementById("elysiumSaveModalCard");
+
+    let iconBg = "bg-emerald-100 text-emerald-600";
+    let iconCls = "fa-circle-check";
+    let badgeHtml = `<span class="inline-block px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase">Updated in Sheet</span>`;
+    let btnCls = "bg-emerald-600 hover:bg-emerald-700";
+
+    if (kind === "error") {
+      iconBg = "bg-rose-100 text-rose-600";
+      iconCls = "fa-circle-xmark";
+      badgeHtml = `<span class="inline-block px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-black uppercase">Not Updated in Sheet</span>`;
+      btnCls = "bg-rose-600 hover:bg-rose-700";
+    } else if (kind === "uncertain") {
+      iconBg = "bg-amber-100 text-amber-600";
+      iconCls = "fa-triangle-exclamation";
+      badgeHtml = `<span class="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase">Unconfirmed — Check Sheet First</span>`;
+      btnCls = "bg-amber-600 hover:bg-amber-700";
+    }
+
+    card.innerHTML = `
+      <div class="text-center space-y-3.5 py-2">
+        <div class="w-14 h-14 mx-auto rounded-full ${iconBg} flex items-center justify-center text-2xl">
+          <i class="fa-solid ${iconCls}"></i>
+        </div>
+        <div>
+          ${badgeHtml}
+          <h3 class="text-lg font-black text-slate-900 mt-1.5">${esc(title)}</h3>
+          ${meta && meta.month ? `<p class="text-[11px] font-bold text-indigo-600 mt-0.5">Sheet: ${esc(meta.month)}</p>` : ""}
+        </div>
+        <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 font-semibold leading-relaxed">
+          ${esc(message)}
+        </div>
+        ${warningText ? `<div class="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800 font-bold"><i class="fa-solid fa-circle-info mr-1"></i>${esc(warningText)}</div>` : ""}
+        <button type="button" id="elySaveDoneBtn" class="w-full py-3 rounded-2xl ${btnCls} text-white font-black text-sm shadow-lg transition">
+          Done
+        </button>
+      </div>`;
+
+    modal.classList.remove("hidden");
+    document.getElementById("elySaveDoneBtn").onclick = () => {
+      closeSaveModal_();
+      resolve();
+    };
+  });
+}
+
+async function apiPost(payload, opts = {}) {
   if (getAuthRole() === "VIEWER" && SELF_SERVICE_ACTIONS.indexOf(payload && payload.action) === -1) {
     alert("Action blocked: Your account has View-Only permissions.");
     throw new Error("FORBIDDEN: View-Only accounts cannot modify data.");
+  }
+
+  const act = String((payload && payload.action) || "");
+  const isSilent = opts.silent === true || SILENT_POST_ACTIONS.indexOf(act) !== -1;
+  const skipPreConfirm = isSilent || opts.skipConfirm === true || (act === "updateRoomHardware" && payload.confirmed === true);
+  const meta = !isSilent ? describeSavePayload_(payload) : null;
+
+  // Step 1: Pre-Save Re-Validation Prompt
+  if (!skipPreConfirm && meta) {
+    const confirmed = await showSaveConfirmModal_(meta);
+    if (!confirmed) {
+      const cancelErr = new Error("Save cancelled by user.");
+      cancelErr.cancelled = true;
+      throw cancelErr;
+    }
+  }
+
+  if (!isSilent && meta) {
+    showSaveProgressModal_(meta);
   }
 
   const body = Object.assign({}, payload);
@@ -363,6 +767,8 @@ async function apiPost(payload) {
   body.requestId = requestId;
 
   let lastError = null;
+  let lastUncertain = false;
+
   for (let attempt = 0; attempt < 2; attempt++) {
     let rawText = "";
     try {
@@ -373,7 +779,8 @@ async function apiPost(payload) {
       });
       rawText = await res.text();
     } catch (netErr) {
-      lastError = new Error("Network error - the save may not have gone through. Check before retrying.");
+      lastError = new Error("Connection dropped while saving. Google Sheets may still have received this entry — please tap Refresh and check the sheet before trying again.");
+      lastUncertain = true;
       uncertainWrites.set(fingerprint, requestId);
       await sleep(1500);
       continue;
@@ -383,7 +790,8 @@ async function apiPost(payload) {
     try {
       json = JSON.parse(rawText);
     } catch (e) {
-      lastError = new Error("The server did not confirm the save. Please check the sheet before retrying.");
+      lastError = new Error("The server response was interrupted (non-JSON). Your data may have already been written to Google Sheets — please refresh and check before retrying.");
+      lastUncertain = true;
       uncertainWrites.set(fingerprint, requestId);
       await sleep(1500);
       continue;
@@ -392,26 +800,159 @@ async function apiPost(payload) {
     uncertainWrites.delete(fingerprint);
 
     if (json.code === "unauthorized" || (json.message && json.message.toLowerCase().includes("unauthorized"))) {
+      closeSaveModal_();
       handleSessionExpired();
       throw new Error(json.message || "Session expired. Please log in again.");
     }
+
+    // Two-step prompts (updateRoomHardware needsConfirm / rollover already_exists) pass back cleanly
+    if (json.needsConfirm === true || json.status === "already_exists") {
+      closeSaveModal_();
+      if (json.status !== "success") {
+        const err = new Error(json.message || "Confirmation needed.");
+        err.response = json;
+        throw err;
+      }
+      return json;
+    }
+
     if (json.status !== "success") {
-      const err = new Error(json.message || "The server rejected this request.");
+      const wasWritten = json.sheetWritten === true;
+      const errMsg = json.message || "The server rejected this request.";
+      if (!isSilent && meta) {
+        if (wasWritten) {
+          await showSaveResultModal_(
+            "uncertain",
+            "Partially Updated — Please Verify Sheet",
+            errMsg + " Because the main write had already started, please refresh and inspect the sheet.",
+            meta
+          );
+        } else {
+          await showSaveResultModal_(
+            "error",
+            "Not Updated",
+            errMsg + " No changes were saved to the sheet.",
+            meta
+          );
+        }
+      }
+      const err = new Error(errMsg);
       err.response = json;
+      err.modalShown = !isSilent;
+      err.uncertain = wasWritten;
       throw err;
+    }
+
+    invalidateAllSWR();
+    if (!isSilent && meta) {
+      await showSaveResultModal_(
+        "success",
+        "Saved Successfully!",
+        json.message || "Your changes have been saved to Google Sheets.",
+        meta,
+        json.warning || ""
+      );
     }
     return json;
   }
-  throw lastError || new Error("Request failed.");
+
+  // Both network/parse attempts failed without receiving a JSON verdict -> HONEST UNCERTAIN WARNING
+  const finalErr = lastError || new Error("Request failed.");
+  finalErr.uncertain = lastUncertain;
+  if (!isSilent && meta) {
+    await showSaveResultModal_(
+      lastUncertain ? "uncertain" : "error",
+      lastUncertain ? "Status Unconfirmed — Check Sheet" : "Not Updated",
+      finalErr.message,
+      meta
+    );
+    finalErr.modalShown = true;
+  }
+  throw finalErr;
 }
 
 const ACTIVE_MONTH_KEY = "elysium_active_month";
+const MONTHS_CACHE_KEY = "elysium_months_cache_v17";
+
+function invalidateMonthsCache() {
+  sessionStorage.removeItem(MONTHS_CACHE_KEY);
+}
+
+function invalidateAllSWR() {
+  try {
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const k = sessionStorage.key(i);
+      if (k && (k.startsWith("swr_") || k.startsWith("elysium_dir_cache_"))) {
+        sessionStorage.removeItem(k);
+      }
+    }
+  } catch (e) {}
+}
+
+// Stale-While-Revalidate helper: paints cached data in 0ms, then refreshes silently in background
+async function apiGetSWR(action, params = {}, onData) {
+  const cleanParams = Object.assign({}, params);
+  const isForced = cleanParams.forceRefresh === "true" || cleanParams.forceRefresh === true;
+  delete cleanParams.forceRefresh;
+  const cacheKey = "swr_" + action + "_" + JSON.stringify(cleanParams);
+
+  let servedCache = false;
+  if (!isForced) {
+    try {
+      const raw = sessionStorage.getItem(cacheKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.data && (Date.now() - parsed.ts < 300000)) {
+          servedCache = true;
+          if (typeof onData === "function") onData(parsed.data, true);
+        }
+      }
+    } catch (e) {}
+  }
+
+  try {
+    const fresh = await apiGet(action, params);
+    try {
+      sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: fresh }));
+    } catch (e) {}
+    if (typeof onData === "function") onData(fresh, false);
+    return fresh;
+  } catch (err) {
+    if (!servedCache) throw err;
+    console.warn("Background SWR refresh failed:", err);
+    return null;
+  }
+}
 
 function getActiveMonthFallback() {
   const saved = localStorage.getItem(ACTIVE_MONTH_KEY);
   if (saved && parseMonthName(saved)) return saved;
   const now = new Date();
   return MONTH_NAMES[now.getMonth()] + " " + now.getFullYear();
+}
+
+function populateMonthDropdown_(select, months, currentMonthName) {
+  const now = new Date();
+  const sorted = months.slice().sort((a, b) => monthSortKey(a) - monthSortKey(b));
+  select.innerHTML = "";
+  sorted.forEach(m => {
+    const opt = document.createElement("option");
+    opt.value = m;
+    opt.textContent = m;
+    select.appendChild(opt);
+  });
+
+  const savedMonth = localStorage.getItem(ACTIVE_MONTH_KEY);
+  if (savedMonth && sorted.includes(savedMonth)) {
+    select.value = savedMonth;
+  } else if (sorted.includes(currentMonthName)) {
+    select.value = currentMonthName;
+  } else {
+    const nowKey = now.getFullYear() * 12 + now.getMonth();
+    const past = sorted.filter(m => monthSortKey(m) <= nowKey);
+    select.value = past.length ? past[past.length - 1] : sorted[sorted.length - 1];
+  }
+  localStorage.setItem(ACTIVE_MONTH_KEY, select.value);
 }
 
 async function initDynamicMonthSelect(selectId = "monthSelect") {
@@ -422,13 +963,6 @@ async function initDynamicMonthSelect(selectId = "monthSelect") {
   const currentMonthName = MONTH_NAMES[now.getMonth()] + " " + now.getFullYear();
   const targetInitialMonth = getActiveMonthFallback();
 
-  select.innerHTML = "";
-  const initOpt = document.createElement("option");
-  initOpt.value = targetInitialMonth;
-  initOpt.textContent = targetInitialMonth;
-  select.appendChild(initOpt);
-  select.value = targetInitialMonth;
-
   if (!select.dataset.listenerAttached) {
     select.addEventListener("change", () => {
       if (select.value) {
@@ -438,29 +972,32 @@ async function initDynamicMonthSelect(selectId = "monthSelect") {
     select.dataset.listenerAttached = "true";
   }
 
+  // Serve cached months immediately (eliminates the sequential 2-step load waterfall!)
+  try {
+    const cachedRaw = sessionStorage.getItem(MONTHS_CACHE_KEY);
+    if (cachedRaw) {
+      const parsed = JSON.parse(cachedRaw);
+      if (parsed && Array.isArray(parsed.months) && parsed.months.length > 0 && (Date.now() - parsed.ts < 1800000)) {
+        populateMonthDropdown_(select, parsed.months, currentMonthName);
+        return select.value;
+      }
+    }
+  } catch (e) {}
+
+  select.innerHTML = "";
+  const initOpt = document.createElement("option");
+  initOpt.value = targetInitialMonth;
+  initOpt.textContent = targetInitialMonth;
+  select.appendChild(initOpt);
+  select.value = targetInitialMonth;
+
   try {
     const json = await apiGet("getAvailableMonths");
     if (json.months && json.months.length > 0) {
-      const months = json.months.slice().sort((a, b) => monthSortKey(a) - monthSortKey(b));
-      select.innerHTML = "";
-      months.forEach(m => {
-        const opt = document.createElement("option");
-        opt.value = m;
-        opt.textContent = m;
-        select.appendChild(opt);
-      });
-
-      const savedMonth = localStorage.getItem(ACTIVE_MONTH_KEY);
-      if (savedMonth && months.includes(savedMonth)) {
-        select.value = savedMonth;
-      } else if (months.includes(currentMonthName)) {
-        select.value = currentMonthName;
-      } else {
-        const nowKey = now.getFullYear() * 12 + now.getMonth();
-        const past = months.filter(m => monthSortKey(m) <= nowKey);
-        select.value = past.length ? past[past.length - 1] : months[months.length - 1];
-      }
-      localStorage.setItem(ACTIVE_MONTH_KEY, select.value);
+      try {
+        sessionStorage.setItem(MONTHS_CACHE_KEY, JSON.stringify({ ts: Date.now(), months: json.months }));
+      } catch (e) {}
+      populateMonthDropdown_(select, json.months, currentMonthName);
     }
   } catch (err) {
     console.warn("Could not fetch dynamic months, falling back to local month.", err);
@@ -587,7 +1124,7 @@ async function onGlobalDrawerSearch() {
 
   if (!__globalDirCache) {
     try {
-      const saved = sessionStorage.getItem("elysium_dir_cache_v3");
+      const saved = sessionStorage.getItem("elysium_dir_cache_v18");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && Array.isArray(parsed.list) && (Date.now() - parsed.ts < 180000)) {
@@ -606,7 +1143,7 @@ async function onGlobalDrawerSearch() {
       if (json && json.status === "success" && Array.isArray(json.residents)) {
         __globalDirCache = json.residents;
         try {
-          sessionStorage.setItem("elysium_dir_cache_v3", JSON.stringify({ ts: Date.now(), list: __globalDirCache }));
+          sessionStorage.setItem("elysium_dir_cache_v18", JSON.stringify({ ts: Date.now(), list: __globalDirCache }));
         } catch (e) {}
       }
     } catch (e) {
@@ -641,6 +1178,9 @@ async function onGlobalDrawerSearch() {
       ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px] font-bold">Daily &bull; ${esc(r.roomNumber)}</span>`
       : `<span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[9px] font-bold">Rm ${esc(r.roomNumber)}</span>`;
     const vacTag = hasLeft ? `<span class="px-1.5 py-0.5 rounded bg-slate-600/40 text-slate-300 text-[9px] font-bold">Vacated</span>` : "";
+    const idTag = !isDaily ? (r.hasAadhaar
+      ? `<span class="text-emerald-400 text-[10px]" title="Aadhaar Verified"><i class="fa-solid fa-id-card"></i></span>`
+      : `<span class="text-rose-400 text-[10px]" title="Aadhaar Missing"><i class="fa-solid fa-id-card"></i></span>`) : "";
     const recMonth = r.month || "";
     const actions = isDaily
       ? `<a href="daily_staying.html?tab=${hasLeft ? 'completed' : 'active'}&q=${encodeURIComponent(r.name)}${recMonth ? `&month=${encodeURIComponent(recMonth)}` : ""}" class="px-2 py-1 rounded bg-emerald-600 text-white text-[10px] font-bold no-underline">${hasLeft ? 'Past' : 'Daily'}</a>`
@@ -652,6 +1192,7 @@ async function onGlobalDrawerSearch() {
           <div class="flex items-center gap-1.5 flex-wrap">
             ${tag}
             <span class="font-bold text-white truncate">${esc(r.name)}</span>
+            ${idTag}
             ${vacTag}
           </div>
           <p class="text-[10px] text-slate-400 font-mono">${cleanMob || "No mobile"}${r.vacatedOn ? ` &bull; ${hasLeft ? 'Vacated' : 'Vacating'} ${esc(r.vacatedOn)}` : ''}</p>
@@ -669,16 +1210,19 @@ function injectQuickNavDock() {
   const path = (window.location.pathname.split("/").pop() || "index.html").toLowerCase();
   if (path === "login.html" || document.getElementById("elysiumBottomDock")) return;
 
-  // Auto-select room if navigated via Quick Room Jump
+  // Auto-select room if navigated via Quick Room Jump (rent.html & resident_details.html handle deep links natively)
+  const handlesDeepLinkNatively = (path === "rent.html" || path === "resident_details.html");
   const urlRoom = new URLSearchParams(window.location.search).get("room") || localStorage.getItem("elysium_quick_room");
   if (urlRoom && /^[1-6]0[1-7]$/.test(urlRoom)) {
     localStorage.removeItem("elysium_quick_room");
-    setTimeout(() => {
-      if (typeof showFloor === "function" && typeof selectRoom === "function") {
-        showFloor(parseInt(urlRoom[0], 10));
-        selectRoom(urlRoom);
-      }
-    }, 350);
+    if (!handlesDeepLinkNatively) {
+      setTimeout(() => {
+        if (typeof showFloor === "function" && typeof selectRoom === "function") {
+          showFloor(parseInt(urlRoom[0], 10));
+          selectRoom(urlRoom);
+        }
+      }, 350);
+    }
   }
 
   const navItems = [
@@ -739,23 +1283,26 @@ function injectQuickNavDock() {
         </button>
       </div>
 
-      <!-- Instant Room Jump Box -->
-      <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 mb-4">
-        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-          <i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Instant Room Jump (101 – 607)
+      <!-- Universal Smart Search (Room #, Name, or Mobile) -->
+      <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 mb-4 space-y-2.5">
+        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <i class="fa-solid fa-magnifying-glass text-amber-400 mr-1"></i> Smart Search (Room #, Name, or Mobile)
         </label>
         <div class="flex items-center gap-2">
-          <input type="number" id="globalQuickRoomInput" placeholder="Room # (e.g. 406)" class="w-36 text-xs font-mono font-bold px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white" />
-          <button type="button" onclick="quickJumpToRoom('rent.html')" class="flex-1 py-2 px-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold rounded-xl">
+          <input type="text" id="globalQuickRoomInput" oninput="onGlobalDrawerSearch()" onfocus="onGlobalDrawerSearch()"
+                 autocomplete="off" placeholder="Room, Name, or Phone..."
+                 class="flex-1 min-w-0 text-xs font-bold px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white" />
+          <button type="button" onclick="quickJumpToRoom('rent.html')" class="py-2 px-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold rounded-xl">
             Rent
           </button>
-          <button type="button" onclick="quickJumpToRoom('resident_details.html')" class="flex-1 py-2 px-2.5 bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-bold rounded-xl">
+          <button type="button" onclick="quickJumpToRoom('resident_details.html')" class="py-2 px-2.5 bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-bold rounded-xl">
             Specs
           </button>
-          <button type="button" onclick="quickJumpToRoom('new_resident.html')" class="flex-1 py-2 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-xl">
+          <button type="button" onclick="quickJumpToRoom('new_resident.html')" class="py-2 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-xl">
             Join
           </button>
         </div>
+        <div id="globalDrawerSearchResults" class="hidden space-y-1.5 max-h-56 overflow-y-auto pt-1 border-t border-slate-800"></div>
       </div>
 
       <!-- Full Module Matrix -->

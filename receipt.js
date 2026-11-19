@@ -75,7 +75,7 @@ function buildReceiptFile(r) {
     doc.text(pdfText(value), right, y, { align: "right" });
     y += 8;
   };
-  row("Received from", r.name);
+  row("Resident Name", r.name);
   row("Room", r.room);
   row("Rent month", r.month);
   row("Payment mode", r.mode || "-");
