@@ -141,10 +141,13 @@
           </div>
 
           <div>
-            <label class="block text-[11px] font-bold text-slate-800 mb-1">Agreed Departure Month Rent (₹) *</label>
+            <label id="vacAdjustedRentLabel" class="block text-[11px] font-bold text-slate-800 mb-1">Agreed Departure Month Rent (₹) *</label>
             <input type="number" id="modalAdjustedRent" required
                    class="w-full text-sm font-black px-3.5 py-2 border border-rose-200 bg-white rounded-xl font-mono text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500" />
-            <p class="text-[10px] text-slate-400 mt-1">Suggested pro-rated rent shown. Modify or round off as agreed.</p>
+            <p id="vacAdjustedRentHelp" class="text-[10px] text-slate-400 mt-1">Suggested pro-rated rent shown. Modify or round off as agreed.</p>
+          </div>
+
+          <div id="vacFutureMonthNotice" class="hidden p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-[11px] text-indigo-800 font-semibold leading-snug">
           </div>
         </div>
 
@@ -188,6 +191,7 @@
         <input type="hidden" id="cnRoomNumber" />
         <input type="hidden" id="cnResidentName" />
         <input type="hidden" id="cnRowIndex" />
+        <input type="hidden" id="cnIsFutureMonth" value="false" />
 
         <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-900 space-y-1">
           <p class="font-bold flex items-center gap-1.5">
@@ -199,13 +203,16 @@
           </p>
         </div>
 
-        <div>
+        <div id="cnRestoredRentGroup">
           <label class="block text-xs font-bold text-slate-700 mb-1">Full Monthly Rent (₹/mo) *</label>
           <input type="number" id="cnRestoredRent" required min="1" placeholder="e.g. 10000"
                  class="w-full text-sm font-black px-3.5 py-2.5 border border-slate-300 rounded-xl font-mono text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
           <p class="text-[10px] text-slate-400 mt-1">
             If rent was pro-rated when notice was given, enter the full monthly rent to restore it.
           </p>
+        </div>
+
+        <div id="cnFutureKeepRentNote" class="hidden p-3 rounded-2xl bg-indigo-50 border border-indigo-200 text-[11px] text-indigo-800 font-semibold leading-snug">
         </div>
 
         <div id="cancelNoticeStatusBox" class="p-3 rounded-xl text-xs font-semibold hidden"></div>
@@ -775,6 +782,8 @@
       document.getElementById("modalVacatingDate").value = today;
       document.getElementById("vacStandardRentBadge").innerText = "₹0";
       document.getElementById("vacDaysStayedBadge").innerText = "--";
+      const fb = document.getElementById("vacFutureMonthNotice");
+      if (fb) fb.classList.add("hidden");
     }
 
     let roomFetchTimeout = null;
@@ -818,20 +827,51 @@
       calculateVacProRatedRent();
     }
 
+    function getVacancyMonthRelation_(vacDateStr, sheetMonthName) {
+      if (!vacDateStr) return { isFuture: false, vacMonthName: sheetMonthName || "" };
+      const dateObj = new Date(vacDateStr + "T00:00:00");
+      if (isNaN(dateObj.getTime())) return { isFuture: false, vacMonthName: sheetMonthName || "" };
+      const vacMonthName = MONTH_NAMES[dateObj.getMonth()] + " " + dateObj.getFullYear();
+      const vacKey = dateObj.getFullYear() * 12 + dateObj.getMonth();
+      const sheetParsed = parseMonthName(sheetMonthName);
+      const sheetKey = sheetParsed ? (sheetParsed.year * 12 + sheetParsed.month) : vacKey;
+      return { isFuture: vacKey > sheetKey, vacMonthName: vacMonthName };
+    }
+
     function calculateVacProRatedRent() {
       const vacDateStr = document.getElementById("modalVacatingDate").value;
       const fullRent = parseFloat(document.getElementById("vacSelectedResidentRent").value) || 0;
+      const sheetMonth = document.getElementById("monthSelect").value;
       if (!vacDateStr) return;
 
-      const dateObj = new Date(vacDateStr);
+      const dateObj = new Date(vacDateStr + "T00:00:00");
+      if (isNaN(dateObj.getTime())) return;
       const day = dateObj.getDate();
       const totalDaysInMonth = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate();
 
-      document.getElementById("vacDaysStayedBadge").innerText = `${day} of ${totalDaysInMonth} Days`;
+      const rel = getVacancyMonthRelation_(vacDateStr, sheetMonth);
+      document.getElementById("vacDaysStayedBadge").innerText = `${day} of ${totalDaysInMonth} Days (${rel.vacMonthName})`;
 
       if (fullRent > 0) {
         const suggested = Math.round((fullRent / totalDaysInMonth) * day);
         document.getElementById("modalAdjustedRent").value = suggested;
+      }
+
+      const labelEl = document.getElementById("vacAdjustedRentLabel");
+      const helpEl = document.getElementById("vacAdjustedRentHelp");
+      const futureBanner = document.getElementById("vacFutureMonthNotice");
+
+      if (rel.isFuture) {
+        if (labelEl) labelEl.innerText = `Agreed ${rel.vacMonthName} Rent (Saved for Rollover) (₹) *`;
+        if (helpEl) helpEl.innerText = `Pro-rated for ${rel.vacMonthName}. Modify or round off as agreed.`;
+        if (futureBanner) {
+          futureBanner.innerHTML = `<i class="fa-solid fa-shield-halved text-indigo-600 mr-1"></i> <b>${esc(sheetMonth)} rent stays unchanged.</b> This agreed <b>${esc(rel.vacMonthName)}</b> rent will be saved in Remarks and auto-filled during Monthly Rollover.`;
+          futureBanner.classList.remove("hidden");
+        }
+      } else {
+        if (labelEl) labelEl.innerText = `Agreed ${rel.vacMonthName} Rent (Updates Col H) (₹) *`;
+        if (helpEl) helpEl.innerText = `Updates This Month's Rent (Col H) in ${sheetMonth}. Modify or round off as agreed.`;
+        if (futureBanner) futureBanner.classList.add("hidden");
       }
     }
 
@@ -857,6 +897,7 @@
       statusBox.className = "p-3 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
       statusBox.innerText = `Saving notice for ${residentName} in Room ${roomNum}...`;
 
+      const rel = getVacancyMonthRelation_(vacatingDate, month);
       const payload = {
         action: "reportVacancy",
         month: month,
@@ -864,7 +905,9 @@
         residentName: residentName,
         vacancyDate: vacatingDate,
         informedDate: informedDate,
-        adjustedRent: adjustedRent
+        adjustedRent: adjustedRent,
+        isFutureMonthDeparture: rel.isFuture,
+        departureMonthName: rel.vacMonthName
       };
 
       try {
@@ -895,12 +938,35 @@
       const item = list[idx];
       if (!item) return;
 
+      const month = document.getElementById("monthSelect").value;
+      const rel = getVacancyMonthRelation_(item.vacatingDate, month);
       document.getElementById("cnRoomNumber").value = item.roomNumber;
       document.getElementById("cnResidentName").value = item.residentName;
       document.getElementById("cnRowIndex").value = item.rowIndex || "";
+      document.getElementById("cnIsFutureMonth").value = rel.isFuture ? "true" : "false";
       document.getElementById("cnResidentDisplay").innerText = `${item.residentName} (Room ${item.roomNumber})`;
       document.getElementById("cancelNoticeSubtitle").innerText = `Room ${item.roomNumber} • ${item.residentName}`;
-      document.getElementById("cnRestoredRent").value = (item.standardRent !== undefined ? item.standardRent : item.expectedRent) || "";
+
+      const rentGroup = document.getElementById("cnRestoredRentGroup");
+      const rentInput = document.getElementById("cnRestoredRent");
+      const futureNote = document.getElementById("cnFutureKeepRentNote");
+      if (rel.isFuture) {
+        if (rentGroup) rentGroup.classList.add("hidden");
+        if (rentInput) { rentInput.required = false; rentInput.value = ""; }
+        if (futureNote) {
+          const curMoRent = item.currentMonthRent !== undefined ? item.currentMonthRent : item.expectedRent;
+          futureNote.innerHTML = `<i class="fa-solid fa-shield-halved text-indigo-600 mr-1"></i> This notice was for <b>${esc(rel.vacMonthName)}</b> (${esc(item.vacatingDate)}). Cancelling it will keep <b>${esc(month)}'s rent (₹${Number(curMoRent || 0).toLocaleString("en-IN")}) unchanged</b>.`;
+          futureNote.classList.remove("hidden");
+        }
+      } else {
+        if (rentGroup) rentGroup.classList.remove("hidden");
+        if (rentInput) {
+          rentInput.required = true;
+          rentInput.value = (item.standardRent !== undefined ? item.standardRent : item.expectedRent) || "";
+        }
+        if (futureNote) futureNote.classList.add("hidden");
+      }
+
       document.getElementById("cancelNoticeStatusBox").classList.add("hidden");
       document.getElementById("cancelNoticeModal").classList.remove("hidden");
     }
@@ -919,7 +985,8 @@
       const roomNum = document.getElementById("cnRoomNumber").value;
       const residentName = document.getElementById("cnResidentName").value;
       const rowIndex = document.getElementById("cnRowIndex").value;
-      const restoredRent = document.getElementById("cnRestoredRent").value;
+      const isFutureMonth = document.getElementById("cnIsFutureMonth").value === "true";
+      const restoredRent = isFutureMonth ? "" : document.getElementById("cnRestoredRent").value;
       const month = document.getElementById("monthSelect").value;
 
       btn.disabled = true;
@@ -934,6 +1001,7 @@
           roomNumber: roomNum,
           residentName: residentName,
           rowIndex: rowIndex || undefined,
+          isFutureMonthDeparture: isFutureMonth,
           restoredRent: restoredRent
         });
 

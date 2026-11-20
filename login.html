@@ -131,6 +131,12 @@
     <!-- MAIN VAULT CARD -->
     <div class="rounded-[2rem] p-6 sm:p-7 bg-slate-900/80 backdrop-blur-2xl border border-white/12 shadow-2xl">
 
+      <!-- LOGOUT SUCCESS BANNER -->
+      <div id="logoutSuccessBanner" class="hidden mb-4 p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 text-xs font-bold flex items-center gap-2">
+        <i class="fa-solid fa-circle-check text-emerald-400 text-sm shrink-0"></i>
+        <span>You are successfully logged out.</span>
+      </div>
+
       <!-- IDENTIFIED BIOMETRIC UNLOCK CARD -->
       <div id="biometricCard" class="hidden text-center py-2">
         <div class="relative w-20 h-20 mx-auto mb-4 flex items-center justify-center rounded-full bg-gradient-to-br from-emerald-500/20 to-indigo-500/20 border border-emerald-400/40 text-emerald-400 text-3xl bio-pulse-ring cursor-pointer" onclick="triggerNativeBiometric()">
@@ -228,6 +234,14 @@
     let currentSavedBioUser = null;
 
     window.addEventListener("DOMContentLoaded", () => {
+      const wasLoggedOut = new URLSearchParams(window.location.search).get("loggedOut") === "1";
+      if (wasLoggedOut) {
+        const banner = document.getElementById("logoutSuccessBanner");
+        if (banner) banner.classList.remove("hidden");
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState({}, "", "login.html");
+        }
+      }
       initBiometricUI();
     });
 
@@ -260,7 +274,7 @@
             if (currentSavedBioUser && currentSavedBioUser.username) {
               document.getElementById("bioDisplayName").innerText = currentSavedBioUser.displayName || currentSavedBioUser.username;
               document.getElementById("bioUsername").innerText = "@" + currentSavedBioUser.username + (currentSavedBioUser.role ? ` • ${currentSavedBioUser.role}` : "");
-              document.getElementById("bioUnlockBtnText").innerText = `Unlock as ${currentSavedBioUser.displayName || currentSavedBioUser.username}`;
+              document.getElementById("bioUnlockBtnText").innerText = `Login as ${currentSavedBioUser.displayName || currentSavedBioUser.username}`;
 
               const notice = document.getElementById("bioOverrideNotice");
               if (notice) {
@@ -269,10 +283,7 @@
               }
 
               toggleFormVisibility(false);
-              // Allow WebView to complete its first visual paint frame before launching native biometric prompt
-              requestAnimationFrame(() => {
-                setTimeout(() => triggerNativeBiometric(), 250);
-              });
+              // Wait for the user to explicitly tap the Login button (or choose password login) before verifying biometrics
               return;
             }
           } catch (e) {
@@ -300,6 +311,8 @@
     }
 
     function triggerNativeBiometric() {
+      const banner = document.getElementById("logoutSuccessBanner");
+      if (banner) banner.classList.add("hidden");
       if (window.AndroidBiometric && typeof window.AndroidBiometric.requestBiometric === "function") {
         window.AndroidBiometric.requestBiometric();
       }

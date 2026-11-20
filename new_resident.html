@@ -59,7 +59,7 @@
       </div>
 
       <div class="flex items-center gap-2">
-        <select id="monthSelect" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700">
+        <select id="monthSelect" onchange="onNewResidentRentOrDateChange()" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700">
         </select>
         <button type="button" onclick="toggleElysiumDrawer(true)" class="p-2 text-xs font-bold bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 rounded-xl transition" title="Quick Jump & Modules"><i class="fa-solid fa-compass"></i></button>
         <button onclick="logoutApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition" title="Lock">
@@ -139,10 +139,13 @@
                 <i class="fa-solid fa-calculator"></i> Pro-rate from Join Date
               </button>
             </div>
-            <input type="number" id="resCurrentMonthRent" required placeholder="Same as Agreed or Pro-rated"
+            <input type="number" id="resCurrentMonthRent" required min="0" placeholder="Same as Agreed or Pro-rated"
                    oninput="document.getElementById('resCurrentMonthRent').dataset.manual = 'true'"
                    class="w-full text-xs font-bold px-3 py-2.5 border border-indigo-300 rounded-xl focus:ring-2 focus:ring-indigo-500 font-mono text-indigo-700" />
           </div>
+        </div>
+
+        <div id="futureJoinNoticeBox" class="hidden p-3 rounded-2xl bg-indigo-50 border border-indigo-200 text-[11px] text-indigo-800 font-semibold leading-snug">
         </div>
 
         <div>
@@ -419,23 +422,56 @@
     }
 
 
+    function getJoinMonthRelation_(joinDateStr, sheetMonthName) {
+      if (!joinDateStr) return { isFuture: false, joinMonthName: sheetMonthName || "" };
+      const d = new Date(joinDateStr + "T00:00:00");
+      if (isNaN(d.getTime())) return { isFuture: false, joinMonthName: sheetMonthName || "" };
+      const joinMonthName = MONTH_NAMES[d.getMonth()] + " " + d.getFullYear();
+      const jKey = d.getFullYear() * 12 + d.getMonth();
+      const sParsed = parseMonthName(sheetMonthName);
+      const sKey = sParsed ? (sParsed.year * 12 + sParsed.month) : jKey;
+      return { isFuture: jKey > sKey, joinMonthName: joinMonthName };
+    }
+
     function onNewResidentRentOrDateChange() {
       const agreed = parseFloat(document.getElementById("resRent").value) || 0;
+      const joinDateStr = document.getElementById("resJoiningDate").value;
+      const sheetMonth = document.getElementById("monthSelect").value;
       const curInput = document.getElementById("resCurrentMonthRent");
-      if (!curInput.dataset.manual || !curInput.value) {
-        curInput.value = agreed > 0 ? agreed : "";
+      const noticeBox = document.getElementById("futureJoinNoticeBox");
+
+      const rel = getJoinMonthRelation_(joinDateStr, sheetMonth);
+      if (rel.isFuture) {
+        curInput.value = "0";
+        delete curInput.dataset.manual;
+        if (noticeBox) {
+          noticeBox.innerHTML = `<i class="fa-solid fa-calendar-check text-indigo-600 mr-1"></i> <b>Future-Month Booking (${esc(rel.joinMonthName)}):</b> ${esc(sheetMonth)}'s rent is set to <b>₹0</b> so this resident won't show up in ${esc(sheetMonth)}'s pending dues. Monthly Rollover will automatically pro-rate ${esc(rel.joinMonthName)}.`;
+          noticeBox.classList.remove("hidden");
+        }
+      } else {
+        if (noticeBox) noticeBox.classList.add("hidden");
+        if (!curInput.dataset.manual || curInput.value === "" || curInput.value === "0") {
+          curInput.value = agreed > 0 ? agreed : "";
+        }
       }
     }
 
     function autoProrateNewResidentRent() {
       const agreed = parseFloat(document.getElementById("resRent").value) || 0;
       const joinDateStr = document.getElementById("resJoiningDate").value;
+      const sheetMonth = document.getElementById("monthSelect").value;
       if (agreed <= 0) {
         alert("Enter the Agreed Monthly Rent first.");
         return;
       }
       if (!joinDateStr) {
         alert("Select the Joining Date first.");
+        return;
+      }
+      const rel = getJoinMonthRelation_(joinDateStr, sheetMonth);
+      if (rel.isFuture) {
+        document.getElementById("resCurrentMonthRent").value = "0";
+        alert(`This resident joins in ${rel.joinMonthName} (next month). ${sheetMonth}'s rent stays ₹0 — Rollover will automatically pro-rate ${rel.joinMonthName} from ${joinDateStr}.`);
         return;
       }
       const d = new Date(joinDateStr + "T00:00:00");
@@ -552,16 +588,23 @@
         finalPayDate = document.getElementById("initialPayDate").value;
       }
 
+      const joinDateVal = document.getElementById("resJoiningDate").value;
+      const joinRel = getJoinMonthRelation_(joinDateVal, month);
+      const curRentRaw = document.getElementById("resCurrentMonthRent").value;
+      const finalCurRent = curRentRaw !== "" ? curRentRaw : (joinRel.isFuture ? "0" : document.getElementById("resRent").value);
+
       const payload = {
         action: "onboardNewResident",
         month: month,
         roomNumber: selectedRoom,
         name: cleanName,
         mobile: cleanMobile,
-        joiningDate: document.getElementById("resJoiningDate").value,
+        joiningDate: joinDateVal,
+        isFutureMonthJoining: joinRel.isFuture,
+        joiningMonthName: joinRel.joinMonthName,
         vacatedOn: document.getElementById("resVacatedOn").value,
         rent: document.getElementById("resRent").value,
-        currentMonthRent: document.getElementById("resCurrentMonthRent").value || document.getElementById("resRent").value,
+        currentMonthRent: finalCurRent,
         stayingDates: document.getElementById("resStayingDates").value.trim(),
         advance: document.getElementById("advExpected").value,
         
@@ -588,6 +631,7 @@
         statusBox.className = "p-4 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block";
         statusBox.innerHTML = `✓ ${esc(json.message)}`;
         document.getElementById("onboardingForm").reset();
+        const fnb = document.getElementById("futureJoinNoticeBox"); if (fnb) fnb.classList.add("hidden");
         document.getElementById("splitPaymentToggle").checked = false;
         document.getElementById("singlePaySection").classList.remove("hidden");
         document.getElementById("splitPaySection").classList.add("hidden");

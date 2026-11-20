@@ -298,9 +298,20 @@
           </div>
           <div>
             <label class="block text-[10px] font-bold text-slate-600 mb-1">Extra Advance (₹)</label>
-            <input type="number" id="shiftExtraAdvance" placeholder="0 if none"
+            <input type="number" id="shiftExtraAdvance" placeholder="0 if none" oninput="toggleShiftExtraAdvReceiver()"
                    class="w-full text-xs font-bold px-3 py-2 border border-slate-300 rounded-xl font-mono" />
           </div>
+        </div>
+
+        <div id="shiftExtraAdvReceiverBox" class="hidden">
+          <label class="block text-[10px] font-bold text-slate-600 mb-1">Extra Advance Received By</label>
+          <select id="shiftExtraAdvReceiver" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-xl bg-white">
+            <option value="Sreekaran">Sreekaran</option>
+            <option value="Manohar">Manohar</option>
+            <option value="Sudheer">Sudheer</option>
+            <option value="Office Account">Office Account</option>
+            <option value="Cash">Cash</option>
+          </select>
         </div>
 
         <div id="shiftStatusBox" class="p-2.5 rounded-xl text-xs font-semibold hidden"></div>
@@ -1462,6 +1473,7 @@
       document.getElementById("shiftNewFullRent").value = "";
       document.getElementById("shiftCollectNowAmt").value = "";
       document.getElementById("shiftCollectModeBox").classList.add("hidden");
+      const eab = document.getElementById("shiftExtraAdvReceiverBox"); if (eab) eab.classList.add("hidden");
 
       document.getElementById("shiftModalSubtitle").innerText = `${residentName} (Currently in Room ${fromRoom})`;
       document.getElementById("shiftDate").value = todayISO();
@@ -1529,6 +1541,12 @@
       }
     }
 
+    function toggleShiftExtraAdvReceiver() {
+      const amt = parseFloat(document.getElementById("shiftExtraAdvance").value) || 0;
+      const box = document.getElementById("shiftExtraAdvReceiverBox");
+      if (box) box.classList.toggle("hidden", amt <= 0);
+    }
+
     async function submitRoomShift(e) {
       e.preventDefault();
       const btn = document.getElementById("shiftSubmitBtn");
@@ -1545,6 +1563,7 @@
 
       const collectNowAmt = parseFloat(document.getElementById("shiftCollectNowAmt").value) || 0;
       let collectModeStr = "";
+      let collectParts = [];
       if (collectNowAmt > 0) {
         const mode = document.getElementById("shiftCollectMode").value;
         const rec = document.getElementById("shiftCollectReceiver").value;
@@ -1553,7 +1572,11 @@
         } else {
           collectModeStr = `${mode} (₹${collectNowAmt})`;
         }
+        collectParts = [{ mode: mode, receiver: rec, amount: collectNowAmt }];
       }
+
+      const extraAdvAmt = parseFloat(document.getElementById("shiftExtraAdvance").value) || 0;
+      const extraAdvRec = extraAdvAmt > 0 ? document.getElementById("shiftExtraAdvReceiver").value : "";
 
       const payload = {
         action: "shiftResident",
@@ -1570,8 +1593,10 @@
         carriedRentCredit: carriedCredit,
         additionalRentPaidNow: collectNowAmt,
         additionalRentMode: collectModeStr,
+        additionalRentParts: collectParts,
         transferredAdvance: document.getElementById("shiftCarriedAdvance").value,
-        additionalAdvance: document.getElementById("shiftExtraAdvance").value || 0
+        additionalAdvance: extraAdvAmt,
+        additionalAdvanceReceiver: extraAdvRec
       };
 
       try {

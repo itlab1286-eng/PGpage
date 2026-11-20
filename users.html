@@ -195,7 +195,7 @@
     async function signOutEverywhere(u) {
       try {
         await apiPost({ action: "revokeUserAccess", username: u.username });
-        if (u.isYou) { logoutApp(); return; }
+        if (u.isYou) { logoutApp(true); return; }
         loadUsers();
       } catch (err) {
         if (!err || (!err.cancelled && !err.modalShown)) alert("Failed: " + err.message);

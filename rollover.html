@@ -250,7 +250,7 @@
           <div class="p-2.5 bg-rose-50/50 rounded-xl border border-rose-100 flex items-center justify-between gap-2">
             <div>
               <p class="font-bold text-slate-800">Room ${esc(d.room)} &bull; ${esc(d.name)}</p>
-              <p class="text-[10px] text-slate-500">Leaving: ${esc(d.vacatingDate)} (Std: ₹${d.standardRent})</p>
+              <p class="text-[10px] text-slate-500">Leaving: ${esc(d.vacatingDate)} (Std: ₹${d.standardRent})${d.agreedFromNotice ? ` <span class="ml-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold">Agreed at notice</span>` : ""}</p>
             </div>
             <div class="flex items-center gap-1.5">
               <span class="text-[11px] font-bold text-slate-500">Next-month Rent: ₹</span>

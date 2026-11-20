@@ -190,19 +190,75 @@ function isAuthenticated() {
   return getActiveSession() !== null;
 }
 
-function logoutApp() {
-  // Clear browser session storage
-  sessionStorage.removeItem(SESSION_KEY);
-  localStorage.removeItem(TOKEN_KEY);
+function showLogoutConfirmModal_() {
+  return new Promise((resolve) => {
+    if (typeof ensureSaveModal_ !== "function") {
+      resolve(confirm("Are you sure you want to log out of Elysium PG?"));
+      return;
+    }
+    const modal = ensureSaveModal_();
+    const card = document.getElementById("elysiumSaveModalCard");
+    const currentUser = getAuthUser();
 
-  // Note: Do NOT clear AndroidBiometric here. 
-  // This allows the registered user to unlock with their fingerprint upon returning.
+    card.innerHTML = `
+      <div class="space-y-4">
+        <div class="flex items-center gap-3 pb-3 border-b border-slate-100">
+          <div class="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-lg shrink-0">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          </div>
+          <div>
+            <p class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Session Control</p>
+            <h3 class="text-base font-black text-slate-900">Confirm Logout</h3>
+          </div>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 font-semibold leading-relaxed">
+          Are you sure you want to log out${currentUser && currentUser !== "User" ? ` as <b>${esc(currentUser)}</b>` : ""}?
+        </div>
+        <div class="flex gap-2.5 pt-1">
+          <button type="button" id="elyLogoutCancelBtn" class="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+            Cancel
+          </button>
+          <button type="button" id="elyLogoutConfirmBtn" class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs shadow-lg shadow-rose-600/30 transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-power-off"></i>
+            <span>Yes, Log Out</span>
+          </button>
+        </div>
+      </div>`;
 
-  window.location.replace("login.html");
+    modal.classList.remove("hidden");
+    document.getElementById("elyLogoutCancelBtn").onclick = () => {
+      closeSaveModal_();
+      resolve(false);
+    };
+    document.getElementById("elyLogoutConfirmBtn").onclick = () => {
+      closeSaveModal_();
+      resolve(true);
+    };
+  });
 }
 
-function lockApp() {
-  logoutApp();
+async function logoutApp(skipConfirm = false) {
+  if (!skipConfirm) {
+    const confirmed = await showLogoutConfirmModal_();
+    if (!confirmed) return;
+  }
+
+  // Clear browser session & cached SWR views
+  sessionStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(TOKEN_KEY);
+  if (typeof invalidateAllSWR === "function") invalidateAllSWR();
+
+  // Note: Do NOT clear AndroidBiometric here so fingerprint unlock stays ready next time the app opens.
+  if (window.AndroidBiometric && typeof window.AndroidBiometric.closeApp === "function") {
+    window.AndroidBiometric.closeApp("You are successfully logged out.");
+    return;
+  }
+
+  window.location.replace("login.html?loggedOut=1");
+}
+
+function lockApp(skipConfirm = false) {
+  logoutApp(skipConfirm);
 }
 
 function handleSessionExpired() {
@@ -381,13 +437,17 @@ function describeSavePayload_(payload) {
       break;
 
     case "onboardNewResident":
-      title = "Register New Resident";
+      title = payload.isFutureMonthJoining ? "Advance Booking (Future Month)" : "Register New Resident";
       push("Room", payload.roomNumber ? "Room " + payload.roomNumber : "");
       push("Name", payload.name);
       push("Mobile", payload.mobile);
       push("Joining Date", payload.joiningDate);
       push("Agreed Rent", payload.rent ? formatRupeeVal_(payload.rent) : "");
-      push("This Month Rent", payload.currentMonthRent ? formatRupeeVal_(payload.currentMonthRent) : "");
+      if (payload.isFutureMonthJoining) {
+        push((payload.month || "This Month") + " Rent", formatRupeeVal_(payload.currentMonthRent || 0) + " (Starts in " + (payload.joiningMonthName || "future month") + ")");
+      } else {
+        push("This Month Rent", payload.currentMonthRent !== "" && payload.currentMonthRent !== undefined ? formatRupeeVal_(payload.currentMonthRent) : "");
+      }
       if (Number(payload.advance) > 0) push("Agreed Advance", formatRupeeVal_(payload.advance));
       if (Number(payload.advancePaid) > 0) push("Advance Paid", formatRupeeVal_(payload.advancePaid) + (payload.advanceReceivedBy ? ` (${payload.advanceReceivedBy})` : ""));
       if (Number(payload.rentPaid) > 0) push("Joining Rent Paid", formatRupeeVal_(payload.rentPaid) + (payload.paymentMode ? ` (${payload.paymentMode})` : ""));
@@ -414,19 +474,30 @@ function describeSavePayload_(payload) {
       break;
 
     case "reportVacancy":
-      title = "Record Vacancy Notice";
+      title = payload.isFutureMonthDeparture ? "Record Future-Month Vacancy Notice" : "Record Vacancy Notice";
       push("Room", payload.roomNumber ? "Room " + payload.roomNumber : "");
       push("Resident", payload.residentName);
       push("Vacating Date", payload.vacancyDate);
       push("Informed Date", payload.informedDate);
-      if (payload.adjustedRent !== undefined && payload.adjustedRent !== "") push("Departure Rent", formatRupeeVal_(payload.adjustedRent));
+      if (payload.isFutureMonthDeparture) {
+        push((payload.month || "Current Month") + " Rent", "Unchanged (Full Month)");
+        if (payload.adjustedRent !== undefined && payload.adjustedRent !== "") {
+          push("Saved " + (payload.departureMonthName || "Future") + " Rent", formatRupeeVal_(payload.adjustedRent) + " (for Rollover)");
+        }
+      } else if (payload.adjustedRent !== undefined && payload.adjustedRent !== "") {
+        push("Adjusted " + (payload.month || "Current") + " Rent (Col H)", formatRupeeVal_(payload.adjustedRent));
+      }
       break;
 
     case "cancelVacancyNotice":
       title = "Cancel Vacate Notice (Continue Stay)";
       push("Room", payload.roomNumber ? "Room " + payload.roomNumber : "");
       push("Resident", payload.residentName);
-      if (payload.restoredRent) push("Restored Monthly Rent", formatRupeeVal_(payload.restoredRent));
+      if (payload.isFutureMonthDeparture) {
+        push((payload.month || "Current Month") + " Rent", "Unchanged");
+      } else if (payload.restoredRent) {
+        push("Restored Monthly Rent", formatRupeeVal_(payload.restoredRent));
+      }
       break;
 
     case "shiftResident":
@@ -436,7 +507,8 @@ function describeSavePayload_(payload) {
       push("Shift Date", payload.shiftDate);
       push("Old Room Rent", formatRupeeVal_(payload.oldRoomRent));
       push("New Room Rent", formatRupeeVal_(payload.newRoomProRatedRent || payload.newRoomStandardRent));
-      if (Number(payload.additionalRentPaidNow) > 0) push("Collected Now", formatRupeeVal_(payload.additionalRentPaidNow));
+      if (Number(payload.additionalRentPaidNow) > 0) push("Collected Now", formatRupeeVal_(payload.additionalRentPaidNow) + (payload.additionalRentMode ? " (" + payload.additionalRentMode + ")" : ""));
+      if (Number(payload.additionalAdvance) > 0) push("Extra Advance", formatRupeeVal_(payload.additionalAdvance) + (payload.additionalAdvanceReceiver ? " (" + payload.additionalAdvanceReceiver + ")" : ""));
       break;
 
     case "checkInDailyGuest":

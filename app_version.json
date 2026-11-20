@@ -1,6 +1,6 @@
 {
-  "versionCode": 4,
-  "versionName": "1.3",
-  "apkUrl": "https://github.com/itlab1286-eng/PGpage/releases/download/v1.3/app-release.apk",
-  "releaseNotes": "Fixed the design and added new feature to note current month rent adn made some fixes for few bugs found"
+  "versionCode": 5,
+  "versionName": "1.4",
+  "apkUrl": "https://github.com/itlab1286-eng/PGpage/releases/download/v1.4/app-release.apk",
+  "releaseNotes": "Removed the auto trigger of biometric"
 }
