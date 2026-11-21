@@ -1140,12 +1140,18 @@ function applySavedTheme() {
     document.documentElement.classList.remove("light-theme");
     document.documentElement.classList.add("dark-theme");
   }
+  const isLight = document.documentElement.classList.contains("light-theme");
   const icon = document.getElementById("dockThemeIcon");
   const label = document.getElementById("dockThemeLabel");
   if (icon && label) {
-    const isLight = document.documentElement.classList.contains("light-theme");
     icon.className = isLight ? "fa-solid fa-moon text-indigo-400" : "fa-solid fa-sun text-amber-400";
     label.textContent = isLight ? "Dark" : "Light";
+  }
+  const dIcon = document.getElementById("drawerThemeIcon");
+  const dLabel = document.getElementById("drawerThemeLabel");
+  if (dIcon && dLabel) {
+    dIcon.className = isLight ? "fa-solid fa-moon text-indigo-400" : "fa-solid fa-sun text-amber-400";
+    dLabel.textContent = isLight ? "Dark Mode" : "Light Mode";
   }
 }
 
@@ -1196,7 +1202,7 @@ async function onGlobalDrawerSearch() {
 
   if (!__globalDirCache) {
     try {
-      const saved = sessionStorage.getItem("elysium_dir_cache_v18");
+      const saved = sessionStorage.getItem("elysium_dir_cache_v25");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && Array.isArray(parsed.list) && (Date.now() - parsed.ts < 180000)) {
@@ -1215,7 +1221,7 @@ async function onGlobalDrawerSearch() {
       if (json && json.status === "success" && Array.isArray(json.residents)) {
         __globalDirCache = json.residents;
         try {
-          sessionStorage.setItem("elysium_dir_cache_v18", JSON.stringify({ ts: Date.now(), list: __globalDirCache }));
+          sessionStorage.setItem("elysium_dir_cache_v25", JSON.stringify({ ts: Date.now(), list: __globalDirCache }));
         } catch (e) {}
       }
     } catch (e) {
@@ -1345,14 +1351,20 @@ function injectQuickNavDock() {
   drawer.innerHTML = `
     <div class="drawer-sheet">
       <div class="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-4"></div>
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center justify-between gap-2 mb-4">
         <div>
           <p class="text-[10px] font-extrabold uppercase tracking-widest text-indigo-400">Elysium OS Command</p>
-          <h3 class="text-base font-bold text-white">Quick Jump &amp; All Modules</h3>
+          <h3 class="text-base font-bold text-white">Menu &amp; Quick Jump</h3>
         </div>
-        <button type="button" onclick="toggleElysiumDrawer(false)" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" onclick="toggleAppTheme()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[11px] font-bold flex items-center gap-1.5" title="Switch Theme">
+            <i id="drawerThemeIcon" class="fa-solid ${isLight ? 'fa-moon text-indigo-400' : 'fa-sun text-amber-400'}"></i>
+            <span id="drawerThemeLabel">${isLight ? 'Dark Mode' : 'Light Mode'}</span>
+          </button>
+          <button type="button" onclick="toggleElysiumDrawer(false)" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center" aria-label="Close Menu">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
       </div>
 
       <!-- Universal Smart Search (Room #, Name, or Mobile) -->

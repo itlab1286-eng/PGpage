@@ -498,12 +498,16 @@
         font-size: 15px !important;
       }
       .fixed.inset-0.z-40:not(.hidden),
-      #deleteConfirmModal:not(.hidden) {
+      #deleteConfirmModal:not(.hidden),
+      #elysiumSaveModal:not(.hidden),
+      #timelineModal:not(.hidden) {
         align-items: flex-end !important;
         padding: 0 !important;
       }
       .fixed.inset-0.z-40:not(.hidden) > div,
-      #deleteConfirmModal:not(.hidden) > div {
+      #deleteConfirmModal:not(.hidden) > div,
+      #elysiumSaveModal:not(.hidden) > div,
+      #timelineModal:not(.hidden) > div {
         max-width: 100% !important;
         width: 100% !important;
         border-bottom-left-radius: 0 !important;
@@ -513,7 +517,9 @@
         padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)) !important;
         animation: mobileSheetSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
       }
-      .fixed.inset-0.z-40:not(.hidden) > div::before {
+      .fixed.inset-0.z-40:not(.hidden) > div::before,
+      #elysiumSaveModal:not(.hidden) > div::before,
+      #timelineModal:not(.hidden) > div::before {
         content: "";
         display: block;
         width: 3rem;
@@ -686,4 +692,14 @@
     #elysiumBottomDock a i,
     #elysiumBottomDock button.dock-action-btn i {
       font-size: 1.08rem !important;
+    }
+
+    /* Mobile-Only Top-Right Menu Mode on Home Hub (index.html) */
+    @media (max-width: 767px) {
+      body.mobile-top-menu #elysiumBottomDock {
+        display: none !important;
+      }
+      body.mobile-top-menu {
+        padding-bottom: calc(1.75rem + env(safe-area-inset-bottom, 0px)) !important;
+      }
     }
