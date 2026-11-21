@@ -5,14 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Elysium OS - Command Hub</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script src="auth.js"></script>
+  <script src="auth.js?v=26"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
   <!-- Inter, Outfit & JetBrains Mono Fonts (Optimized Mobile & Desktop Readability) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="elysium.css" />
+  <link rel="stylesheet" href="elysium.css?v=26" />
+  <style>
+    @media (max-width: 767px) {
+      body.mobile-top-menu #elysiumBottomDock { display: none !important; }
+      body.mobile-top-menu { padding-bottom: calc(1.75rem + env(safe-area-inset-bottom, 0px)) !important; }
+    }
+    body.is-android-app.mobile-top-menu #elysiumBottomDock { display: none !important; }
+    body.is-android-app.mobile-top-menu { padding-bottom: calc(1.75rem + env(safe-area-inset-bottom, 0px)) !important; }
+  </style>
 
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen mobile-top-menu">
@@ -23,11 +31,12 @@
     <header class="mb-5">
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 via-violet-600 to-emerald-500 p-0.5 shadow-lg shadow-indigo-500/30 shrink-0">
-            <div class="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-white font-black text-base">
+          <button type="button" onclick="toggleElysiumDrawer(true)" title="Open Menu &amp; Quick Jump" aria-label="Open Menu"
+                  class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 via-violet-600 to-emerald-500 p-0.5 shadow-lg shadow-indigo-500/30 shrink-0 cursor-pointer active:scale-95 transition">
+            <span class="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-white font-black text-base">
               <i class="fa-solid fa-layer-group text-indigo-400"></i>
-            </div>
-          </div>
+            </span>
+          </button>
           <div class="min-w-0">
             <div class="flex items-center gap-2">
               <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
@@ -42,10 +51,6 @@
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
-          <button type="button" onclick="toggleElysiumDrawer(true)" class="w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-indigo-300 flex items-center justify-center" title="Menu &amp; Quick Jump" aria-label="Open Menu">
-            <i class="fa-solid fa-bars md:hidden"></i>
-            <i class="fa-solid fa-magnifying-glass hidden md:inline"></i>
-          </button>
           <a id="masterAdminLink" href="users.html" class="hidden w-10 h-10 rounded-2xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/30 text-purple-200 flex items-center justify-center" title="User Access">
             <i class="fa-solid fa-user-shield"></i>
           </a>

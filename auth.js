@@ -1286,7 +1286,13 @@ async function onGlobalDrawerSearch() {
 function injectQuickNavDock() {
   applySavedTheme();
   const path = (window.location.pathname.split("/").pop() || "index.html").toLowerCase();
-  if (path === "login.html" || document.getElementById("elysiumBottomDock")) return;
+  if (path === "login.html" || document.getElementById("elysiumAppDrawer")) return;
+
+  const isAndroidApp = !!(window.AndroidBiometric && typeof window.AndroidBiometric.isApp === "function" && window.AndroidBiometric.isApp());
+  if (isAndroidApp) document.body.classList.add("is-android-app");
+  const isIndexPage = (path === "" || path === "index.html");
+  const isMobileViewport = !!(window.matchMedia && window.matchMedia("(max-width: 767px)").matches);
+  const hideBottomDock = isIndexPage && (isAndroidApp || isMobileViewport);
 
   // Auto-select room if navigated via Quick Room Jump (rent.html & resident_details.html handle deep links natively)
   const handlesDeepLinkNatively = (path === "rent.html" || path === "resident_details.html");
@@ -1303,45 +1309,48 @@ function injectQuickNavDock() {
     }
   }
 
-  const navItems = [
-    { href: "index.html", icon: "fa-compass", label: "Hub" },
-    { href: "vacancies.html", icon: "fa-door-open", label: "Beds" },
-    { href: "rent.html", icon: "fa-indian-rupee-sign", label: "Rents" },
-    { href: "daily_staying.html", icon: "fa-bed-pulse", label: "Daily" },
-    { href: "expenses.html", icon: "fa-bolt", label: "Spends" },
-    { href: "settlements.html", icon: "fa-chart-simple", label: "Cashflow" }
-  ];
-
-  const dock = document.createElement("nav");
-  dock.id = "elysiumBottomDock";
-  dock.setAttribute("aria-label", "Elysium OS Dock");
-
-  navItems.forEach(item => {
-    const a = document.createElement("a");
-    a.href = item.href;
-    if (path === item.href) a.className = "dock-active";
-    a.innerHTML = `<i class="fa-solid ${item.icon}"></i><span>${item.label}</span>`;
-    dock.appendChild(a);
-  });
-
-  // All-Modules & Quick Jump Launcher Button
-  const menuBtn = document.createElement("button");
-  menuBtn.type = "button";
-  menuBtn.className = "dock-action-btn";
-  menuBtn.onclick = () => toggleElysiumDrawer();
-  menuBtn.innerHTML = `<i class="fa-solid fa-grip text-indigo-400"></i><span>Menu</span>`;
-  dock.appendChild(menuBtn);
-
-  // Theme Switcher Button
-  const themeBtn = document.createElement("button");
-  themeBtn.type = "button";
-  themeBtn.className = "dock-action-btn";
-  themeBtn.onclick = toggleAppTheme;
   const isLight = document.documentElement.classList.contains("light-theme");
-  themeBtn.innerHTML = `<i id="dockThemeIcon" class="fa-solid ${isLight ? 'fa-moon text-indigo-400' : 'fa-sun text-amber-400'}"></i><span id="dockThemeLabel">${isLight ? 'Dark' : 'Light'}</span>`;
-  dock.appendChild(themeBtn);
 
-  document.body.appendChild(dock);
+  if (!hideBottomDock) {
+    const navItems = [
+      { href: "index.html", icon: "fa-compass", label: "Hub" },
+      { href: "vacancies.html", icon: "fa-door-open", label: "Beds" },
+      { href: "rent.html", icon: "fa-indian-rupee-sign", label: "Rents" },
+      { href: "daily_staying.html", icon: "fa-bed-pulse", label: "Daily" },
+      { href: "expenses.html", icon: "fa-bolt", label: "Spends" },
+      { href: "settlements.html", icon: "fa-chart-simple", label: "Cashflow" }
+    ];
+
+    const dock = document.createElement("nav");
+    dock.id = "elysiumBottomDock";
+    dock.setAttribute("aria-label", "Elysium OS Dock");
+
+    navItems.forEach(item => {
+      const a = document.createElement("a");
+      a.href = item.href;
+      if (path === item.href) a.className = "dock-active";
+      a.innerHTML = `<i class="fa-solid ${item.icon}"></i><span>${item.label}</span>`;
+      dock.appendChild(a);
+    });
+
+    // All-Modules & Quick Jump Launcher Button
+    const menuBtn = document.createElement("button");
+    menuBtn.type = "button";
+    menuBtn.className = "dock-action-btn";
+    menuBtn.onclick = () => toggleElysiumDrawer();
+    menuBtn.innerHTML = `<i class="fa-solid fa-grip text-indigo-400"></i><span>Menu</span>`;
+    dock.appendChild(menuBtn);
+
+    // Theme Switcher Button
+    const themeBtn = document.createElement("button");
+    themeBtn.type = "button";
+    themeBtn.className = "dock-action-btn";
+    themeBtn.onclick = toggleAppTheme;
+    themeBtn.innerHTML = `<i id="dockThemeIcon" class="fa-solid ${isLight ? 'fa-moon text-indigo-400' : 'fa-sun text-amber-400'}"></i><span id="dockThemeLabel">${isLight ? 'Dark' : 'Light'}</span>`;
+    dock.appendChild(themeBtn);
+
+    document.body.appendChild(dock);
+  }
 
   // Universal Slide-Up App Drawer (Quick Room Jump + All 10 Modules)
   const role = getAuthRole();

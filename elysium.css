@@ -694,7 +694,7 @@
       font-size: 1.08rem !important;
     }
 
-    /* Mobile-Only Top-Right Menu Mode on Home Hub (index.html) */
+    /* Mobile / Android App Menu Mode on Home Hub (index.html) */
     @media (max-width: 767px) {
       body.mobile-top-menu #elysiumBottomDock {
         display: none !important;
@@ -702,4 +702,10 @@
       body.mobile-top-menu {
         padding-bottom: calc(1.75rem + env(safe-area-inset-bottom, 0px)) !important;
       }
+    }
+    body.is-android-app.mobile-top-menu #elysiumBottomDock {
+      display: none !important;
+    }
+    body.is-android-app.mobile-top-menu {
+      padding-bottom: calc(1.75rem + env(safe-area-inset-bottom, 0px)) !important;
     }
