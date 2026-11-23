@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Elysium PG - Workers &amp; Salaries</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="auth.js?v=29"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- Inter, Outfit & JetBrains Mono Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="elysium.css?v=27" />
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-16">
+
+  <!-- PIN LOCK SCREEN -->
+  <div id="pinLockModal" class="fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center">
+      <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mb-1">Staff Verification</h2>
+      <p class="text-sm text-slate-500 mb-6">Sign in to access Workers &amp; Payroll</p>
+      <div class="flex justify-center mb-6">
+        <input type="password" maxlength="6" id="staffPinInput"
+               class="w-44 text-center text-3xl tracking-widest font-mono py-2 border-2 border-slate-300 rounded-xl focus:border-amber-600 focus:outline-none"
+               placeholder="••••" autofocus />
+      </div>
+      <p id="pinErrorMsg" class="text-xs text-red-500 font-semibold mb-4 hidden">Invalid PIN.</p>
+      <button onclick="unlockApp()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-amber-500/30 transition">
+        Unlock Portal
+      </button>
+    </div>
+  </div>
+
+  <!-- ADD / EDIT WORKER MODAL -->
+  <div id="workerModal" class="fixed inset-0 z-40 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <div>
+          <h3 id="workerModalTitle" class="text-base font-black text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-user-plus text-amber-500"></i>
+            <span>Add New Worker</span>
+          </h3>
+          <p class="text-[11px] text-slate-500">Saved in Elysium PG master &bull; Salaries matched from Expenses</p>
+        </div>
+        <button type="button" onclick="closeWorkerModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form onsubmit="saveWorker(event)" class="space-y-3.5 text-xs">
+        <input type="hidden" id="wRowIndex" value="" />
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-700 font-bold mb-1">Worker Name *</label>
+            <input type="text" id="wName" required placeholder="e.g. Raju"
+                   class="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-slate-700 font-bold mb-1">Role *</label>
+            <input type="text" id="wRole" required placeholder="e.g. Cook, Cleaner"
+                   class="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- Quick Role Chips -->
+        <div class="flex flex-wrap gap-1.5 -mt-1">
+          <button type="button" onclick="setRolePreset('Cook')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-amber-50 text-slate-600 text-[10px] font-bold">Cook</button>
+          <button type="button" onclick="setRolePreset('Cleaner')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-amber-50 text-slate-600 text-[10px] font-bold">Cleaner</button>
+          <button type="button" onclick="setRolePreset('Watchman')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-amber-50 text-slate-600 text-[10px] font-bold">Watchman</button>
+          <button type="button" onclick="setRolePreset('Caretaker')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-amber-50 text-slate-600 text-[10px] font-bold">Caretaker</button>
+          <button type="button" onclick="setRolePreset('Helper')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-amber-50 text-slate-600 text-[10px] font-bold">Helper</button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-700 font-bold mb-1">Phone Number</label>
+            <input type="tel" id="wPhone" placeholder="10-digit mobile"
+                   class="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-slate-700 font-bold mb-1">Monthly Salary (₹) *</label>
+            <input type="number" id="wSalary" required min="0" oninput="onEditSalaryInput()" placeholder="e.g. 15000"
+                   class="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-bold focus:ring-2 focus:ring-amber-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- EFFECTIVE-FROM REVISION PICKER (AUTO-APPEARS WHEN EDITING SALARY) -->
+        <div id="wSalaryRevisionGroup" class="hidden p-3.5 rounded-2xl bg-amber-50/80 border border-amber-300 space-y-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] font-extrabold text-amber-800 uppercase tracking-wider">
+              <i class="fa-solid fa-calendar-check mr-1"></i> Salary Change Effective From
+            </span>
+            <span id="wSalaryDiffBadge" class="text-[10px] font-mono font-black text-amber-700"></span>
+          </div>
+          <select id="wSalaryEffectiveMonth" class="w-full px-3 py-2 border border-amber-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none"></select>
+          <input type="text" id="wSalaryReason" placeholder="Optional reason (e.g. Pay reduced, room rent adjusted, increment)"
+                 class="w-full px-3 py-2 border border-amber-300 rounded-xl text-xs font-medium bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none" />
+          <p class="text-[10px] text-amber-800/80 leading-snug">
+            Earlier months stay locked at the previous salary in <b>All Months (Cumulative)</b> view unless you choose <b>Apply to all months (fix typo)</b>.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-700 font-bold mb-1">Joining Date</label>
+            <input type="date" id="wJoinDate"
+                   class="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-slate-700 font-bold mb-1">Status *</label>
+            <select id="wStatus" onchange="toggleLeftDateField()" class="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none">
+              <option value="Active">Active</option>
+              <option value="Left">Left</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="wLeftDateGroup" class="hidden">
+          <label class="block text-slate-700 font-bold mb-1">Left Date (Stops Cumulative Salary Accrual)</label>
+          <input type="date" id="wLeftDate"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-none" />
+        </div>
+
+        <!-- MANUAL EXPENSE KEYWORDS BUILDER -->
+        <div class="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="block text-[11px] font-extrabold text-indigo-700 uppercase tracking-wider">
+              <i class="fa-solid fa-tags mr-1"></i> Expense Matching Keywords *
+            </label>
+            <span id="wKeywordCount" class="text-[10px] font-bold text-indigo-500">0 tags</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input type="text" id="wKeywordInput" onkeydown="onKeywordKeydown(event)"
+                   placeholder="Type keyword e.g. raju, cook salary..."
+                   class="flex-1 px-3 py-2 border border-indigo-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+            <button type="button" onclick="addKeywordFromInput()"
+                    class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0 flex items-center gap-1">
+              <i class="fa-solid fa-plus text-[10px]"></i> Add
+            </button>
+          </div>
+
+          <div id="wKeywordsChipList" class="flex flex-wrap gap-1.5 pt-1 min-h-[28px]">
+            <span class="text-[11px] text-slate-400 italic">No keywords added yet.</span>
+          </div>
+
+          <p class="text-[10px] text-slate-500 leading-snug">
+            Any row in the monthly <b>Expenses</b> sheet whose <b>Item / Purpose</b> or <b>Remarks</b> contains any keyword above (case-insensitive) is counted as salary paid.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-slate-700 font-bold mb-1">Notes (Optional)</label>
+          <textarea id="wNotes" rows="2" placeholder="e.g. Shift timings, PhonePe details, ID info..."
+                    class="w-full px-3 py-2 border border-slate-300 rounded-xl font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"></textarea>
+        </div>
+
+        <div id="workerModalStatus" class="p-2.5 rounded-xl text-xs font-semibold hidden"></div>
+
+        <div class="flex gap-2 pt-1">
+          <button type="button" onclick="closeWorkerModal()" class="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+            Cancel
+          </button>
+          <button type="submit" id="saveWorkerBtn" class="w-2/3 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs shadow-lg shadow-amber-600/25 transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>Save Worker</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- PAY SALARY / ADVANCE MODAL (WRITES DIRECTLY TO MONTHLY EXPENSES) -->
+  <div id="paySalaryModal" class="fixed inset-0 z-40 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <div>
+          <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-indian-rupee-sign text-emerald-600"></i>
+            <span>Pay Salary / Advance</span>
+          </h3>
+          <p id="payModalSub" class="text-[11px] text-slate-500">Logs a normal row into the selected month's Expenses tab</p>
+        </div>
+        <button type="button" onclick="closePayModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitSalaryPayment(event)" class="space-y-3.5 text-xs">
+        <input type="hidden" id="payWorkerIdx" value="" />
+
+        <div class="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between gap-2">
+          <div>
+            <span id="payBalanceLabel" class="text-[10px] font-bold text-slate-500 uppercase">Remaining Balance</span>
+            <p id="payRemainingBadge" class="text-base font-black font-mono text-emerald-700">₹0</p>
+          </div>
+          <div class="w-40">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Book to Month *</label>
+            <select id="payTargetMonth" required class="w-full px-2.5 py-1.5 text-xs font-extrabold border border-emerald-300 rounded-xl bg-white text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none"></select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-700 font-bold mb-1">Payment Date *</label>
+            <input type="date" id="payDate" required
+                   class="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-slate-700 font-bold mb-1">Amount Paid (₹) *</label>
+            <input type="number" id="payAmount" required min="1"
+                   class="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-black text-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-700 font-bold mb-1">Spent By (Partner / Cash) *</label>
+          <select id="paySpentBy" required class="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <option value="Sreekaran">Sreekaran</option>
+            <option value="Manohar">Manohar</option>
+            <option value="Sudheer">Sudheer</option>
+            <option value="Cash">Cash</option>
+            <option value="Office Account">Office Account</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-slate-700 font-bold mb-1">Expense Item / Purpose (Logged in Expenses) *</label>
+          <input type="text" id="payItemPurpose" required placeholder="e.g. Raju salary"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          <p class="text-[10px] text-slate-400 mt-1">Pre-filled with the worker's keyword so it matches automatically.</p>
+        </div>
+
+        <div>
+          <label class="block text-slate-700 font-bold mb-1">Remarks (Optional)</label>
+          <input type="text" id="payRemarks" placeholder="e.g. UPI transfer, mid-month advance"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+        </div>
+
+        <div id="payModalStatus" class="p-2.5 rounded-xl text-xs font-semibold hidden"></div>
+
+        <div class="flex gap-2 pt-1">
+          <button type="button" onclick="closePayModal()" class="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+            Cancel
+          </button>
+          <button type="submit" id="paySubmitBtn" class="w-2/3 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-600/25 transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-check-circle"></i>
+            <span>Record in Expenses</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADJUST SALARY / MONTH OVERRIDE MODAL -->
+  <div id="adjustSalaryModal" class="fixed inset-0 z-40 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <div>
+          <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-sliders text-indigo-600"></i>
+            <span>Adjust Worker Salary</span>
+          </h3>
+          <p id="adjModalSub" class="text-[11px] text-slate-500">One-time month deduction or permanent effective-dated revision</p>
+        </div>
+        <button type="button" onclick="closeAdjustModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitWorkerAdjustment(event)" class="space-y-3.5 text-xs">
+        <input type="hidden" id="adjWorkerIdx" value="" />
+
+        <!-- Adjustment Type Selector -->
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" id="adjTypeOverrideBtn" onclick="setAdjustType('Month Override')"
+                  class="p-2.5 rounded-xl border-2 border-indigo-600 bg-indigo-50 text-indigo-700 font-bold text-left transition">
+            <span class="block text-xs font-black"><i class="fa-solid fa-calendar-day mr-1"></i> 1 Month Only</span>
+            <span class="block text-[10px] font-medium opacity-80 mt-0.5">Leave / rent offset / one-time</span>
+          </button>
+          <button type="button" id="adjTypeRevisionBtn" onclick="setAdjustType('Revision')"
+                  class="p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 font-bold text-left transition">
+            <span class="block text-xs font-black"><i class="fa-solid fa-arrow-trend-up mr-1"></i> Permanent Rate</span>
+            <span class="block text-[10px] font-medium opacity-80 mt-0.5">From chosen month onward</span>
+          </button>
+        </div>
+        <input type="hidden" id="adjTypeVal" value="Month Override" />
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label id="adjMonthLabel" class="block text-slate-700 font-bold mb-1">Applies to Month *</label>
+            <select id="adjEffectiveMonth" required onchange="onAdjustMonthChange()"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"></select>
+          </div>
+          <div>
+            <label class="block text-slate-700 font-bold mb-1">Adjusted Salary (₹) *</label>
+            <input type="number" id="adjAmount" required min="0"
+                   class="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-black text-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-700 font-bold mb-1">Reason / Note</label>
+          <input type="text" id="adjReason" placeholder="e.g. Room rent deducted, 4 days unpaid leave, salary revision"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+        </div>
+
+        <p id="adjHelpHint" class="text-[10px] text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 leading-snug">
+          Changes expected salary for <b>only this one month</b>. Earlier months and future months remain untouched.
+        </p>
+
+        <div id="adjModalStatus" class="p-2.5 rounded-xl text-xs font-semibold hidden"></div>
+
+        <div class="flex gap-2 pt-1">
+          <button type="button" onclick="closeAdjustModal()" class="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+            Close
+          </button>
+          <button type="submit" id="adjSubmitBtn" class="w-2/3 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-lg shadow-indigo-600/25 transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-check-circle"></i>
+            <span>Save Adjustment</span>
+          </button>
+        </div>
+      </form>
+
+      <!-- SAVED ADJUSTMENTS & REVISIONS HISTORY -->
+      <div class="mt-5 pt-4 border-t border-slate-200">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+            <i class="fa-solid fa-clock-rotate-left mr-1"></i> Saved Salary History &amp; Overrides
+          </span>
+          <span id="adjHistoryCount" class="text-[10px] font-bold text-slate-400">0 entries</span>
+        </div>
+        <div id="adjHistoryList" class="space-y-1.5 max-h-48 overflow-y-auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN WRAPPER -->
+  <div class="max-w-4xl mx-auto px-4 pt-4 sm:pt-8">
+
+    <!-- HEADER -->
+    <header class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 mb-5 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <a href="index.html" class="text-xs font-bold text-slate-500 hover:text-slate-800 transition flex items-center gap-1">
+            <i class="fa-solid fa-arrow-left"></i> Home
+          </a>
+          <span class="text-slate-300">&bull;</span>
+          <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Staff &amp; Payroll</span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
+          <i class="fa-solid fa-users-gear text-amber-400"></i> Workers
+        </h1>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap">
+        <select id="monthSelect" onchange="onMonthChange()" class="px-3 py-2 text-xs font-black bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none text-slate-800">
+          <option value="">Loading...</option>
+        </select>
+
+        <button type="button" onclick="loadWorkers(true)" class="p-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition" title="Force Refresh">
+          <i class="fa-solid fa-arrows-rotate"></i>
+        </button>
+
+        <button type="button" onclick="openAddWorkerModal()" class="btn-add px-3.5 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-md transition flex items-center gap-1.5">
+          <i class="fa-solid fa-user-plus"></i>
+          <span>Add Worker</span>
+        </button>
+
+        <button type="button" onclick="toggleElysiumDrawer(true)" class="p-2 text-xs font-bold bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 rounded-xl transition" title="Quick Jump &amp; Modules">
+          <i class="fa-solid fa-compass"></i>
+        </button>
+
+        <button type="button" onclick="logoutApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition" title="Sign Out">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- CUMULATIVE MODE INFO BANNER + CURRENT-MONTH TOGGLE -->
+    <div id="cumulativeBanner" class="hidden mb-4 px-3.5 py-2.5 rounded-2xl bg-indigo-500/15 border border-indigo-400/30 text-indigo-300 text-xs font-semibold flex flex-wrap items-center justify-between gap-2.5">
+      <div class="flex items-center gap-2 min-w-0 flex-1">
+        <i class="fa-solid fa-layer-group text-indigo-400 shrink-0"></i>
+        <span id="cumulativeBannerText">Cumulative mode: counts completed months earned &minus; all payouts &amp; advances across tracked months.</span>
+      </div>
+      <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/50 border border-indigo-400/35 text-[11px] font-bold text-white cursor-pointer select-none shrink-0">
+        <input type="checkbox" id="includeCurrentMonthToggle" onchange="onToggleIncludeCurrentMonth()" class="w-3.5 h-3.5 rounded text-indigo-500 focus:ring-0" />
+        <span id="includeCurrentMonthLabel">Include current month (in progress)</span>
+      </label>
+    </div>
+
+    <!-- SUMMARY METRICS -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Staff</span>
+        <p id="metricActiveCount" class="text-2xl font-black text-slate-900 mt-1">0</p>
+        <span class="text-[10px] text-slate-400">Elysium PG master</span>
+      </div>
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <span id="metricExpectedTitle" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Monthly Payroll</span>
+        <p id="metricTotalPayroll" class="text-2xl font-black font-mono text-indigo-600 mt-1">₹0</p>
+        <span id="metricExpectedSub" class="text-[10px] text-slate-400">Agreed salaries</span>
+      </div>
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <span id="metricPaidTitle" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paid So Far</span>
+        <p id="metricTotalPaid" class="text-2xl font-black font-mono text-emerald-600 mt-1">₹0</p>
+        <span id="metricPaidSub" class="text-[10px] text-slate-400">Matched in Expenses</span>
+      </div>
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <span id="metricBalanceTitle" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Balance Due</span>
+        <p id="metricTotalBalance" class="text-2xl font-black font-mono text-rose-600 mt-1">₹0</p>
+        <span id="metricBalanceSub" class="text-[10px] text-slate-400">Remaining payable</span>
+      </div>
+    </div>
+
+    <!-- SEARCH & FILTER BAR -->
+    <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div class="relative flex-1 min-w-[200px]">
+        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </span>
+        <input type="text" id="searchInput" oninput="renderWorkers()" placeholder="Search worker name, role, phone, or keyword..."
+               class="w-full pl-8 pr-3 py-2 text-xs font-bold border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none" />
+      </div>
+
+      <div class="flex items-center gap-1.5 text-xs font-bold flex-wrap">
+        <button type="button" onclick="setFilter('ACTIVE')" id="filtACTIVE" class="px-3 py-1.5 rounded-xl bg-amber-600 text-white">Active</button>
+        <button type="button" onclick="setFilter('DUE')" id="filtDUE" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600">Balance Due</button>
+        <button type="button" onclick="setFilter('PAID')" id="filtPAID" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600">Paid</button>
+        <button type="button" onclick="setFilter('LEFT')" id="filtLEFT" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600">Left</button>
+        <button type="button" onclick="setFilter('ALL')" id="filtALL" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600">All</button>
+      </div>
+    </div>
+
+    <!-- WORKERS LIST -->
+    <div id="workersList" class="space-y-4">
+      <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-400 text-xs font-semibold">
+        <i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i> Loading workers &amp; matched expenses...
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let allWorkers = [];
+    let availableMonthsList = [];
+    let currentServerMonth = "";
+    let currentMode = "ALL";
+    let includeCurrentMonthState = false;
+    let currentCalendarMonthName = "";
+    let monthsScannedList = [];
+    let activeFilter = "ACTIVE";
+    let modalKeywords = [];
+    let editingWorkerExpected = null;
+    let editingWorkerOrigSalary = null;
+    let expandedKeys = {};
+
+    function unlockApp() {
+      window.location.replace("login.html?redirect=workers.html");
+    }
+
+    function fmtInr(n) {
+      return "₹" + (Number(n) || 0).toLocaleString("en-IN");
+    }
+
+    function todayIso() {
+      const d = new Date();
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    }
+
+    function populateWorkersMonthSelect(months, selectedVal) {
+      const sel = document.getElementById("monthSelect");
+      const paySel = document.getElementById("payTargetMonth");
+      const sorted = (months || []).slice().reverse();
+      availableMonthsList = sorted;
+
+      sel.innerHTML = `<option value="ALL">★ All Months (Cumulative)</option>` +
+        sorted.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
+
+      if (selectedVal && (selectedVal === "ALL" || sorted.includes(selectedVal))) {
+        sel.value = selectedVal;
+      } else if (sorted.length) {
+        sel.value = sorted[0];
+      }
+
+      if (paySel) {
+        paySel.innerHTML = sorted.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
+      }
+    }
+
+    async function initWorkersPage() {
+      const now = new Date();
+      const calMonth = MONTH_NAMES[now.getMonth()] + " " + now.getFullYear();
+      currentCalendarMonthName = calMonth;
+
+      const lbl = document.getElementById("includeCurrentMonthLabel");
+      if (lbl) lbl.innerText = `Include ${calMonth} (in progress)`;
+
+      // Fast initial dropdown population from cached months — default to Cumulative ("ALL")
+      let cachedMonths = [];
+      try {
+        const raw = sessionStorage.getItem("elysium_available_months_v2");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.months) && parsed.months.length) cachedMonths = parsed.months;
+        }
+      } catch (e) {}
+
+      if (cachedMonths.length) {
+        populateWorkersMonthSelect(cachedMonths, "ALL");
+      } else {
+        populateWorkersMonthSelect([calMonth], "ALL");
+      }
+
+      // Start loading workers immediately while refreshing available months list
+      loadWorkers(false);
+
+      try {
+        const mJson = await apiGet("getAvailableMonths");
+        if (mJson && Array.isArray(mJson.months) && mJson.months.length) {
+          try { sessionStorage.setItem("elysium_available_months_v2", JSON.stringify({ ts: Date.now(), months: mJson.months })); } catch (e) {}
+          const curSel = document.getElementById("monthSelect").value;
+          populateWorkersMonthSelect(mJson.months, curSel);
+        }
+      } catch (e) {}
+    }
+
+    function onMonthChange() {
+      const val = document.getElementById("monthSelect").value;
+      if (val && val !== "ALL") {
+        sessionStorage.setItem("elysium_active_month", val);
+      }
+      loadWorkers(false);
+    }
+
+    function onToggleIncludeCurrentMonth() {
+      const cb = document.getElementById("includeCurrentMonthToggle");
+      includeCurrentMonthState = Boolean(cb && cb.checked);
+      loadWorkers(false);
+    }
+
+    async function loadWorkers(forceRefresh = false) {
+      const month = document.getElementById("monthSelect").value || "ALL";
+      const container = document.getElementById("workersList");
+      const cb = document.getElementById("includeCurrentMonthToggle");
+      const incCur = Boolean(cb && cb.checked);
+      includeCurrentMonthState = incCur;
+
+      if (forceRefresh || !allWorkers.length) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-400 text-xs font-semibold">
+            <i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i> ${month === "ALL" ? "Aggregating salaries across all months..." : "Loading workers & matched expenses..."}
+          </div>`;
+      }
+
+      try {
+        const params = { month: month };
+        if (month === "ALL") params.includeCurrentMonth = incCur ? "true" : "false";
+        if (forceRefresh) params.forceRefresh = "true";
+
+        const applyData = (json) => {
+          if (!json || json.status !== "success") return;
+          allWorkers = json.workers || [];
+          currentMode = json.mode || (month === "ALL" ? "ALL" : "SINGLE");
+          includeCurrentMonthState = Boolean(json.includeCurrentMonth);
+          if (json.currentCalendarMonth) currentCalendarMonthName = json.currentCalendarMonth;
+          currentServerMonth = json.currentMonth || (availableMonthsList[0] || "");
+          monthsScannedList = json.monthsScanned || [];
+          renderWorkers();
+        };
+
+        if (typeof apiGetSWR === "function") {
+          await apiGetSWR("getWorkersData", params, applyData, forceRefresh);
+        } else {
+          const json = await apiGet("getWorkersData", params);
+          applyData(json);
+        }
+      } catch (err) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl border border-rose-200 p-6 text-center text-rose-600 text-xs font-bold">
+            <i class="fa-solid fa-circle-exclamation mr-1"></i> ${esc(err.message || "Failed loading workers.")}
+          </div>`;
+      }
+    }
+
+    function setFilter(f) {
+      activeFilter = f;
+      ["ACTIVE", "DUE", "PAID", "LEFT", "ALL"].forEach(k => {
+        const btn = document.getElementById("filt" + k);
+        if (!btn) return;
+        btn.className = (k === f)
+          ? "px-3 py-1.5 rounded-xl bg-amber-600 text-white"
+          : "px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600";
+      });
+      renderWorkers();
+    }
+
+    function toggleBreakdown(key) {
+      expandedKeys[key] = !expandedKeys[key];
+      renderWorkers();
+    }
+
+    function renderWorkers() {
+      const isCum = currentMode === "ALL";
+      const selectedMonth = document.getElementById("monthSelect").value;
+      const isViewer = getAuthRole() === "VIEWER";
+      const q = (document.getElementById("searchInput").value || "").trim().toLowerCase();
+
+      // Update Cumulative banner & metric labels
+      const cumBanner = document.getElementById("cumulativeBanner");
+      const curCalShort = (currentCalendarMonthName || "").replace(/^([A-Za-z]{3})[a-z]+\s+(\d{4})$/, "$1 $2");
+      if (cumBanner) {
+        cumBanner.classList.toggle("hidden", !isCum);
+        const togLbl = document.getElementById("includeCurrentMonthLabel");
+        if (togLbl && currentCalendarMonthName) {
+          togLbl.innerText = `Include ${currentCalendarMonthName} (in progress)`;
+        }
+        if (isCum) {
+          document.getElementById("cumulativeBannerText").innerHTML = includeCurrentMonthState
+            ? `<b>Including ${esc(currentCalendarMonthName || "current month")}:</b> Earned salary includes the ongoing month (for month-end payout settlement).`
+            : `<b>Completed Months Only:</b> Excludes ${esc(currentCalendarMonthName || "current month")} (still in progress) from earned salary; all payouts &amp; mid-month advances are counted in Paid.`;
+        }
+      }
+
+      document.getElementById("metricExpectedTitle").innerText = isCum
+        ? (includeCurrentMonthState ? `Earned (incl. ${curCalShort || "Cur"})` : "Earned (Completed)")
+        : "Monthly Payroll";
+      document.getElementById("metricExpectedSub").innerText = isCum
+        ? (includeCurrentMonthState ? "Includes ongoing month" : "Completed months only")
+        : "Agreed salaries";
+      document.getElementById("metricPaidTitle").innerText = isCum ? "Total Paid" : "Paid So Far";
+      document.getElementById("metricPaidSub").innerText = isCum ? `All payouts (${monthsScannedList.length} mos)` : "Matched in Expenses";
+      document.getElementById("metricBalanceTitle").innerText = isCum ? "Balance Due" : "Balance Due";
+      document.getElementById("metricBalanceSub").innerText = isCum
+        ? (includeCurrentMonthState ? "Unpaid incl. current mo" : "Unpaid for completed mos")
+        : "Remaining payable";
+
+      const activeWorkers = allWorkers.filter(w => w.status === "Active");
+      document.getElementById("metricActiveCount").innerText = activeWorkers.length;
+      document.getElementById("metricTotalPayroll").innerText = fmtInr(activeWorkers.reduce((s, w) => s + (Number(w.expectedTotal) || 0), 0));
+      document.getElementById("metricTotalPaid").innerText = fmtInr(activeWorkers.reduce((s, w) => s + (Number(w.paid) || 0), 0));
+      document.getElementById("metricTotalBalance").innerText = fmtInr(activeWorkers.reduce((s, w) => s + (Number(w.balance) || 0), 0));
+
+      const filtered = allWorkers.filter(w => {
+        if (activeFilter === "ACTIVE" && w.status !== "Active") return false;
+        if (activeFilter === "DUE" && !(w.status === "Active" && w.balance > 0)) return false;
+        if (activeFilter === "PAID" && !(w.status === "Active" && w.balance === 0)) return false;
+        if (activeFilter === "LEFT" && w.status !== "Left") return false;
+        if (q) {
+          const hay = [w.name, w.role, w.phone, (w.keywords || []).join(" "), w.notes].join(" ").toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      const container = document.getElementById("workersList");
+      if (!allWorkers.length) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center space-y-2">
+            <i class="fa-solid fa-users-gear text-3xl text-amber-400"></i>
+            <p class="text-sm font-bold text-slate-700">No workers added yet</p>
+            <p class="text-xs text-slate-500">Tap <b>Add Worker</b> to create your staff profiles in <b>Elysium PG master</b> and link their salary keywords.</p>
+          </div>`;
+        return;
+      }
+
+      if (!filtered.length) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center">
+            <i class="fa-solid fa-users-slash text-3xl text-slate-300 mb-2"></i>
+            <p class="text-sm font-bold text-slate-500">No workers match this filter.</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map((w) => {
+        const origIdx = allWorkers.indexOf(w);
+        const expKey = "w_" + w.rowIndex;
+        const isOpen = !!expandedKeys[expKey];
+        const expectedAmt = Number(w.expectedTotal) || 0;
+        const paidAmt = Number(w.paid) || 0;
+        const balAmt = Number(w.balance) || 0;
+        const excAmt = Number(w.excess) || 0;
+        const pct = expectedAmt > 0 ? Math.min(100, Math.round((paidAmt / expectedAmt) * 100)) : 100;
+
+        const statusBadge = w.status === "Active"
+          ? (balAmt > 0
+              ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/15 text-rose-400 border border-rose-500/30">Due ${fmtInr(balAmt)}</span>`
+              : (excAmt > 0 && isCum && !includeCurrentMonthState
+                  ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/15 text-amber-500 border border-amber-500/30">Advance Drawn ${fmtInr(excAmt)}</span>`
+                  : `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">${isCum ? "Settled ✓" : "Paid in Full ✓"}</span>`))
+          : `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-500/20 text-slate-400 border border-slate-500/30">Left${w.leftDate ? " (" + esc(w.leftDate) + ")" : ""}</span>`;
+
+        const kwChips = (w.keywords || []).length
+          ? w.keywords.map(k => `<span class="px-2 py-0.5 rounded-lg bg-indigo-500/15 text-indigo-300 border border-indigo-400/25 text-[10px] font-mono font-bold">${esc(k)}</span>`).join("")
+          : `<span class="text-[10px] text-amber-400 font-semibold italic">No keywords set</span>`;
+
+        const matched = w.matchedExpenses || [];
+        const breakdownRows = matched.length
+          ? matched.map(e => `
+              <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    ${isCum && e.month ? `<span class="px-1.5 py-0.5 rounded-md bg-indigo-500/15 text-indigo-400 text-[9px] font-black uppercase">${esc(e.month.replace(/^([A-Za-z]{3})[a-z]+\s+(\d{4})$/, "$1 $2"))}</span>` : ""}
+                    <p class="font-bold text-slate-800 truncate">${esc(e.itemPurpose)}</p>
+                  </div>
+                  <p class="text-[10px] text-slate-500 mt-0.5">${esc(e.date)} &bull; Paid by <b>${esc(e.spentBy)}</b>${e.remarks ? " &bull; " + esc(e.remarks) : ""}</p>
+                </div>
+                <span class="font-mono font-black text-emerald-600 shrink-0">${fmtInr(e.amount)}</span>
+              </div>`).join("")
+          : `<p class="text-[11px] text-slate-400 italic py-1">No matching expense entries found${isCum ? " across tracked months" : " in " + esc(selectedMonth)} for these keywords.</p>`;
+
+        const monthShort = (!isCum && selectedMonth) ? selectedMonth.split(" ")[0].slice(0, 3) : "All";
+        const waNum = whatsappNumber(w.phone);
+
+        return `
+          <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3.5">
+            <!-- Top Row -->
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-11 h-11 rounded-2xl bg-amber-500/15 border border-amber-400/30 text-amber-500 flex items-center justify-center font-black text-base shrink-0">
+                  ${esc((w.name || "W")[0].toUpperCase())}
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h3 class="text-base font-black text-slate-900 truncate">${esc(w.name)}</h3>
+                    <span class="px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-500 text-[10px] font-extrabold uppercase">${esc(w.role)}</span>
+                    ${statusBadge}
+                  </div>
+                  <div class="flex items-center gap-3 text-[11px] text-slate-500 mt-0.5 flex-wrap">
+                    ${w.phone ? `<span class="font-mono font-semibold"><i class="fa-solid fa-phone text-[9px] mr-1"></i>${esc(w.phone)}</span>` : ""}
+                    ${w.joiningDate ? `<span><i class="fa-regular fa-calendar text-[9px] mr-1"></i>Joined ${esc(w.joiningDate)}</span>` : ""}
+                    ${isCum ? `<span class="text-indigo-400 font-bold">${fmtInr(w.monthlySalary)}/mo</span>` : ""}
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-1.5 shrink-0">
+                ${w.phone ? `
+                  <a href="tel:${esc(w.phone)}" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center" title="Call">
+                    <i class="fa-solid fa-phone text-xs"></i>
+                  </a>` : ""}
+                ${waNum ? `
+                  <a href="https://wa.me/${waNum}" target="_blank" class="w-8 h-8 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-500 flex items-center justify-center" title="WhatsApp">
+                    <i class="fa-brands fa-whatsapp text-sm"></i>
+                  </a>` : ""}
+                ${!isViewer ? `
+                  <button type="button" onclick="openEditWorkerModal(${origIdx})" class="w-8 h-8 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 flex items-center justify-center" title="Edit Worker &amp; Keywords">
+                    <i class="fa-solid fa-pen text-xs"></i>
+                  </button>
+                  <button type="button" onclick="deleteWorker(${origIdx})" class="w-8 h-8 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 flex items-center justify-center" title="Delete Worker">
+                    <i class="fa-solid fa-trash-can text-xs"></i>
+                  </button>` : ""}
+              </div>
+            </div>
+
+            <!-- Salary Progress Strip -->
+            <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+              <div class="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase block">${isCum ? `Earned (${w.monthsWorked} mo${w.monthsWorked === 1 ? "" : "s"})` : (w.salarySource === "override" ? "Adjusted" : "Monthly")}</span>
+                  <span class="text-sm font-black font-mono text-slate-900">${fmtInr(expectedAmt)}</span>
+                </div>
+                <div>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase block">${isCum ? "Total Paid" : `Paid (${esc(monthShort)})`}</span>
+                  <span class="text-sm font-black font-mono text-emerald-600">${fmtInr(paidAmt)}</span>
+                </div>
+                <div>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase block">${excAmt > 0 ? (isCum && !includeCurrentMonthState ? "Advance Drawn" : "Advance / Excess") : (isCum ? "Balance Due" : "Balance")}</span>
+                  <span class="text-sm font-black font-mono ${balAmt > 0 ? "text-rose-600" : (excAmt > 0 ? "text-amber-500" : "text-emerald-600")}">
+                    ${excAmt > 0 ? fmtInr(excAmt) : fmtInr(balAmt)}
+                  </span>
+                </div>
+              </div>
+              <div class="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div class="h-full rounded-full ${balAmt === 0 ? "bg-emerald-500" : "bg-amber-500"} transition-all" style="width:${pct}%"></div>
+              </div>
+              ${isCum ? `
+                <div class="space-y-1 pt-0.5 text-[10px] text-slate-500">
+                  <div class="flex flex-wrap items-center justify-between gap-1">
+                    <span><i class="fa-solid fa-calculator text-indigo-400 mr-1"></i>${esc(w.formulaSummary || `${w.monthsWorked} mos × ${fmtInr(w.monthlySalary)}`)} = <b>${fmtInr(expectedAmt)}</b></span>
+                    ${w.lastPaidDate ? `<span>Last paid: <b>${esc(w.lastPaidDate)}</b></span>` : ""}
+                  </div>
+                  ${!includeCurrentMonthState && w.upcomingMonthName ? `
+                    <div class="flex flex-wrap items-center justify-between gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-400/20 text-[10px] text-indigo-400 font-semibold">
+                      <span><i class="fa-regular fa-clock mr-1"></i>${esc(w.upcomingMonthName)} in progress (${fmtInr(w.upcomingMonthExpected)})</span>
+                      <span>Net payable after ${esc(w.upcomingMonthName.split(" ")[0].slice(0, 3))}: <b class="font-mono">${fmtInr(w.upcomingNetPayable)}</b></span>
+                    </div>` : ""}
+                </div>` : (w.salarySource === "override" || w.salarySource === "revision" ? `
+                <div class="flex flex-wrap items-center justify-between gap-1 text-[10px] pt-0.5">
+                  <span class="px-2 py-0.5 rounded-lg ${w.salarySource === "override" ? "bg-indigo-500/15 text-indigo-400 border border-indigo-400/25" : "bg-amber-500/15 text-amber-500 border border-amber-400/25"} font-bold">
+                    <i class="fa-solid ${w.salarySource === "override" ? "fa-calendar-day" : "fa-arrow-trend-up"} mr-1"></i>${w.salarySource === "override" ? "1-Month Override" : "Salary Revision"}${w.salaryNote ? ": " + esc(w.salaryNote) : ""}
+                  </span>
+                  ${w.salarySource === "override" && Number(w.monthlySalary) !== expectedAmt ? `<span class="text-slate-400">Base: <span class="font-mono line-through">${fmtInr(w.monthlySalary)}</span></span>` : ""}
+                </div>` : "")}
+            </div>
+
+            <!-- Keywords Strip -->
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-[10px] font-bold text-slate-400 uppercase"><i class="fa-solid fa-tags mr-1"></i>Keywords:</span>
+                ${kwChips}
+              </div>
+              ${!isViewer ? `
+                <button type="button" onclick="openEditWorkerModal(${origIdx})" class="text-[11px] font-bold text-indigo-400 hover:underline">
+                  + Manage Keywords
+                </button>` : ""}
+            </div>
+
+            ${w.notes ? `<p class="text-[11px] text-slate-500 bg-slate-50/70 px-3 py-2 rounded-xl border border-slate-200/60"><i class="fa-regular fa-note-sticky mr-1.5 text-slate-400"></i>${esc(w.notes)}</p>` : ""}
+
+            <!-- Action Bar -->
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
+              <button type="button" onclick="toggleBreakdown('${expKey}')" class="text-xs font-bold text-slate-500 hover:text-indigo-500 flex items-center gap-1.5 py-1">
+                <i class="fa-solid ${isOpen ? "fa-chevron-up" : "fa-chevron-down"} text-[10px]"></i>
+                <span>Matched Expenses (${matched.length})</span>
+              </button>
+
+              ${!isViewer ? `
+                <div class="flex items-center gap-2 flex-wrap">
+                  <button type="button" onclick="openAdjustModal(${origIdx})" class="px-3 py-2 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 border border-indigo-400/30 text-xs font-bold flex items-center gap-1.5">
+                    <i class="fa-solid fa-sliders text-[11px]"></i>
+                    <span>Adjust Pay${(w.adjustments || []).filter(a => !a.isBaseline).length ? ` (${(w.adjustments || []).filter(a => !a.isBaseline).length})` : ""}</span>
+                  </button>
+                  ${w.status === "Active" ? `
+                    <button type="button" onclick="openPayModal(${origIdx})" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center gap-1.5">
+                      <i class="fa-solid fa-indian-rupee-sign text-[11px]"></i>
+                      <span>Pay Salary / Advance</span>
+                    </button>` : ""}
+                </div>` : ""}
+            </div>
+
+            <!-- Collapsible Matched Expense Rows -->
+            ${isOpen ? `<div class="space-y-1.5 pt-1">${breakdownRows}</div>` : ""}
+          </div>`;
+      }).join("");
+    }
+
+    // ---------- WORKER MODAL & KEYWORD CHIPS ----------
+    function setRolePreset(role) {
+      document.getElementById("wRole").value = role;
+    }
+
+    function toggleLeftDateField() {
+      const st = document.getElementById("wStatus").value;
+      const grp = document.getElementById("wLeftDateGroup");
+      grp.classList.toggle("hidden", st !== "Left");
+      if (st === "Left" && !document.getElementById("wLeftDate").value) {
+        document.getElementById("wLeftDate").value = todayIso();
+      }
+    }
+
+    function renderKeywordChips() {
+      const box = document.getElementById("wKeywordsChipList");
+      document.getElementById("wKeywordCount").innerText = `${modalKeywords.length} tag${modalKeywords.length === 1 ? "" : "s"}`;
+      if (!modalKeywords.length) {
+        box.innerHTML = `<span class="text-[11px] text-slate-400 italic">No keywords added yet.</span>`;
+        return;
+      }
+      box.innerHTML = modalKeywords.map((kw, idx) => `
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-600 text-white text-[11px] font-mono font-bold">
+          <span>${esc(kw)}</span>
+          <button type="button" onclick="removeKeyword(${idx})" class="hover:text-rose-200"><i class="fa-solid fa-xmark text-[10px]"></i></button>
+        </span>`).join("");
+    }
+
+    function addKeywordFromInput() {
+      const inp = document.getElementById("wKeywordInput");
+      const raw = (inp.value || "").trim();
+      if (!raw) return;
+      raw.split(",").map(s => s.trim()).filter(Boolean).forEach(tag => {
+        if (!modalKeywords.some(k => k.toLowerCase() === tag.toLowerCase())) {
+          modalKeywords.push(tag);
+        }
+      });
+      inp.value = "";
+      renderKeywordChips();
+      inp.focus();
+    }
+
+    function onKeywordKeydown(e) {
+      if (e.key === "Enter" || e.key === ",") {
+        e.preventDefault();
+        addKeywordFromInput();
+      }
+    }
+
+    function removeKeyword(idx) {
+      modalKeywords.splice(idx, 1);
+      renderKeywordChips();
+    }
+
+    function getAdjustmentMonthOptions() {
+      const set = new Set(availableMonthsList || []);
+      const now = new Date();
+      for (let offset = 0; offset <= 3; offset++) {
+        const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+        set.add(MONTH_NAMES[d.getMonth()] + " " + d.getFullYear());
+      }
+      return Array.from(set).sort((a, b) => monthSortKey(b) - monthSortKey(a));
+    }
+
+    function defaultAdjustMonth() {
+      const sel = document.getElementById("monthSelect").value;
+      if (sel && sel !== "ALL") return sel;
+      const now = new Date();
+      return currentServerMonth || (MONTH_NAMES[now.getMonth()] + " " + now.getFullYear());
+    }
+
+    function populateRevisionMonthDropdown(selectedMonth) {
+      const sel = document.getElementById("wSalaryEffectiveMonth");
+      if (!sel) return;
+      const opts = getAdjustmentMonthOptions();
+      sel.innerHTML = opts.map(m => `<option value="${esc(m)}">Effective from ${esc(m)} onward</option>`).join("") +
+        `<option value="ALL_RETRO">Apply to all months (fix typo)</option>`;
+      sel.value = opts.includes(selectedMonth) ? selectedMonth : opts[0];
+    }
+
+    function onEditSalaryInput() {
+      const grp = document.getElementById("wSalaryRevisionGroup");
+      const diffBadge = document.getElementById("wSalaryDiffBadge");
+      if (!grp) return;
+      const isEditing = Boolean(document.getElementById("wRowIndex").value);
+      const newVal = Number(document.getElementById("wSalary").value);
+      if (isEditing && editingWorkerOrigSalary !== null && !isNaN(newVal) && newVal !== editingWorkerOrigSalary) {
+        grp.classList.remove("hidden");
+        if (diffBadge) {
+          diffBadge.innerText = `${fmtInr(editingWorkerOrigSalary)} → ${fmtInr(newVal)}`;
+        }
+      } else {
+        grp.classList.add("hidden");
+      }
+    }
+
+    function openAddWorkerModal() {
+      editingWorkerExpected = null;
+      editingWorkerOrigSalary = null;
+      document.getElementById("wRowIndex").value = "";
+      document.getElementById("workerModalTitle").innerHTML = `<i class="fa-solid fa-user-plus text-amber-500"></i> <span>Add New Worker</span>`;
+      document.getElementById("wName").value = "";
+      document.getElementById("wRole").value = "";
+      document.getElementById("wPhone").value = "";
+      document.getElementById("wSalary").value = "";
+      document.getElementById("wJoinDate").value = todayIso();
+      document.getElementById("wStatus").value = "Active";
+      document.getElementById("wLeftDate").value = "";
+      document.getElementById("wNotes").value = "";
+      document.getElementById("wKeywordInput").value = "";
+      document.getElementById("wSalaryReason").value = "";
+      document.getElementById("wSalaryRevisionGroup").classList.add("hidden");
+      document.getElementById("workerModalStatus").classList.add("hidden");
+      modalKeywords = [];
+      toggleLeftDateField();
+      renderKeywordChips();
+      document.getElementById("workerModal").classList.remove("hidden");
+    }
+
+    function openEditWorkerModal(idx) {
+      const w = allWorkers[idx];
+      if (!w) return;
+      editingWorkerExpected = { name: w.name, role: w.role };
+      editingWorkerOrigSalary = Number(w.monthlySalary) || 0;
+      document.getElementById("wRowIndex").value = w.rowIndex || "";
+      document.getElementById("workerModalTitle").innerHTML = `<i class="fa-solid fa-pen text-indigo-500"></i> <span>Edit Worker &amp; Keywords</span>`;
+      document.getElementById("wName").value = w.name || "";
+      document.getElementById("wRole").value = w.role || "";
+      document.getElementById("wPhone").value = w.phone || "";
+      document.getElementById("wSalary").value = w.monthlySalary || 0;
+      document.getElementById("wJoinDate").value = w.joiningDate || "";
+      document.getElementById("wStatus").value = w.status || "Active";
+      document.getElementById("wLeftDate").value = w.leftDate || "";
+      document.getElementById("wNotes").value = w.notes || "";
+      document.getElementById("wKeywordInput").value = "";
+      document.getElementById("wSalaryReason").value = "";
+      populateRevisionMonthDropdown(defaultAdjustMonth());
+      document.getElementById("wSalaryRevisionGroup").classList.add("hidden");
+      document.getElementById("workerModalStatus").classList.add("hidden");
+      modalKeywords = [...(w.keywords || [])];
+      toggleLeftDateField();
+      renderKeywordChips();
+      document.getElementById("workerModal").classList.remove("hidden");
+    }
+
+    function closeWorkerModal() {
+      document.getElementById("workerModal").classList.add("hidden");
+    }
+
+    async function saveWorker(e) {
+      e.preventDefault();
+      addKeywordFromInput();
+      const statusBox = document.getElementById("workerModalStatus");
+      if (!modalKeywords.length) {
+        statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 block";
+        statusBox.innerText = "Please add at least one Expense Matching Keyword.";
+        return;
+      }
+
+      const btn = document.getElementById("saveWorkerBtn");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...`;
+      statusBox.classList.add("hidden");
+
+      const rowIndex = document.getElementById("wRowIndex").value;
+      const statusVal = document.getElementById("wStatus").value;
+      const payload = {
+        action: "saveWorker",
+        rowIndex: rowIndex ? Number(rowIndex) : undefined,
+        expected: editingWorkerExpected || undefined,
+        name: document.getElementById("wName").value.trim(),
+        role: document.getElementById("wRole").value.trim(),
+        phone: document.getElementById("wPhone").value.trim(),
+        monthlySalary: Number(document.getElementById("wSalary").value) || 0,
+        joiningDate: document.getElementById("wJoinDate").value,
+        leftDate: statusVal === "Left" ? document.getElementById("wLeftDate").value : "",
+        status: statusVal,
+        keywords: modalKeywords.join(", "),
+        notes: document.getElementById("wNotes").value.trim()
+      };
+      const revGrp = document.getElementById("wSalaryRevisionGroup");
+      if (rowIndex && revGrp && !revGrp.classList.contains("hidden")) {
+        payload.salaryEffectiveMonth = document.getElementById("wSalaryEffectiveMonth").value;
+        payload.salaryReason = document.getElementById("wSalaryReason").value.trim();
+      }
+
+      try {
+        await apiPost(payload);
+        closeWorkerModal();
+        loadWorkers(true);
+      } catch (err) {
+        if (err && err.cancelled) return;
+        statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 block";
+        statusBox.innerText = err.message || "Failed saving worker.";
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> <span>Save Worker</span>`;
+      }
+    }
+
+    async function deleteWorker(idx) {
+      const w = allWorkers[idx];
+      if (!w) return;
+      try {
+        await apiPost({
+          action: "deleteWorker",
+          rowIndex: w.rowIndex,
+          expected: { name: w.name, role: w.role }
+        });
+        loadWorkers(true);
+      } catch (err) {
+        if (err && err.cancelled) return;
+        alert(err.message || "Failed deleting worker.");
+      }
+    }
+
+    // ---------- ADJUST PAY / SALARY REVISIONS MODAL ----------
+    function setAdjustType(type) {
+      document.getElementById("adjTypeVal").value = type;
+      const ovBtn = document.getElementById("adjTypeOverrideBtn");
+      const rvBtn = document.getElementById("adjTypeRevisionBtn");
+      const mLbl = document.getElementById("adjMonthLabel");
+      const hint = document.getElementById("adjHelpHint");
+
+      if (type === "Month Override") {
+        ovBtn.className = "p-2.5 rounded-xl border-2 border-indigo-600 bg-indigo-50 text-indigo-700 font-bold text-left transition";
+        rvBtn.className = "p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 font-bold text-left transition";
+        mLbl.innerText = "Applies to Month *";
+        hint.innerHTML = "Changes expected salary for <b>only this one month</b>. Earlier months and future months remain untouched.";
+      } else {
+        rvBtn.className = "p-2.5 rounded-xl border-2 border-amber-500 bg-amber-50 text-amber-800 font-bold text-left transition";
+        ovBtn.className = "p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 font-bold text-left transition";
+        mLbl.innerText = "Effective From *";
+        hint.innerHTML = "Sets a <b>permanent new monthly salary</b> starting from this month onward. Earlier months stay locked at their previous rate.";
+      }
+      onAdjustMonthChange();
+    }
+
+    function onAdjustMonthChange() {
+      const idx = Number(document.getElementById("adjWorkerIdx").value);
+      const w = allWorkers[idx];
+      if (!w) return;
+      const month = document.getElementById("adjEffectiveMonth").value;
+      const type = document.getElementById("adjTypeVal").value;
+      const existing = (w.adjustments || []).find(a => a.type === type && a.effectiveMonth === month);
+      if (existing) {
+        document.getElementById("adjAmount").value = existing.amount;
+        document.getElementById("adjReason").value = existing.reason || "";
+      } else {
+        document.getElementById("adjAmount").value = w.monthlySalary || 0;
+        document.getElementById("adjReason").value = "";
+      }
+    }
+
+    function renderAdjustHistory(w, workerIdx) {
+      const listEl = document.getElementById("adjHistoryList");
+      const countEl = document.getElementById("adjHistoryCount");
+      const adjs = (w.adjustments || []).slice().reverse();
+      if (countEl) countEl.innerText = `${adjs.length} entr${adjs.length === 1 ? "y" : "ies"}`;
+      if (!adjs.length) {
+        listEl.innerHTML = `<p class="text-[11px] text-slate-400 italic py-2 text-center">No salary revisions or month overrides recorded yet.</p>`;
+        return;
+      }
+      listEl.innerHTML = adjs.map((a) => {
+        const badge = a.isBaseline
+          ? `<span class="px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[9px] font-black uppercase">Baseline</span>`
+          : (a.type === "Month Override"
+              ? `<span class="px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 text-[9px] font-black uppercase">1-Mo Override</span>`
+              : `<span class="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500 text-[9px] font-black uppercase">Revision</span>`);
+        return `
+          <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                ${badge}
+                <span class="font-bold text-slate-800">${esc(a.effectiveMonth)}</span>
+                <span class="font-mono font-black text-indigo-600">${fmtInr(a.amount)}</span>
+              </div>
+              ${a.reason ? `<p class="text-[10px] text-slate-500 mt-0.5 truncate">${esc(a.reason)}</p>` : ""}
+            </div>
+            <button type="button" onclick="deleteWorkerAdjustmentItem(${workerIdx}, ${a.rowIndex}, '${esc(a.type)}', '${esc(a.effectiveMonth)}')"
+                    class="w-7 h-7 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-500 flex items-center justify-center shrink-0" title="Remove">
+              <i class="fa-solid fa-trash-can text-[10px]"></i>
+            </button>
+          </div>`;
+      }).join("");
+    }
+
+    function openAdjustModal(idx) {
+      const w = allWorkers[idx];
+      if (!w) return;
+      document.getElementById("adjWorkerIdx").value = String(idx);
+      document.getElementById("adjModalSub").innerText = `${w.name} (${w.role}) — Base: ${fmtInr(w.monthlySalary)}/mo`;
+
+      const sel = document.getElementById("adjEffectiveMonth");
+      const opts = getAdjustmentMonthOptions();
+      sel.innerHTML = opts.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
+      const defM = defaultAdjustMonth();
+      sel.value = opts.includes(defM) ? defM : opts[0];
+
+      document.getElementById("adjModalStatus").classList.add("hidden");
+      setAdjustType("Month Override");
+      renderAdjustHistory(w, idx);
+      document.getElementById("adjustSalaryModal").classList.remove("hidden");
+    }
+
+    function closeAdjustModal() {
+      document.getElementById("adjustSalaryModal").classList.add("hidden");
+    }
+
+    async function submitWorkerAdjustment(e) {
+      e.preventDefault();
+      const idx = Number(document.getElementById("adjWorkerIdx").value);
+      const w = allWorkers[idx];
+      if (!w) return;
+
+      const btn = document.getElementById("adjSubmitBtn");
+      const statusBox = document.getElementById("adjModalStatus");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...`;
+      statusBox.classList.add("hidden");
+
+      const payload = {
+        action: "saveWorkerAdjustment",
+        workerRowIndex: w.rowIndex,
+        workerName: w.name,
+        workerRole: w.role,
+        type: document.getElementById("adjTypeVal").value,
+        effectiveMonth: document.getElementById("adjEffectiveMonth").value,
+        amount: Number(document.getElementById("adjAmount").value) || 0,
+        reason: document.getElementById("adjReason").value.trim()
+      };
+
+      try {
+        await apiPost(payload);
+        closeAdjustModal();
+        loadWorkers(true);
+      } catch (err) {
+        if (err && err.cancelled) return;
+        statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 block";
+        statusBox.innerText = err.message || "Failed saving salary adjustment.";
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-check-circle"></i> <span>Save Adjustment</span>`;
+      }
+    }
+
+    async function deleteWorkerAdjustmentItem(workerIdx, adjRowIndex, adjType, effMonth) {
+      const w = allWorkers[workerIdx];
+      if (!w) return;
+      try {
+        await apiPost({
+          action: "deleteWorkerAdjustment",
+          rowIndex: adjRowIndex,
+          workerRowIndex: w.rowIndex,
+          expected: {
+            workerName: w.name,
+            workerRole: w.role,
+            type: adjType,
+            effectiveMonth: effMonth
+          }
+        });
+        closeAdjustModal();
+        loadWorkers(true);
+      } catch (err) {
+        if (err && err.cancelled) return;
+        alert(err.message || "Failed deleting salary adjustment.");
+      }
+    }
+
+    // ---------- PAY SALARY / ADVANCE MODAL (WRITES TO MONTHLY EXPENSES) ----------
+    function openPayModal(idx) {
+      const w = allWorkers[idx];
+      if (!w) return;
+      const selMonth = document.getElementById("monthSelect").value;
+      const defaultBookMonth = (selMonth && selMonth !== "ALL") ? selMonth : (currentServerMonth || availableMonthsList[0] || "");
+
+      document.getElementById("payWorkerIdx").value = String(idx);
+      document.getElementById("payModalSub").innerText = `${w.name} (${w.role}) — Writes directly into Monthly Expenses`;
+      const isAdvanceMode = (currentMode === "ALL" && !includeCurrentMonthState && Number(w.balance) === 0);
+      if (isAdvanceMode && Number(w.excess) > 0) {
+        document.getElementById("payBalanceLabel").innerText = "Advance Already Drawn";
+        document.getElementById("payRemainingBadge").innerText = fmtInr(w.excess);
+      } else {
+        document.getElementById("payBalanceLabel").innerText = currentMode === "ALL" ? "Completed Months Due" : "Remaining Balance";
+        document.getElementById("payRemainingBadge").innerText = fmtInr(w.balance);
+      }
+
+      const paySel = document.getElementById("payTargetMonth");
+      if (paySel && defaultBookMonth) paySel.value = defaultBookMonth;
+
+      document.getElementById("payDate").value = todayIso();
+      document.getElementById("payAmount").value = w.balance > 0 ? w.balance : "";
+      const primaryKw = (w.keywords && w.keywords[0]) ? w.keywords[0] : w.name;
+      const defaultTag = isAdvanceMode ? "advance" : "salary";
+      document.getElementById("payItemPurpose").value = (primaryKw.toLowerCase().includes("salary") || primaryKw.toLowerCase().includes("advance"))
+        ? primaryKw
+        : `${primaryKw} ${defaultTag}`;
+      document.getElementById("payRemarks").value = "";
+      document.getElementById("payModalStatus").classList.add("hidden");
+      document.getElementById("paySalaryModal").classList.remove("hidden");
+    }
+
+    function closePayModal() {
+      document.getElementById("paySalaryModal").classList.add("hidden");
+    }
+
+    async function submitSalaryPayment(e) {
+      e.preventDefault();
+      const btn = document.getElementById("paySubmitBtn");
+      const statusBox = document.getElementById("payModalStatus");
+      const targetMonth = document.getElementById("payTargetMonth").value;
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...`;
+      statusBox.classList.add("hidden");
+
+      const payload = {
+        action: "recordExpense",
+        month: targetMonth,
+        date: document.getElementById("payDate").value,
+        itemPurpose: document.getElementById("payItemPurpose").value.trim(),
+        amount: Number(document.getElementById("payAmount").value) || 0,
+        spentBy: document.getElementById("paySpentBy").value,
+        remarks: document.getElementById("payRemarks").value.trim()
+      };
+
+      try {
+        await apiPost(payload);
+        const idx = Number(document.getElementById("payWorkerIdx").value);
+        if (allWorkers[idx]) expandedKeys["w_" + allWorkers[idx].rowIndex] = true;
+        closePayModal();
+        loadWorkers(true);
+      } catch (err) {
+        if (err && err.cancelled) return;
+        statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 block";
+        statusBox.innerText = err.message || "Failed recording salary in Expenses.";
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-check-circle"></i> <span>Record in Expenses</span>`;
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      if (isAuthenticated()) {
+        const lock = document.getElementById("pinLockModal");
+        if (lock) lock.classList.add("hidden");
+        applyViewerRestrictions();
+        initWorkersPage();
+      }
+    });
+  </script>
+</body>
+</html>

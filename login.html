@@ -6,7 +6,7 @@
   <title>Elysium OS - Biometric Vault</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <script src="auth.js"></script>
+  <script src="auth.js?v=29"></script>
 
   <!-- Inter, Outfit & JetBrains Mono Fonts (Optimized Mobile & Desktop Readability) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -253,6 +253,7 @@
         const data = JSON.parse(await res.text());
         if (data.status === "success" && data.session) {
           saveSession(data.session);
+          if (data.handlers && typeof setElysiumHandlersCache === "function") setElysiumHandlersCache(data.handlers);
           window.location.replace("index.html");
           return;
         }
@@ -370,6 +371,7 @@
 
         if (data.status === "success" && data.session) {
           saveSession(data.session);
+          if (data.handlers && typeof setElysiumHandlersCache === "function") setElysiumHandlersCache(data.handlers);
 
           let notice = "";
           if (wantsBiometric) {

@@ -404,7 +404,7 @@ const uncertainWrites = new Map();
 // Actions every logged-in user may perform on their own account (even view-only accounts)
 const SELF_SERVICE_ACTIONS = ["enrollDevice", "revokeDevice"];
 // Silent/background actions that should NOT pop the pre-save re-validation modal
-const SILENT_POST_ACTIONS = ["login", "verifyPin", "deviceLogin", "enrollDevice", "revokeDevice", "saveDuesMeta"];
+const SILENT_POST_ACTIONS = ["login", "verifyPin", "deviceLogin", "enrollDevice", "revokeDevice", "saveDuesMeta", "reorderHandlers"];
 
 function formatRupeeVal_(v) {
   const n = Number(v);
@@ -626,6 +626,103 @@ function describeSavePayload_(payload) {
       isDestructive = Boolean(payload.forceOverwrite);
       push("Source Month", payload.sourceMonth);
       push("Target Month", payload.targetMonth);
+      break;
+
+    case "saveWorker":
+      title = payload.rowIndex ? "Update Worker Profile" : "Add New Worker";
+      push("Workbook", "Elysium PG master");
+      push("Name", payload.name);
+      push("Role", payload.role);
+      push("Monthly Salary", formatRupeeVal_(payload.monthlySalary));
+      if (payload.salaryEffectiveMonth) {
+        push(
+          "Salary Change Applies",
+          payload.salaryEffectiveMonth === "ALL_RETRO"
+            ? "All Months (Retroactive Typo Fix)"
+            : ("Effective from " + payload.salaryEffectiveMonth + " onward (earlier months preserved)")
+        );
+      }
+      if (payload.salaryReason) push("Revision Reason", payload.salaryReason);
+      push("Status", payload.status);
+      push("Keywords", payload.keywords);
+      break;
+
+    case "saveWorkerAdjustment":
+      title = payload.type === "Month Override" ? "Save 1-Month Pay Override" : "Save Permanent Salary Revision";
+      push("Workbook", "Elysium PG master (Worker Adjustments)");
+      push("Worker", payload.workerName + (payload.workerRole ? " (" + payload.workerRole + ")" : ""));
+      push(payload.type === "Month Override" ? "Applies To (1 Month Only)" : "Effective From (Onward)", payload.effectiveMonth);
+      push("Adjusted Amount", formatRupeeVal_(payload.amount));
+      if (payload.reason) push("Reason", payload.reason);
+      break;
+
+    case "deleteWorkerAdjustment":
+      title = "Remove Salary Adjustment";
+      isDestructive = true;
+      push("Workbook", "Elysium PG master (Worker Adjustments)");
+      if (payload.expected) {
+        push("Worker", payload.expected.workerName);
+        push("Type", payload.expected.type);
+        push("Month", payload.expected.effectiveMonth);
+      }
+      break;
+
+    case "deleteWorker":
+      title = "Remove Worker Profile";
+      isDestructive = true;
+      push("Workbook", "Elysium PG master");
+      if (payload.expected) {
+        push("Worker", payload.expected.name);
+        push("Role", payload.expected.role);
+      }
+      push("Note", "Past monthly Expenses rows will remain untouched");
+      break;
+
+    case "saveComplaint":
+      title = payload.rowIndex ? "Update Complaint" : "Log New Complaint";
+      push("Workbook", "Elysium PG master");
+      push("Room / Area", payload.room);
+      push("Priority", payload.priority);
+      push("Status", payload.status);
+      push("Issue", payload.description);
+      if (payload.progressNotes) push("Progress Note", payload.progressNotes);
+      if (payload.resolutionNotes) push("Resolution", payload.resolutionNotes);
+      break;
+
+    case "updateComplaintStatus":
+      title = payload.status === "Resolved"
+        ? "Mark Complaint Resolved"
+        : (payload.status === "In Progress" ? "Update In-Progress Status" : "Reopen Complaint");
+      push("Workbook", "Elysium PG master");
+      push("Room / Area", payload.room || (payload.expected && payload.expected.room));
+      push("New Status", payload.status);
+      if (payload.progressNotes) push("Progress Note", payload.progressNotes);
+      if (payload.resolvedDate) push("Resolved Date", payload.resolvedDate);
+      if (payload.resolutionNotes) push("Resolution Notes", payload.resolutionNotes);
+      break;
+
+    case "deleteComplaint":
+      title = "Delete Complaint";
+      isDestructive = true;
+      push("Workbook", "Elysium PG master");
+      if (payload.expected) {
+        push("Room / Area", payload.expected.room);
+        push("Issue", payload.expected.description);
+      }
+      break;
+
+    case "saveHandler":
+      title = payload.id ? "Update Payment / Expense Handler" : "Add Payment / Expense Handler";
+      push("Display Name", payload.name);
+      if (payload.aliases) push("Cashflow Aliases", payload.aliases);
+      push("Equal Profit Split", payload.profitSplit ? "Included" : "Excluded");
+      break;
+
+    case "toggleHandlerStatus":
+      title = payload.active ? "Reactivate Handler" : "Archive Handler";
+      isDestructive = !payload.active;
+      push("Handler", payload.name || payload.id);
+      push("New Status", payload.active ? "Active (visible in all dropdowns)" : "Archived (hidden from new forms; past history preserved)");
       break;
 
     case "saveUser":
@@ -1432,6 +1529,14 @@ function injectQuickNavDock() {
           <span class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center"><i class="fa-solid fa-scale-balanced"></i></span>
           <span>Settlements</span>
         </a>
+        <a href="workers.html" class="p-3 rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-2.5 text-white no-underline">
+          <span class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center"><i class="fa-solid fa-users-gear"></i></span>
+          <span>Workers</span>
+        </a>
+        <a href="complaints.html" class="p-3 rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-2.5 text-white no-underline">
+          <span class="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center"><i class="fa-solid fa-clipboard-list"></i></span>
+          <span>Complaints</span>
+        </a>
         <a href="rollover.html" class="${role === 'VIEWER' ? 'col-span-2' : ''} p-3 rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-2.5 text-white no-underline">
           <span class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center"><i class="fa-solid fa-calendar-plus"></i></span>
           <span>Month Rollover</span>
@@ -1451,3 +1556,177 @@ function injectQuickNavDock() {
   `;
   document.body.appendChild(drawer);
 }
+
+
+// =============================================================
+// V28: DYNAMIC PAYMENT & EXPENSE HANDLERS AUTO-SYNC ENGINE
+// =============================================================
+(function initElysiumHandlersEngine() {
+  const CACHE_KEY = "elysium_handlers_v28";
+  const DEFAULT_LIST = [
+    { id: "h_sreekaran", name: "Sreekaran", aliases: ["karan"], active: true, system: false, profitSplit: true },
+    { id: "h_manohar", name: "Manohar", aliases: [], active: true, system: false, profitSplit: true },
+    { id: "h_sudheer", name: "Sudheer", aliases: [], active: true, system: false, profitSplit: true },
+    { id: "h_cash", name: "Cash", aliases: ["direct"], active: true, system: true, profitSplit: false },
+    { id: "h_office", name: "Office Account", aliases: ["office"], active: true, system: false, profitSplit: false }
+  ];
+  const SEED_NAMES = ["sreekaran", "manohar", "sudheer", "office account"];
+
+  function readCachedHandlers() {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      }
+    } catch (e) {}
+    return DEFAULT_LIST.slice();
+  }
+
+  function writeCachedHandlers(list) {
+    if (!Array.isArray(list) || !list.length) return;
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+
+  window.getElysiumHandlers = function (opts) {
+    const all = readCachedHandlers();
+    if (opts && opts.includeArchived) return all;
+    return all.filter(h => h.active !== false);
+  };
+
+  window.setElysiumHandlersCache = function (list) {
+    writeCachedHandlers(list);
+    window.hydrateHandlerSelects();
+    window.dispatchEvent(new CustomEvent("elysium:handlerschange", { detail: { handlers: readCachedHandlers() } }));
+  };
+
+  window.refreshElysiumHandlers = async function (force) {
+    if (typeof apiGet !== "function" || !isAuthenticated()) return readCachedHandlers();
+    try {
+      const res = await apiGet("getHandlers", force ? { forceRefresh: "true" } : {});
+      if (res && res.status === "success" && Array.isArray(res.handlers)) {
+        writeCachedHandlers(res.handlers);
+        window.hydrateHandlerSelects();
+        window.dispatchEvent(new CustomEvent("elysium:handlerschange", { detail: { handlers: res.handlers } }));
+        return res.handlers;
+      }
+    } catch (e) {}
+    return readCachedHandlers();
+  };
+
+  function isHandlerSelect(sel) {
+    if (!sel || sel.tagName !== "SELECT") return false;
+    if (sel.dataset.elysiumHandlerSelect === "1") return true;
+    const vals = Array.from(sel.options).map(o => String(o.value || "").trim().toLowerCase());
+    let hits = 0;
+    SEED_NAMES.forEach(n => { if (vals.indexOf(n) !== -1) hits++; });
+    if (hits >= 2) {
+      sel.dataset.elysiumHandlerSelect = "1";
+      sel.dataset.includeCash = vals.indexOf("cash") !== -1 ? "1" : "0";
+      const specials = [];
+      Array.from(sel.options).forEach((o, idx) => {
+        const vLow = String(o.value || "").trim().toLowerCase();
+        const isKnown = SEED_NAMES.indexOf(vLow) !== -1 || vLow === "cash";
+        if (!isKnown) {
+          specials.push({ value: o.value, text: o.text, pos: idx === 0 ? "top" : "bottom" });
+        }
+      });
+      sel.dataset.specialOptions = JSON.stringify(specials);
+      return true;
+    }
+    return false;
+  }
+
+  function hydrateSingleSelect(sel, activeList, allList) {
+    const prevVal = sel.value;
+    const includeCash = sel.dataset.includeCash !== "0";
+    let specials = [];
+    try { specials = JSON.parse(sel.dataset.specialOptions || "[]"); } catch (e) {}
+
+    const targetList = activeList.filter(h => includeCash || !h.system);
+    const frag = document.createDocumentFragment();
+
+    // 1. Preserve top placeholder / "All" / "None (Cash)" option
+    specials.filter(s => s.pos === "top").forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s.value;
+      opt.textContent = s.text;
+      frag.appendChild(opt);
+    });
+
+    // 2. Populate Active handlers in Master Admin's configured order
+    const presentLow = {};
+    targetList.forEach(h => {
+      const opt = document.createElement("option");
+      opt.value = h.name;
+      opt.textContent = h.name;
+      frag.appendChild(opt);
+      presentLow[h.name.toLowerCase()] = true;
+    });
+
+    // 3. Preserve bottom special options (e.g. "None (Cash)", "No Deposit Refunded")
+    specials.filter(s => s.pos !== "top").forEach(s => {
+      if (presentLow[String(s.value || "").toLowerCase()]) return;
+      const opt = document.createElement("option");
+      opt.value = s.value;
+      opt.textContent = s.text;
+      frag.appendChild(opt);
+      presentLow[String(s.value || "").toLowerCase()] = true;
+    });
+
+    // 4. Archive-safe preservation if currently selected value is an archived/historical name
+    if (prevVal && !presentLow[String(prevVal).trim().toLowerCase()]) {
+      const isSpecial = specials.some(s => String(s.value) === String(prevVal));
+      if (!isSpecial) {
+        const archived = allList.find(h => h.name.toLowerCase() === String(prevVal).trim().toLowerCase());
+        const opt = document.createElement("option");
+        opt.value = prevVal;
+        opt.textContent = archived ? `${archived.name} (Archived)` : `${prevVal} (Historical)`;
+        frag.appendChild(opt);
+      }
+    }
+
+    sel.innerHTML = "";
+    sel.appendChild(frag);
+    if (prevVal && Array.from(sel.options).some(o => o.value === prevVal)) {
+      sel.value = prevVal;
+    }
+  }
+
+  window.hydrateHandlerSelects = function (root) {
+    const scope = root || document;
+    const allList = readCachedHandlers();
+    const activeList = allList.filter(h => h.active !== false);
+    scope.querySelectorAll("select").forEach(sel => {
+      if (isHandlerSelect(sel)) hydrateSingleSelect(sel, activeList, allList);
+    });
+  };
+
+  // Archive-safe programmatic `select.value = oldArchivedPerson` for Edit modals
+  const valDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+  if (valDesc && valDesc.set) {
+    Object.defineProperty(HTMLSelectElement.prototype, "value", {
+      get: function () { return valDesc.get.call(this); },
+      set: function (v) {
+        if (this.dataset && this.dataset.elysiumHandlerSelect === "1" && v !== null && v !== undefined && String(v).trim() !== "") {
+          const sv = String(v);
+          const exists = Array.from(this.options).some(o => o.value === sv);
+          if (!exists) {
+            const opt = document.createElement("option");
+            opt.value = sv;
+            opt.textContent = `${sv} (Archived)`;
+            this.appendChild(opt);
+          }
+        }
+        valDesc.set.call(this, v);
+      }
+    });
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    window.hydrateHandlerSelects();
+    if (!/login\.html/i.test(window.location.pathname) && isAuthenticated()) {
+      window.refreshElysiumHandlers(false);
+    }
+  });
+})();

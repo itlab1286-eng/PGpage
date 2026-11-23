@@ -6,7 +6,7 @@
   <title>Elysium PG - Cashflow & Partner Settlements</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="auth.js"></script>
+  <script src="auth.js?v=29"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
   <!-- Inter, Outfit & JetBrains Mono Fonts (Optimized Mobile & Desktop Readability) -->
@@ -157,7 +157,7 @@
           <h2 class="text-xs font-black uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
             <i class="fa-solid fa-handshake"></i> Profit Split &amp; Minimum Transfers
           </h2>
-          <p class="text-[11px] text-slate-400">Equal 3-way split across Sreekaran, Manohar &amp; Sudheer (excluding unbanked Cash)</p>
+          <p id="profitSplitSubtitle" class="text-[11px] text-slate-400">Equal split across configured Profit-Split partners (manage in User &amp; Partner Access)</p>
         </div>
         <span id="perPartnerShareBadge" class="px-3 py-1 rounded-xl bg-indigo-50 text-indigo-700 font-mono font-black text-xs border border-indigo-200">
           Target Share: ₹0 each
@@ -349,10 +349,14 @@
         await apiGetSWR("getPartnerCashflow", { months: monthsParam, forceRefresh: force ? "true" : "" }, (json) => {
           if (!json || requestId !== currentFetchRequestId) return;
           cachedPayload = json;
+          if (Array.isArray(json.handlers) && typeof setElysiumHandlersCache === "function") {
+            setElysiumHandlersCache(json.handlers);
+          }
+          syncSettlementPartnerFilter(json.partners || {});
           renderTopMetrics(json);
           renderCharts(json);
           renderPartnerCards(json.partners || {});
-          renderSettlementCalculator(json.partners || {});
+          renderSettlementCalculator(json.partners || {}, json.handlers || []);
           renderFilteredTransactions();
         });
       } catch (err) {
@@ -380,16 +384,34 @@
       document.getElementById("metricNetRetained").innerText = "₹" + netRetained.toLocaleString("en-IN");
     }
 
+    function syncSettlementPartnerFilter(partners) {
+      const sel = document.getElementById("partnerTxFilter");
+      if (!sel) return;
+      const prev = sel.value || "ALL";
+      const keys = Object.keys(partners || {});
+      sel.innerHTML = `<option value="ALL">All Partners</option>` +
+        keys.map(k => {
+          const p = partners[k];
+          const tag = p && p.unregistered ? " (Unregistered)" : (p && p.active === false ? " (Archived)" : "");
+          return `<option value="${esc(k)}">${esc(k + tag)}</option>`;
+        }).join("");
+      sel.value = Array.from(sel.options).some(o => o.value === prev) ? prev : "ALL";
+    }
+
     function renderPartnerCards(partners) {
       const container = document.getElementById("partnerCardsContainer");
       container.innerHTML = "";
 
-      const primaryPartners = ["Sreekaran", "Manohar", "Sudheer", "Cash"];
+      const partnerKeys = Object.keys(partners || {});
+      if (!partnerKeys.length) {
+        container.innerHTML = `<p class="text-xs text-slate-400 col-span-full text-center py-6">No partner balances found for the selected months.</p>`;
+        return;
+      }
 
-      primaryPartners.forEach(pName => {
+      partnerKeys.forEach(pName => {
         const p = partners[pName] || {
           name: pName, rentCollected: 0, advanceCollected: 0, dailyCollected: 0,
-          advanceRefunded: 0, expensesPaid: 0, totalInflow: 0, totalOutflow: 0, netHolding: 0
+          advanceRefunded: 0, expensesPaid: 0, totalInflow: 0, totalOutflow: 0, settlementNet: 0, netHolding: 0
         };
 
         const isHolding = p.netHolding >= 0;
@@ -397,15 +419,22 @@
           ? `<span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[11px] font-black rounded-lg">Holds ₹${Math.abs(p.netHolding).toLocaleString("en-IN")}</span>`
           : `<span class="px-2.5 py-1 bg-rose-100 text-rose-800 text-[11px] font-black rounded-lg">Owed ₹${Math.abs(p.netHolding).toLocaleString("en-IN")}</span>`;
 
+        const metaPill = p.unregistered
+          ? `<span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[9px] font-black uppercase">Unregistered</span>`
+          : (p.active === false ? `<span class="px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[9px] font-black uppercase">Archived</span>` : "");
+
         const card = document.createElement("div");
         card.className = "bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between";
 
         card.innerHTML = `
           <div>
-            <div class="flex items-center justify-between pb-2 border-b border-slate-100 mb-3">
-              <span class="text-sm font-black text-slate-800 flex items-center gap-1.5">
-                <i class="fa-solid fa-user-circle text-indigo-600"></i> ${esc(p.name)}
-              </span>
+            <div class="flex items-center justify-between gap-2 pb-2 border-b border-slate-100 mb-3">
+              <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+                <span class="text-sm font-black text-slate-800 flex items-center gap-1.5 truncate">
+                  <i class="fa-solid ${p.system ? "fa-money-bill-wave text-emerald-600" : "fa-user-circle text-indigo-600"}"></i> ${esc(p.name)}
+                </span>
+                ${metaPill}
+              </div>
               ${statusBadge}
             </div>
 
@@ -445,6 +474,11 @@
                 <span>Total Outflow:</span>
                 <span class="font-mono">₹${p.totalOutflow.toLocaleString("en-IN")}</span>
               </div>
+              ${p.settlementNet ? `
+              <div class="flex justify-between text-indigo-600 font-bold pt-1">
+                <span>Partner Transfers:</span>
+                <span class="font-mono">${p.settlementNet > 0 ? "+" : "-"}₹${Math.abs(p.settlementNet).toLocaleString("en-IN")}</span>
+              </div>` : ""}
             </div>
           </div>
 
@@ -461,12 +495,33 @@
     // -------------------------------------------------------------
     // PARTNER PROFIT SPLIT & MINIMUM TRANSFERS CALCULATOR
     // -------------------------------------------------------------
-    function renderSettlementCalculator(partners) {
+    function renderSettlementCalculator(partners, handlersList) {
       const box = document.getElementById("settlementTransfersList");
       const shareBadge = document.getElementById("perPartnerShareBadge");
+      const subEl = document.getElementById("profitSplitSubtitle");
       if (!box) return;
 
-      const names = ["Sreekaran", "Manohar", "Sudheer"];
+      const hList = (Array.isArray(handlersList) && handlersList.length)
+        ? handlersList
+        : ((typeof getElysiumHandlers === "function") ? getElysiumHandlers({ includeArchived: true }) : []);
+
+      let names = hList.filter(h => h.active !== false && h.profitSplit === true && !h.system).map(h => h.name);
+      if (names.length === 0) {
+        names = Object.keys(partners || {}).filter(k => partners[k] && partners[k].active !== false && !partners[k].system && k.toLowerCase() !== "office account");
+      }
+
+      if (subEl) {
+        subEl.innerText = names.length >= 2
+          ? `Equal ${names.length}-way split across ${names.join(", ")} (manage in Partner & User Access)`
+          : "Enable 'Include in Profit Split' for at least 2 partners in Partner & User Access.";
+      }
+
+      if (names.length < 2) {
+        if (shareBadge) shareBadge.innerText = "Need 2+ Partners";
+        box.innerHTML = `<div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 font-semibold text-center">Select at least 2 profit-split partners in Partner &amp; User Management to calculate transfers.</div>`;
+        return;
+      }
+
       const holdings = names.map(n => ({ name: n, net: Number((partners[n] && partners[n].netHolding) || 0) }));
       const totalPartnerPool = holdings.reduce((s, x) => s + x.net, 0);
       const equalShare = totalPartnerPool / names.length;
@@ -488,7 +543,7 @@
       }
 
       if (transfers.length === 0) {
-        box.innerHTML = `<div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-center">✓ All 3 partners are perfectly balanced!</div>`;
+        box.innerHTML = `<div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-center">✓ All ${names.length} partners are perfectly balanced!</div>`;
         return;
       }
 
@@ -531,7 +586,7 @@
       const chartTextColor = isLight ? "#334155" : "#e2e8f0";
       const chartGridColor = isLight ? "#e2e8f0" : "rgba(255, 255, 255, 0.08)";
       const pieBorderColor = isLight ? "#ffffff" : "#111827";
-      const pKeys = ["Sreekaran", "Manohar", "Sudheer", "Cash"];
+      const pKeys = Object.keys(data.partners || {});
       const inflows = [];
       const outflows = [];
       const netHoldings = [];

@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Elysium OS - Command Hub</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script src="auth.js?v=26"></script>
+  <script src="auth.js?v=29"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
   <!-- Inter, Outfit & JetBrains Mono Fonts (Optimized Mobile & Desktop Readability) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="elysium.css?v=26" />
+  <link rel="stylesheet" href="elysium.css?v=27" />
   <style>
     @media (max-width: 767px) {
       body.mobile-top-menu #elysiumBottomDock { display: none !important; }
@@ -254,6 +254,34 @@
         <div class="mt-3">
           <h3 class="text-sm font-black text-slate-900">Settlements</h3>
           <p class="text-[11px] text-slate-500 mt-0.5 line-clamp-2">Partner net holdings &amp; visual charts.</p>
+        </div>
+      </a>
+
+      <!-- COMPACT BENTO 8B: WORKERS & SALARIES -->
+      <a href="workers.html" class="col-span-1 sm:col-span-6 group bg-white rounded-3xl p-4 border border-slate-200 flex flex-col justify-between min-h-[130px] no-underline">
+        <div class="flex items-center justify-between">
+          <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-users-gear"></i>
+          </div>
+          <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300">Payroll</span>
+        </div>
+        <div class="mt-3">
+          <h3 class="text-sm font-black text-slate-900">Workers</h3>
+          <p class="text-[11px] text-slate-500 mt-0.5 line-clamp-2">Staff profiles, keyword salary tracking &amp; cumulative dues.</p>
+        </div>
+      </a>
+
+      <!-- COMPACT BENTO 8C: COMPLAINTS LOG -->
+      <a href="complaints.html" class="col-span-1 sm:col-span-6 group bg-white rounded-3xl p-4 border border-slate-200 flex flex-col justify-between min-h-[130px] no-underline">
+        <div class="flex items-center justify-between">
+          <div class="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-clipboard-list"></i>
+          </div>
+          <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300">Issues</span>
+        </div>
+        <div class="mt-3">
+          <h3 class="text-sm font-black text-slate-900">Complaints Log</h3>
+          <p class="text-[11px] text-slate-500 mt-0.5 line-clamp-2">Track room &amp; building issues, live progress &amp; fixes.</p>
         </div>
       </a>
 

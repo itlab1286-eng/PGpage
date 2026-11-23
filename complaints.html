@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Elysium PG - Complaints Log</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="auth.js?v=29"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- Inter, Outfit & JetBrains Mono Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="elysium.css?v=27" />
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-16">
+
+  <!-- PIN LOCK SCREEN -->
+  <div id="pinLockModal" class="fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center">
+      <div class="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mb-1">Staff Verification</h2>
+      <p class="text-sm text-slate-500 mb-6">Sign in to access Complaints Log</p>
+      <div class="flex justify-center mb-6">
+        <input type="password" maxlength="6" id="staffPinInput"
+               class="w-44 text-center text-3xl tracking-widest font-mono py-2 border-2 border-slate-300 rounded-xl focus:border-rose-600 focus:outline-none"
+               placeholder="••••" autofocus />
+      </div>
+      <p id="pinErrorMsg" class="text-xs text-red-500 font-semibold mb-4 hidden">Invalid PIN.</p>
+      <button onclick="unlockApp()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-rose-500/30 transition">
+        Unlock Portal
+      </button>
+    </div>
+  </div>
+
+  <!-- LOG / EDIT COMPLAINT MODAL -->
+  <div id="complaintModal" class="fixed inset-0 z-40 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <div>
+          <h3 id="complaintModalTitle" class="text-base font-black text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-triangle-exclamation text-rose-500"></i>
+            <span>Log Complaint</span>
+          </h3>
+          <p class="text-[11px] text-slate-500">Saved in Elysium PG master (never wiped on rollover)</p>
+        </div>
+        <button type="button" onclick="closeComplaintModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form onsubmit="saveComplaint(event)" class="space-y-3.5 text-xs">
+        <input type="hidden" id="cRowIndex" value="" />
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-700 font-bold mb-1">Logged Date *</label>
+            <input type="date" id="cLoggedDate" required
+                   class="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold focus:ring-2 focus:ring-rose-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-slate-700 font-bold mb-1">Room / Area *</label>
+            <input type="text" id="cRoom" required oninput="onComplaintRoomInput()" placeholder="e.g. 204 or Common Area"
+                   class="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-bold focus:ring-2 focus:ring-rose-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- Quick Area Presets -->
+        <div class="flex flex-wrap gap-1.5 -mt-1">
+          <button type="button" onclick="setAreaPreset('Common Area')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-600 text-[10px] font-bold">Common Area</button>
+          <button type="button" onclick="setAreaPreset('Dining Hall')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-600 text-[10px] font-bold">Dining Hall</button>
+          <button type="button" onclick="setAreaPreset('Terrace / Tank')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-600 text-[10px] font-bold">Terrace / Tank</button>
+          <button type="button" onclick="setAreaPreset('Wi-Fi / Floor')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-600 text-[10px] font-bold">Wi-Fi / Floor</button>
+        </div>
+
+        <div>
+          <label class="block text-slate-700 font-bold mb-1">Resident / Reporter</label>
+          <input type="text" id="cReporter" list="roomResidentsDatalist" placeholder="Name of resident or staff who reported"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold focus:ring-2 focus:ring-rose-500 focus:outline-none" />
+          <datalist id="roomResidentsDatalist"></datalist>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-700 font-bold mb-1">Priority *</label>
+            <select id="cPriority" required class="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold bg-white focus:ring-2 focus:ring-rose-500 focus:outline-none">
+              <option value="Low">Low</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="High">High</option>
+              <option value="Urgent">Urgent</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-700 font-bold mb-1">Status *</label>
+            <select id="cStatus" required onchange="toggleStatusNoteFields()" class="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold bg-white focus:ring-2 focus:ring-rose-500 focus:outline-none">
+              <option value="Open" selected>Open</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Resolved">Resolved</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-700 font-bold mb-1">Issue Description *</label>
+          <textarea id="cDescription" rows="3" required placeholder="Describe the complete complaint clearly..."
+                    class="w-full px-3 py-2 border border-slate-300 rounded-xl font-medium focus:ring-2 focus:ring-rose-500 focus:outline-none"></textarea>
+        </div>
+
+        <!-- In Progress Note Field (Visible when In Progress or already has a note) -->
+        <div id="cProgressGroup" class="hidden space-y-2 p-3 rounded-2xl bg-amber-50/70 border border-amber-200">
+          <label class="block text-amber-800 font-bold">In Progress Status Note</label>
+          <textarea id="cProgressNotes" rows="2" placeholder="e.g. Plumber called, coming tomorrow 10 AM / Waiting for spare part..."
+                    class="w-full px-3 py-2 border border-amber-300 rounded-xl font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"></textarea>
+        </div>
+
+        <!-- Resolution Fields (Visible when Resolved or already has resolution notes) -->
+        <div id="cResolutionGroup" class="hidden space-y-3 p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200">
+          <div>
+            <label class="block text-emerald-800 font-bold mb-1">Resolved Date</label>
+            <input type="date" id="cResolvedDate"
+                   class="w-full px-3 py-2 border border-emerald-300 rounded-xl font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-emerald-800 font-bold mb-1">Resolution Notes</label>
+            <textarea id="cResolutionNotes" rows="2" placeholder="What was fixed or replaced?"
+                      class="w-full px-3 py-2 border border-emerald-300 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"></textarea>
+          </div>
+        </div>
+
+        <div id="complaintModalStatus" class="p-2.5 rounded-xl text-xs font-semibold hidden"></div>
+
+        <div class="flex gap-2 pt-1">
+          <button type="button" onclick="closeComplaintModal()" class="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+            Cancel
+          </button>
+          <button type="submit" id="saveComplaintBtn" class="w-2/3 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-lg shadow-rose-600/25 transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>Save Complaint</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- QUICK IN PROGRESS / UPDATE STATUS NOTE MODAL -->
+  <div id="inProgressModal" class="fixed inset-0 z-40 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-5 sm:p-6 max-w-sm w-full shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <div>
+          <h3 id="inProgressModalTitle" class="text-base font-black text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-screwdriver-wrench text-amber-500"></i>
+            <span>Mark In Progress</span>
+          </h3>
+          <p id="inProgressSub" class="text-[11px] text-slate-500">Add a live status update note</p>
+        </div>
+        <button type="button" onclick="closeInProgressModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitQuickInProgress(event)" class="space-y-3.5 text-xs">
+        <input type="hidden" id="ipComplaintIdx" value="" />
+        <div>
+          <label class="block text-slate-700 font-bold mb-1">Progress / Status Note *</label>
+          <textarea id="ipNotes" rows="3" required placeholder="e.g. Electrician informed, visiting today evening at 5 PM..."
+                    class="w-full px-3 py-2 border border-slate-300 rounded-xl font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"></textarea>
+        </div>
+        <div id="ipModalStatus" class="p-2.5 rounded-xl text-xs font-semibold hidden"></div>
+        <div class="flex gap-2 pt-1">
+          <button type="button" onclick="closeInProgressModal()" class="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+            Cancel
+          </button>
+          <button type="submit" id="ipSubmitBtn" class="w-2/3 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs shadow-lg shadow-amber-600/25 transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-check"></i>
+            <span>Save Status Note</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- QUICK RESOLVE MODAL -->
+  <div id="resolveModal" class="fixed inset-0 z-40 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-5 sm:p-6 max-w-sm w-full shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <div>
+          <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-circle-check text-emerald-600"></i>
+            <span>Mark as Resolved</span>
+          </h3>
+          <p id="resolveSub" class="text-[11px] text-slate-500">Close complaint with resolution notes</p>
+        </div>
+        <button type="button" onclick="closeResolveModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitQuickResolve(event)" class="space-y-3.5 text-xs">
+        <input type="hidden" id="resComplaintIdx" value="" />
+        <div>
+          <label class="block text-slate-700 font-bold mb-1">Resolved Date *</label>
+          <input type="date" id="resDate" required
+                 class="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-slate-700 font-bold mb-1">Resolution Notes</label>
+          <textarea id="resNotes" rows="3" placeholder="e.g. Replaced geyser thermostat, tested hot water..."
+                    class="w-full px-3 py-2 border border-slate-300 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"></textarea>
+        </div>
+        <div id="resModalStatus" class="p-2.5 rounded-xl text-xs font-semibold hidden"></div>
+        <div class="flex gap-2 pt-1">
+          <button type="button" onclick="closeResolveModal()" class="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+            Cancel
+          </button>
+          <button type="submit" id="resSubmitBtn" class="w-2/3 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-600/25 transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-check"></i>
+            <span>Confirm Resolved</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN WRAPPER -->
+  <div class="max-w-4xl mx-auto px-4 pt-4 sm:pt-8">
+
+    <!-- HEADER -->
+    <header class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 mb-5 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <a href="index.html" class="text-xs font-bold text-slate-500 hover:text-slate-800 transition flex items-center gap-1">
+            <i class="fa-solid fa-arrow-left"></i> Home
+          </a>
+          <span class="text-slate-300">&bull;</span>
+          <span class="text-xs font-bold text-rose-400 uppercase tracking-wider">Maintenance</span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
+          <i class="fa-solid fa-clipboard-list text-rose-400"></i> Complaints Log
+        </h1>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap">
+        <button type="button" onclick="loadComplaints(true)" class="p-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition" title="Force Refresh">
+          <i class="fa-solid fa-arrows-rotate"></i>
+        </button>
+
+        <button type="button" onclick="openNewComplaintModal()" class="btn-add px-3.5 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-md transition flex items-center gap-1.5">
+          <i class="fa-solid fa-plus"></i>
+          <span>Log Complaint</span>
+        </button>
+
+        <button type="button" onclick="toggleElysiumDrawer(true)" class="p-2 text-xs font-bold bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 rounded-xl transition" title="Quick Jump &amp; Modules">
+          <i class="fa-solid fa-compass"></i>
+        </button>
+
+        <button type="button" onclick="logoutApp()" class="p-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition" title="Sign Out">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- SUMMARY METRIC CARDS (CLICK TO FILTER) -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+      <button type="button" onclick="setStatusFilter('Open')" class="text-left bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-rose-400 transition">
+        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Open</span>
+        <p id="metricOpen" class="text-2xl font-black text-rose-500 mt-1">0</p>
+        <span class="text-[10px] text-slate-400">Needs action</span>
+      </button>
+      <button type="button" onclick="setStatusFilter('In Progress')" class="text-left bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-amber-400 transition">
+        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">In Progress</span>
+        <p id="metricInProgress" class="text-2xl font-black text-amber-500 mt-1">0</p>
+        <span class="text-[10px] text-slate-400">Being fixed</span>
+      </button>
+      <button type="button" onclick="setPriorityQuick('Urgent')" class="text-left bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-rose-500 transition">
+        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Urgent Pending</span>
+        <p id="metricUrgent" class="text-2xl font-black text-rose-600 mt-1">0</p>
+        <span class="text-[10px] text-slate-400">Top priority</span>
+      </button>
+      <button type="button" onclick="setStatusFilter('Resolved')" class="text-left bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-emerald-400 transition">
+        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Resolved</span>
+        <p id="metricResolved" class="text-2xl font-black text-emerald-500 mt-1">0</p>
+        <span class="text-[10px] text-slate-400">Completed</span>
+      </button>
+    </div>
+
+    <!-- SEARCH & FILTER BAR -->
+    <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm mb-5 space-y-3">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <div class="relative flex-1 min-w-[200px]">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </span>
+          <input type="text" id="searchInput" oninput="renderComplaints()" placeholder="Search room, resident, complaint, or status notes..."
+                 class="w-full pl-8 pr-3 py-2 text-xs font-bold border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none" />
+        </div>
+
+        <select id="priorityFilter" onchange="renderComplaints()" class="px-3 py-2 text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none">
+          <option value="ALL">All Priorities</option>
+          <option value="Urgent">Urgent</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+      </div>
+
+      <div class="flex items-center gap-1.5 text-xs font-bold flex-wrap">
+        <button type="button" onclick="setStatusFilter('ACTIVE')" id="stACTIVE" class="px-3 py-1.5 rounded-xl bg-rose-600 text-white">Pending (Open + In Progress)</button>
+        <button type="button" onclick="setStatusFilter('Open')" id="stOpen" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600">Open</button>
+        <button type="button" onclick="setStatusFilter('In Progress')" id="stInProgress" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600">In Progress</button>
+        <button type="button" onclick="setStatusFilter('Resolved')" id="stResolved" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600">Resolved</button>
+        <button type="button" onclick="setStatusFilter('ALL')" id="stALL" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600">All</button>
+      </div>
+    </div>
+
+    <!-- COMPLAINTS LIST -->
+    <div id="complaintsList" class="space-y-3.5">
+      <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-400 text-xs font-semibold">
+        <i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i> Loading complaints from Elysium PG master...
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let allComplaints = [];
+    let activeStatusFilter = "ACTIVE";
+    let editingComplaintExpected = null;
+    let roomLookupTimer = null;
+
+    function unlockApp() {
+      window.location.replace("login.html?redirect=complaints.html");
+    }
+
+    function todayIso() {
+      const d = new Date();
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    }
+
+    async function loadComplaints(forceRefresh = false) {
+      const container = document.getElementById("complaintsList");
+      if (forceRefresh || !allComplaints.length) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-400 text-xs font-semibold">
+            <i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i> Loading complaints...
+          </div>`;
+      }
+
+      try {
+        const params = forceRefresh ? { forceRefresh: "true" } : {};
+        const applyData = (json) => {
+          if (!json || json.status !== "success") return;
+          allComplaints = json.complaints || [];
+          renderComplaints();
+        };
+
+        if (typeof apiGetSWR === "function") {
+          await apiGetSWR("getComplaints", params, applyData, forceRefresh);
+        } else {
+          const json = await apiGet("getComplaints", params);
+          applyData(json);
+        }
+      } catch (err) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl border border-rose-200 p-6 text-center text-rose-600 text-xs font-bold">
+            <i class="fa-solid fa-circle-exclamation mr-1"></i> ${esc(err.message || "Failed loading complaints.")}
+          </div>`;
+      }
+    }
+
+    function setStatusFilter(st) {
+      activeStatusFilter = st;
+      const map = { ACTIVE: "stACTIVE", Open: "stOpen", "In Progress": "stInProgress", Resolved: "stResolved", ALL: "stALL" };
+      Object.entries(map).forEach(([k, id]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.className = (k === st)
+          ? "px-3 py-1.5 rounded-xl bg-rose-600 text-white"
+          : "px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600";
+      });
+      renderComplaints();
+    }
+
+    function setPriorityQuick(p) {
+      document.getElementById("priorityFilter").value = p;
+      setStatusFilter("ACTIVE");
+    }
+
+    function priorityBadge(p) {
+      if (p === "Urgent") return `<span class="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-rose-600 text-white"><i class="fa-solid fa-fire text-[9px] mr-1"></i>Urgent</span>`;
+      if (p === "High") return `<span class="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-amber-500/20 text-amber-500 border border-amber-500/30">High</span>`;
+      if (p === "Medium") return `<span class="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-indigo-500/15 text-indigo-400 border border-indigo-400/30">Medium</span>`;
+      return `<span class="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-slate-500/15 text-slate-400 border border-slate-500/25">Low</span>`;
+    }
+
+    function statusBadge(s) {
+      if (s === "Resolved") return `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">Resolved ✓</span>`;
+      if (s === "In Progress") return `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/15 text-amber-500 border border-amber-500/30">In Progress</span>`;
+      return `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/15 text-rose-400 border border-rose-500/30">Open</span>`;
+    }
+
+    function renderComplaints() {
+      const isViewer = getAuthRole() === "VIEWER";
+      const q = (document.getElementById("searchInput").value || "").trim().toLowerCase();
+      const pf = document.getElementById("priorityFilter").value;
+
+      document.getElementById("metricOpen").innerText = allComplaints.filter(c => c.status === "Open").length;
+      document.getElementById("metricInProgress").innerText = allComplaints.filter(c => c.status === "In Progress").length;
+      document.getElementById("metricUrgent").innerText = allComplaints.filter(c => c.priority === "Urgent" && c.status !== "Resolved").length;
+      document.getElementById("metricResolved").innerText = allComplaints.filter(c => c.status === "Resolved").length;
+
+      const filtered = allComplaints.filter(c => {
+        if (activeStatusFilter === "ACTIVE" && c.status === "Resolved") return false;
+        if (activeStatusFilter !== "ACTIVE" && activeStatusFilter !== "ALL" && c.status !== activeStatusFilter) return false;
+        if (pf !== "ALL" && c.priority !== pf) return false;
+        if (q) {
+          const hay = [c.room, c.reporter, c.description, c.progressNotes, c.resolutionNotes, c.loggedBy, c.loggedDate].join(" ").toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      const container = document.getElementById("complaintsList");
+      if (!allComplaints.length) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center space-y-2">
+            <i class="fa-solid fa-circle-check text-3xl text-emerald-400"></i>
+            <p class="text-sm font-bold text-slate-700">No complaints logged yet</p>
+            <p class="text-xs text-slate-500">Tap <b>Log Complaint</b> to record maintenance or resident issues in <b>Elysium PG master</b>.</p>
+          </div>`;
+        return;
+      }
+
+      if (!filtered.length) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center">
+            <i class="fa-solid fa-circle-check text-3xl text-emerald-400 mb-2"></i>
+            <p class="text-sm font-bold text-slate-500">No complaints in this view.</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(c => {
+        const origIdx = allComplaints.indexOf(c);
+        const isRoomNum = /^\d{3}$/.test(String(c.room || "").trim());
+        const roomLabel = isRoomNum ? `Room ${c.room}` : c.room;
+
+        return `
+          <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3">
+            <!-- Top Badges -->
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="px-2.5 py-1 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-400/30 font-mono font-black text-xs">
+                  <i class="fa-solid ${isRoomNum ? "fa-door-closed" : "fa-building"} text-[10px] mr-1"></i>${esc(roomLabel)}
+                </span>
+                ${priorityBadge(c.priority)}
+                ${statusBadge(c.status)}
+              </div>
+
+              <div class="flex items-center gap-1.5">
+                <button type="button" onclick="shareWhatsApp(${origIdx})" class="w-8 h-8 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-500 flex items-center justify-center" title="Share on WhatsApp">
+                  <i class="fa-brands fa-whatsapp text-sm"></i>
+                </button>
+                ${!isViewer ? `
+                  <button type="button" onclick="openEditComplaintModal(${origIdx})" class="w-8 h-8 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 flex items-center justify-center" title="Edit">
+                    <i class="fa-solid fa-pen text-xs"></i>
+                  </button>
+                  <button type="button" onclick="deleteComplaint(${origIdx})" class="w-8 h-8 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 flex items-center justify-center" title="Delete">
+                    <i class="fa-solid fa-trash-can text-xs"></i>
+                  </button>` : ""}
+              </div>
+            </div>
+
+            <!-- Complete Complaint Description -->
+            <p class="text-sm font-semibold text-slate-800 leading-relaxed">${esc(c.description)}</p>
+
+            <!-- Meta Line -->
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500">
+              <span><i class="fa-regular fa-calendar mr-1 text-slate-400"></i>Logged: <b>${esc(c.loggedDate)}</b></span>
+              ${c.reporter ? `<span><i class="fa-regular fa-user mr-1 text-slate-400"></i>By: <b>${esc(c.reporter)}</b></span>` : ""}
+              ${c.loggedBy ? `<span><i class="fa-solid fa-user-pen mr-1 text-slate-400"></i>Staff: ${esc(c.loggedBy)}</span>` : ""}
+              ${c.resolvedDate ? `<span class="text-emerald-500 font-bold"><i class="fa-solid fa-check-double mr-1"></i>Resolved: ${esc(c.resolvedDate)}</span>` : ""}
+            </div>
+
+            ${c.progressNotes ? `
+              <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-slate-700">
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-amber-500 block mb-0.5">
+                  <i class="fa-solid fa-screwdriver-wrench text-[9px] mr-1"></i>In Progress Status Note
+                </span>
+                ${esc(c.progressNotes)}
+              </div>` : ""}
+
+            ${c.resolutionNotes ? `
+              <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-slate-700">
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-500 block mb-0.5">
+                  <i class="fa-solid fa-check-double text-[9px] mr-1"></i>Resolution Notes
+                </span>
+                ${esc(c.resolutionNotes)}
+              </div>` : ""}
+
+            <!-- Quick Status Actions -->
+            ${!isViewer ? `
+              <div class="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                ${c.status === "Open" ? `
+                  <button type="button" onclick="openInProgressModal(${origIdx})" class="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-500 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5">
+                    <i class="fa-solid fa-screwdriver-wrench text-[11px]"></i> Mark In Progress
+                  </button>` : ""}
+                ${c.status === "In Progress" ? `
+                  <button type="button" onclick="openInProgressModal(${origIdx})" class="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-500 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5">
+                    <i class="fa-solid fa-pen-to-square text-[11px]"></i> Update Progress Note
+                  </button>` : ""}
+                ${c.status !== "Resolved" ? `
+                  <button type="button" onclick="openResolveModal(${origIdx})" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center gap-1.5">
+                    <i class="fa-solid fa-check text-[11px]"></i> Mark Resolved
+                  </button>` : `
+                  <button type="button" onclick="reopenComplaint(${origIdx})" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate-left text-[11px]"></i> Reopen
+                  </button>`}
+              </div>` : ""}
+          </div>`;
+      }).join("");
+    }
+
+    // ---------- OPTIONAL RESIDENT AUTOCOMPLETE FOR ROOM NUMBERS ----------
+    function onComplaintRoomInput() {
+      clearTimeout(roomLookupTimer);
+      const val = (document.getElementById("cRoom").value || "").trim();
+      const dl = document.getElementById("roomResidentsDatalist");
+      if (!/^[1-6]\d{2}$/.test(val)) {
+        if (dl) dl.innerHTML = "";
+        return;
+      }
+      roomLookupTimer = setTimeout(async () => {
+        try {
+          const activeMonth = sessionStorage.getItem("elysium_active_month") || "";
+          const json = await apiGet("getResidentsByRoom", { month: activeMonth, roomNumber: val });
+          if (json && json.status === "success" && Array.isArray(json.residents) && dl) {
+            dl.innerHTML = json.residents.map(r => `<option value="${esc(r.name)}"></option>`).join("");
+          }
+        } catch (e) {}
+      }, 350);
+    }
+
+    function setAreaPreset(val) {
+      document.getElementById("cRoom").value = val;
+      const dl = document.getElementById("roomResidentsDatalist");
+      if (dl) dl.innerHTML = "";
+    }
+
+    function toggleStatusNoteFields() {
+      const st = document.getElementById("cStatus").value;
+      const pGrp = document.getElementById("cProgressGroup");
+      const rGrp = document.getElementById("cResolutionGroup");
+      const hasProg = Boolean(document.getElementById("cProgressNotes").value.trim());
+      const hasRes = Boolean(document.getElementById("cResolutionNotes").value.trim());
+
+      pGrp.classList.toggle("hidden", !(st === "In Progress" || hasProg));
+      rGrp.classList.toggle("hidden", !(st === "Resolved" || hasRes));
+
+      if (st === "Resolved" && !document.getElementById("cResolvedDate").value) {
+        document.getElementById("cResolvedDate").value = todayIso();
+      }
+    }
+
+    function openNewComplaintModal() {
+      editingComplaintExpected = null;
+      document.getElementById("cRowIndex").value = "";
+      document.getElementById("complaintModalTitle").innerHTML = `<i class="fa-solid fa-triangle-exclamation text-rose-500"></i> <span>Log Complaint</span>`;
+      document.getElementById("cLoggedDate").value = todayIso();
+      document.getElementById("cRoom").value = "";
+      document.getElementById("cReporter").value = "";
+      document.getElementById("cPriority").value = "Medium";
+      document.getElementById("cStatus").value = "Open";
+      document.getElementById("cDescription").value = "";
+      document.getElementById("cProgressNotes").value = "";
+      document.getElementById("cResolvedDate").value = "";
+      document.getElementById("cResolutionNotes").value = "";
+      document.getElementById("complaintModalStatus").classList.add("hidden");
+      toggleStatusNoteFields();
+      document.getElementById("complaintModal").classList.remove("hidden");
+    }
+
+    function openEditComplaintModal(idx) {
+      const c = allComplaints[idx];
+      if (!c) return;
+      editingComplaintExpected = { loggedDate: c.loggedDate, room: c.room, description: c.description };
+      document.getElementById("cRowIndex").value = c.rowIndex || "";
+      document.getElementById("complaintModalTitle").innerHTML = `<i class="fa-solid fa-pen text-indigo-500"></i> <span>Edit Complaint</span>`;
+      document.getElementById("cLoggedDate").value = c.loggedDate || todayIso();
+      document.getElementById("cRoom").value = c.room || "";
+      document.getElementById("cReporter").value = c.reporter || "";
+      document.getElementById("cPriority").value = c.priority || "Medium";
+      document.getElementById("cStatus").value = c.status || "Open";
+      document.getElementById("cDescription").value = c.description || "";
+      document.getElementById("cProgressNotes").value = c.progressNotes || "";
+      document.getElementById("cResolvedDate").value = c.resolvedDate || "";
+      document.getElementById("cResolutionNotes").value = c.resolutionNotes || "";
+      document.getElementById("complaintModalStatus").classList.add("hidden");
+      toggleStatusNoteFields();
+      document.getElementById("complaintModal").classList.remove("hidden");
+    }
+
+    function closeComplaintModal() {
+      document.getElementById("complaintModal").classList.add("hidden");
+    }
+
+    async function saveComplaint(e) {
+      e.preventDefault();
+      const btn = document.getElementById("saveComplaintBtn");
+      const statusBox = document.getElementById("complaintModalStatus");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...`;
+      statusBox.classList.add("hidden");
+
+      const rowIndex = document.getElementById("cRowIndex").value;
+      const status = document.getElementById("cStatus").value;
+      const payload = {
+        action: "saveComplaint",
+        rowIndex: rowIndex ? Number(rowIndex) : undefined,
+        expected: editingComplaintExpected || undefined,
+        loggedDate: document.getElementById("cLoggedDate").value,
+        room: document.getElementById("cRoom").value.trim(),
+        reporter: document.getElementById("cReporter").value.trim(),
+        priority: document.getElementById("cPriority").value,
+        status: status,
+        description: document.getElementById("cDescription").value.trim(),
+        progressNotes: document.getElementById("cProgressNotes").value.trim(),
+        resolvedDate: status === "Resolved" ? (document.getElementById("cResolvedDate").value || todayIso()) : "",
+        resolutionNotes: document.getElementById("cResolutionNotes").value.trim()
+      };
+
+      try {
+        await apiPost(payload);
+        closeComplaintModal();
+        loadComplaints(true);
+      } catch (err) {
+        if (err && err.cancelled) return;
+        statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 block";
+        statusBox.innerText = err.message || "Failed saving complaint.";
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> <span>Save Complaint</span>`;
+      }
+    }
+
+    // ---------- QUICK IN PROGRESS MODAL ----------
+    function openInProgressModal(idx) {
+      const c = allComplaints[idx];
+      if (!c) return;
+      document.getElementById("ipComplaintIdx").value = String(idx);
+      const isUpdating = c.status === "In Progress";
+      document.getElementById("inProgressModalTitle").innerHTML = `<i class="fa-solid fa-screwdriver-wrench text-amber-500"></i> <span>${isUpdating ? "Update Progress Note" : "Mark In Progress"}</span>`;
+      const loc = /^\d{3}$/.test(c.room) ? "Room " + c.room : c.room;
+      document.getElementById("inProgressSub").innerText = `${loc} — ${c.description.slice(0, 50)}${c.description.length > 50 ? "..." : ""}`;
+      document.getElementById("ipNotes").value = c.progressNotes || "";
+      document.getElementById("ipModalStatus").classList.add("hidden");
+      document.getElementById("inProgressModal").classList.remove("hidden");
+    }
+
+    function closeInProgressModal() {
+      document.getElementById("inProgressModal").classList.add("hidden");
+    }
+
+    async function submitQuickInProgress(e) {
+      e.preventDefault();
+      const idx = Number(document.getElementById("ipComplaintIdx").value);
+      const c = allComplaints[idx];
+      if (!c) return;
+
+      const btn = document.getElementById("ipSubmitBtn");
+      const statusBox = document.getElementById("ipModalStatus");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...`;
+      statusBox.classList.add("hidden");
+
+      try {
+        await apiPost({
+          action: "updateComplaintStatus",
+          rowIndex: c.rowIndex,
+          expected: { loggedDate: c.loggedDate, room: c.room, description: c.description },
+          room: c.room,
+          status: "In Progress",
+          progressNotes: document.getElementById("ipNotes").value.trim()
+        });
+        closeInProgressModal();
+        loadComplaints(true);
+      } catch (err) {
+        if (err && err.cancelled) return;
+        statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 block";
+        statusBox.innerText = err.message || "Failed updating status.";
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> <span>Save Status Note</span>`;
+      }
+    }
+
+    // ---------- QUICK RESOLVE MODAL ----------
+    function openResolveModal(idx) {
+      const c = allComplaints[idx];
+      if (!c) return;
+      document.getElementById("resComplaintIdx").value = String(idx);
+      const loc = /^\d{3}$/.test(c.room) ? "Room " + c.room : c.room;
+      document.getElementById("resolveSub").innerText = `${loc} — ${c.description.slice(0, 50)}${c.description.length > 50 ? "..." : ""}`;
+      document.getElementById("resDate").value = todayIso();
+      document.getElementById("resNotes").value = c.resolutionNotes || "";
+      document.getElementById("resModalStatus").classList.add("hidden");
+      document.getElementById("resolveModal").classList.remove("hidden");
+    }
+
+    function closeResolveModal() {
+      document.getElementById("resolveModal").classList.add("hidden");
+    }
+
+    async function submitQuickResolve(e) {
+      e.preventDefault();
+      const idx = Number(document.getElementById("resComplaintIdx").value);
+      const c = allComplaints[idx];
+      if (!c) return;
+
+      const btn = document.getElementById("resSubmitBtn");
+      const statusBox = document.getElementById("resModalStatus");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...`;
+      statusBox.classList.add("hidden");
+
+      try {
+        await apiPost({
+          action: "updateComplaintStatus",
+          rowIndex: c.rowIndex,
+          expected: { loggedDate: c.loggedDate, room: c.room, description: c.description },
+          room: c.room,
+          status: "Resolved",
+          resolvedDate: document.getElementById("resDate").value || todayIso(),
+          resolutionNotes: document.getElementById("resNotes").value.trim()
+        });
+        closeResolveModal();
+        loadComplaints(true);
+      } catch (err) {
+        if (err && err.cancelled) return;
+        statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 block";
+        statusBox.innerText = err.message || "Failed resolving complaint.";
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> <span>Confirm Resolved</span>`;
+      }
+    }
+
+    async function reopenComplaint(idx) {
+      const c = allComplaints[idx];
+      if (!c) return;
+      try {
+        await apiPost({
+          action: "updateComplaintStatus",
+          rowIndex: c.rowIndex,
+          expected: { loggedDate: c.loggedDate, room: c.room, description: c.description },
+          room: c.room,
+          status: "Open"
+        });
+        loadComplaints(true);
+      } catch (err) {
+        if (err && err.cancelled) return;
+        alert(err.message || "Failed reopening complaint.");
+      }
+    }
+
+    async function deleteComplaint(idx) {
+      const c = allComplaints[idx];
+      if (!c) return;
+      try {
+        await apiPost({
+          action: "deleteComplaint",
+          rowIndex: c.rowIndex,
+          expected: { loggedDate: c.loggedDate, room: c.room, description: c.description }
+        });
+        loadComplaints(true);
+      } catch (err) {
+        if (err && err.cancelled) return;
+        alert(err.message || "Failed deleting complaint.");
+      }
+    }
+
+    function shareWhatsApp(idx) {
+      const c = allComplaints[idx];
+      if (!c) return;
+      const loc = /^\d{3}$/.test(c.room) ? `Room ${c.room}` : c.room;
+      let msg = `*Elysium PG Complaint (${c.status})*\nLocation: ${loc}\nPriority: ${c.priority}\nIssue: ${c.description}`;
+      if (c.progressNotes) msg += `\nStatus Note: ${c.progressNotes}`;
+      if (c.resolutionNotes) msg += `\nResolution: ${c.resolutionNotes}`;
+      window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      if (isAuthenticated()) {
+        const lock = document.getElementById("pinLockModal");
+        if (lock) lock.classList.add("hidden");
+        applyViewerRestrictions();
+        loadComplaints(false);
+      }
+    });
+  </script>
+</body>
+</html>

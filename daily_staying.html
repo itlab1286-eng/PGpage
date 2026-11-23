@@ -6,7 +6,7 @@
   <title>Elysium PG - Daily Staying</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <script src="auth.js"></script>
+  <script src="auth.js?v=29"></script>
 
   <!-- Inter, Outfit & JetBrains Mono Fonts (Optimized Mobile & Desktop Readability) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1032,13 +1032,11 @@
         `;
       } else {
         document.getElementById("coCautionDepositText").innerText = `₹${guest.cautionDeposit}`;
-        retSelect.innerHTML = `
-          <option value="Manohar">Manohar</option>
-          <option value="Sudheer">Sudheer</option>
-          <option value="Sreekaran">Sreekaran</option>
-          <option value="Cash">Cash</option>
-          <option value="No Deposit Refunded">No Deposit Refunded</option>
-        `;
+        const activeHandlers = (typeof getElysiumHandlers === "function")
+          ? getElysiumHandlers()
+          : [{ name: "Sreekaran" }, { name: "Manohar" }, { name: "Sudheer" }, { name: "Cash" }, { name: "Office Account" }];
+        retSelect.innerHTML = activeHandlers.map(h => `<option value="${esc(h.name)}">${esc(h.name)}</option>`).join("") +
+          `<option value="No Deposit Refunded">No Deposit Refunded</option>`;
       }
 
       document.getElementById("checkOutModal").classList.remove("hidden");

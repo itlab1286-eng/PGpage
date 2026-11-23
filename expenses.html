@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Elysium PG - Expenses</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script src="auth.js"></script>
+  <script src="auth.js?v=29"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
   <!-- Inter, Outfit & JetBrains Mono Fonts (Optimized Mobile & Desktop Readability) -->
@@ -104,26 +104,8 @@
         <span class="text-[10px] text-slate-400">Total this month</span>
       </div>
 
-      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm sm:col-span-3 flex flex-wrap items-center justify-around gap-2">
-        <div class="text-center">
-          <span class="text-[10px] font-bold text-slate-400">Manohar</span>
-          <p id="totalManohar" class="text-sm font-black text-indigo-600">₹0</p>
-        </div>
-        <div class="h-6 w-px bg-slate-200 hidden sm:block"></div>
-        <div class="text-center">
-          <span class="text-[10px] font-bold text-slate-400">Sreekaran</span>
-          <p id="totalSreekaran" class="text-sm font-black text-emerald-600">₹0</p>
-        </div>
-        <div class="h-6 w-px bg-slate-200 hidden sm:block"></div>
-        <div class="text-center">
-          <span class="text-[10px] font-bold text-slate-400">Sudheer</span>
-          <p id="totalSudheer" class="text-sm font-black text-amber-600">₹0</p>
-        </div>
-        <div class="h-6 w-px bg-slate-200 hidden sm:block"></div>
-        <div class="text-center">
-          <span class="text-[10px] font-bold text-slate-400">Cash</span>
-          <p id="totalCash" class="text-sm font-black text-rose-600">₹0</p>
-        </div>
+      <div id="expensesByPersonContainer" class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm sm:col-span-3 flex flex-wrap items-center justify-around gap-3">
+        <div class="text-center text-xs text-slate-400 font-semibold">Loading breakdown...</div>
       </div>
     </div>
 
@@ -328,15 +310,80 @@
       }
     }
 
-    function updateMetrics(totals) {
-      document.getElementById("metricTotalExpenses").innerText = "₹" + (totals.grandTotal || 0).toLocaleString("en-IN");
-      const byPerson = totals.byPerson || {};
+    let lastExpenseTotals = { grandTotal: 0, byPerson: {} };
 
-      document.getElementById("totalManohar").innerText = "₹" + (byPerson["Manohar"] || 0).toLocaleString("en-IN");
-      document.getElementById("totalSreekaran").innerText = "₹" + (byPerson["Sreekaran"] || 0).toLocaleString("en-IN");
-      document.getElementById("totalSudheer").innerText = "₹" + (byPerson["Sudheer"] || 0).toLocaleString("en-IN");
-      document.getElementById("totalCash").innerText = "₹" + (byPerson["Cash"] || 0).toLocaleString("en-IN");
+    const EXPENSE_TEXT_COLORS = [
+      "text-emerald-600", "text-indigo-600", "text-amber-600",
+      "text-rose-600", "text-cyan-600", "text-purple-600", "text-teal-600"
+    ];
+    const EXPENSE_BADGE_COLORS = [
+      "bg-emerald-100 text-emerald-700", "bg-indigo-100 text-indigo-700", "bg-amber-100 text-amber-700",
+      "bg-rose-100 text-rose-700", "bg-cyan-100 text-cyan-700", "bg-purple-100 text-purple-700", "bg-teal-100 text-teal-700"
+    ];
+
+    function getPersonColorIdx(name) {
+      const handlers = (typeof getElysiumHandlers === "function") ? getElysiumHandlers({ includeArchived: true }) : [];
+      const low = String(name || "").trim().toLowerCase();
+      const idx = handlers.findIndex(h => h.name.toLowerCase() === low);
+      if (idx >= 0) return idx % EXPENSE_TEXT_COLORS.length;
+      let hash = 0;
+      for (let i = 0; i < low.length; i++) hash = ((hash << 5) - hash + low.charCodeAt(i)) | 0;
+      return Math.abs(hash) % EXPENSE_TEXT_COLORS.length;
     }
+
+    function updateMetrics(totals) {
+      lastExpenseTotals = totals || { grandTotal: 0, byPerson: {} };
+      document.getElementById("metricTotalExpenses").innerText = "₹" + (lastExpenseTotals.grandTotal || 0).toLocaleString("en-IN");
+      const byPerson = lastExpenseTotals.byPerson || {};
+
+      const activeHandlers = (typeof getElysiumHandlers === "function")
+        ? getElysiumHandlers().map(h => h.name)
+        : ["Sreekaran", "Manohar", "Sudheer", "Cash", "Office Account"];
+
+      // Include all Active handlers + any Archived/extra spender who has spends in this month
+      const orderedNames = [];
+      const seen = {};
+      activeHandlers.forEach(n => { orderedNames.push(n); seen[n.toLowerCase()] = true; });
+      Object.keys(byPerson).forEach(k => {
+        const clean = String(k || "").trim();
+        if (clean && !seen[clean.toLowerCase()] && Number(byPerson[k]) > 0) {
+          orderedNames.push(clean);
+          seen[clean.toLowerCase()] = true;
+        }
+      });
+
+      const box = document.getElementById("expensesByPersonContainer");
+      if (box) {
+        box.innerHTML = orderedNames.map((name, idx) => {
+          const amt = byPerson[name] || 0;
+          const colorCls = EXPENSE_TEXT_COLORS[getPersonColorIdx(name)];
+          return `${idx > 0 ? '<div class="h-6 w-px bg-slate-200 hidden sm:block"></div>' : ''}
+            <button type="button" onclick="document.getElementById('filterPerson').value=this.dataset.person;renderExpensesList()" data-person="${esc(name)}"
+                    class="text-center px-2 py-1 rounded-xl hover:bg-slate-50 transition cursor-pointer">
+              <span class="text-[10px] font-bold text-slate-400 block">${esc(name)}</span>
+              <p class="text-sm font-black font-mono ${colorCls}">₹${Number(amt).toLocaleString("en-IN")}</p>
+            </button>`;
+        }).join("");
+      }
+
+      // Ensure filterPerson also includes any archived/extra spender from this month
+      const filterSel = document.getElementById("filterPerson");
+      if (filterSel) {
+        orderedNames.forEach(name => {
+          if (!Array.from(filterSel.options).some(o => o.value === name)) {
+            const opt = document.createElement("option");
+            opt.value = name;
+            opt.textContent = name;
+            filterSel.appendChild(opt);
+          }
+        });
+      }
+    }
+
+    window.addEventListener("elysium:handlerschange", () => {
+      updateMetrics(lastExpenseTotals);
+      renderExpensesList();
+    });
 
     function renderExpensesList() {
       const container = document.getElementById("expensesFeedContainer");
@@ -357,11 +404,7 @@
         const card = document.createElement("div");
         card.className = "p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-3";
 
-        let badgeColor = "bg-slate-100 text-slate-700";
-        if (item.spentBy === "Manohar") badgeColor = "bg-indigo-100 text-indigo-700";
-        else if (item.spentBy === "Sreekaran") badgeColor = "bg-emerald-100 text-emerald-700";
-        else if (item.spentBy === "Sudheer") badgeColor = "bg-amber-100 text-amber-700";
-        else if (item.spentBy === "Cash") badgeColor = "bg-rose-100 text-rose-700";
+        const badgeColor = EXPENSE_BADGE_COLORS[getPersonColorIdx(item.spentBy)] || "bg-slate-100 text-slate-700";
 
         card.innerHTML = `
           <div class="flex-1 min-w-0">
