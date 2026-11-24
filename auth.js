@@ -501,14 +501,33 @@ function describeSavePayload_(payload) {
       break;
 
     case "shiftResident":
-      title = "Shift Resident to New Room";
+      title = payload.isFutureMonthShift ? "Schedule Future-Month Room Shift" : "Shift Resident to New Room";
       push("Resident", payload.residentName);
       push("Transfer", `Room ${payload.fromRoom} → Room ${payload.toRoom}`);
       push("Shift Date", payload.shiftDate);
-      push("Old Room Rent", formatRupeeVal_(payload.oldRoomRent));
-      push("New Room Rent", formatRupeeVal_(payload.newRoomProRatedRent || payload.newRoomStandardRent));
-      if (Number(payload.additionalRentPaidNow) > 0) push("Collected Now", formatRupeeVal_(payload.additionalRentPaidNow) + (payload.additionalRentMode ? " (" + payload.additionalRentMode + ")" : ""));
-      if (Number(payload.additionalAdvance) > 0) push("Extra Advance", formatRupeeVal_(payload.additionalAdvance) + (payload.additionalAdvanceReceiver ? " (" + payload.additionalAdvanceReceiver + ")" : ""));
+      if (payload.isFutureMonthShift) {
+        push((payload.month || "Current Month") + " Rent", "Unchanged (Old Room stays full)");
+        push("New Room (" + (payload.shiftMonthName || "Next Month") + ")", formatRupeeVal_(payload.newRoomStandardRent) + "/mo (₹0 in " + (payload.month || "this month") + ")");
+      } else {
+        push("Old Room Rent", formatRupeeVal_(payload.oldRoomRent));
+        push("New Room Rent", formatRupeeVal_(payload.newRoomProRatedRent || payload.newRoomStandardRent));
+        if (Number(payload.additionalRentPaidNow) > 0) push("Collected Now", formatRupeeVal_(payload.additionalRentPaidNow) + (payload.additionalRentMode ? " (" + payload.additionalRentMode + ")" : ""));
+      }
+      if (payload.newAgreedAdvance !== undefined && payload.newAgreedAdvance !== "") {
+        push("New Target Advance", formatRupeeVal_(payload.newAgreedAdvance));
+      }
+      if (Number(payload.additionalAdvance) > 0) {
+        push("Extra Advance Paid Today", formatRupeeVal_(payload.additionalAdvance) + (payload.additionalAdvanceReceiver ? " (" + payload.additionalAdvanceReceiver + ")" : ""));
+      }
+      break;
+
+    case "cancelFutureShift":
+      title = "Cancel Scheduled Room Shift";
+      isDestructive = true;
+      push("Resident", payload.residentName);
+      push("Cancel Transfer", `Room ${payload.fromRoom} → Room ${payload.toRoom || "?"}`);
+      push("Scheduled Date", payload.shiftDate);
+      push("Effect", "Clears old room notice & frees reserved bed in new room");
       break;
 
     case "checkInDailyGuest":

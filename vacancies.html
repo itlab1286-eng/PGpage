@@ -6,7 +6,7 @@
   <title>Elysium PG - Vacancies & Availability</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <script src="auth.js?v=29"></script>
+  <script src="auth.js?v=32"></script>
 
   <!-- Inter, Outfit & JetBrains Mono Fonts (Optimized Mobile & Desktop Readability) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -648,8 +648,8 @@
                 <span class="text-base font-black text-slate-900">Room ${esc(item.roomNumber)}</span>
                 ${getAcStatusBadge(item.ac, item.acUsing)}
                 <span class="text-xs text-slate-500 font-bold">&bull; ${esc(item.capacity)}-Sharing</span>
-                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isDaily ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'}">
-                  ${isDaily ? 'Daily Booking' : 'Monthly Advance Booking'}
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isDaily ? 'bg-emerald-100 text-emerald-800' : (item.isScheduledShift ? 'bg-indigo-100 text-indigo-800' : 'bg-purple-100 text-purple-800')}">
+                  ${isDaily ? 'Daily Booking' : (item.isScheduledShift ? `Scheduled Shift (From Rm ${esc(item.shiftFromRoom)})` : 'Monthly Advance Booking')}
                 </span>
               </div>
               <p class="text-xs font-bold text-slate-800 mt-1 flex items-center gap-1.5">
@@ -691,19 +691,28 @@
           const daysBadge = diffDays <= 0 ? "Leaves Today" : (diffDays === 1 ? "Leaves Tomorrow" : `Leaves in ${diffDays} days`);
 
           const isDaily = item.stayType === "Daily";
+          const isShiftOut = Boolean(!isDaily && item.isScheduledShift);
           const stayTypeTag = isDaily
             ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Short Stay</span>`
-            : `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">Monthly Notice</span>`;
+            : (isShiftOut
+                ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">Scheduled Shift &rarr; Rm ${esc(item.shiftToRoom)}</span>`
+                : `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">Monthly Notice</span>`);
 
-          const cancelNoticeBtn = !isDaily
-            ? `<button type="button" onclick="openCancelNoticeModal(${fIdx})"
-                       class="mt-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl shadow-sm transition inline-flex items-center gap-1.5">
-                 <i class="fa-solid fa-rotate-left text-[10px]"></i>
-                 <span>Cancel Notice (Continue Stay)</span>
-               </button>`
-            : `<a href="daily_staying.html" class="mt-2 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] rounded-lg transition inline-flex items-center gap-1 no-underline">
+          const cancelNoticeBtn = isDaily
+            ? `<a href="daily_staying.html" class="mt-2 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] rounded-lg transition inline-flex items-center gap-1 no-underline">
                  <i class="fa-solid fa-calendar-plus text-[9px]"></i> Extend in Daily Stay
-               </a>`;
+               </a>`
+            : (isShiftOut
+                ? `<button type="button" onclick="cancelScheduledShift(${fIdx})"
+                           class="mt-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-[11px] rounded-xl shadow-sm transition inline-flex items-center gap-1.5">
+                     <i class="fa-solid fa-ban text-[10px]"></i>
+                     <span>Cancel Room Shift</span>
+                   </button>`
+                : `<button type="button" onclick="openCancelNoticeModal(${fIdx})"
+                           class="mt-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl shadow-sm transition inline-flex items-center gap-1.5">
+                     <i class="fa-solid fa-rotate-left text-[10px]"></i>
+                     <span>Cancel Notice (Continue Stay)</span>
+                   </button>`);
 
           card.innerHTML = `
             <div>
@@ -1022,6 +1031,27 @@
       }
     }
 
+
+    async function cancelScheduledShift(fIdx) {
+      const item = (window.__filteredFutureList || [])[fIdx];
+      if (!item) return;
+      const month = document.getElementById("monthSelect").value;
+      try {
+        await apiPost({
+          action: "cancelFutureShift",
+          month: month,
+          rowIndex: item.rowIndex || undefined,
+          fromRoom: item.roomNumber,
+          toRoom: item.shiftToRoom || "",
+          residentName: item.residentName,
+          shiftDate: item.vacatingDate
+        });
+        loadVacancies(2);
+      } catch (err) {
+        if (err && (err.cancelled || err.modalShown)) return;
+        alert("Failed cancelling room shift: " + err.message);
+      }
+    }
   </script>
 </body>
 </html>

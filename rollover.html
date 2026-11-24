@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Elysium PG - Monthly Rollover</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script src="auth.js?v=29"></script>
+  <script src="auth.js?v=32"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
   <!-- Inter, Outfit & JetBrains Mono Fonts (Optimized Mobile & Desktop Readability) -->
@@ -317,6 +317,7 @@
             <div>
               <p class="font-bold text-slate-800">Room ${esc(u.room)} &bull; ${esc(u.name)}</p>
               <p class="text-[10px] text-amber-700 font-bold">Unpaid Balance: ₹${u.balance}</p>
+              ${u.note ? `<p class="text-[10px] text-indigo-600 italic mt-0.5">${esc(u.note)}</p>` : ''}
             </div>
             <label class="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 cursor-pointer">
               <input type="checkbox" id="carryDue_${i}" data-key="${esc(u.room)}|${esc(u.name)}" data-balance="${esc(u.balance)}" class="rounded text-purple-600" />
@@ -335,7 +336,7 @@
       } else {
         droppedContainer.innerHTML = dropList.map((dr, i) => `
           <div class="p-2 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-slate-500">
-            <span>Room ${esc(dr.room)} &bull; ${esc(dr.name)} (Vacated ${esc(dr.vacatedOn)})${dr.balance > 0 ? ` <b class="text-amber-700">unpaid ₹${dr.balance}</b>` : ""}</span>
+            <span>Room ${esc(dr.room)} &bull; ${esc(dr.name)} (${dr.reason ? esc(dr.reason) : `Vacated ${esc(dr.vacatedOn)}`})${dr.balance > 0 ? ` <b class="text-amber-700">unpaid ₹${dr.balance}</b>` : ""}</span>
             <label class="text-[10px] font-bold text-purple-600 flex items-center gap-1 cursor-pointer">
               <input type="checkbox" id="keepRes_${i}" data-key="${esc(dr.room)}|${esc(dr.name)}" /> Keep in next month
             </label>

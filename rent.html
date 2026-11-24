@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Elysium PG - Rent & Dues Ledger</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script src="auth.js?v=29"></script>
+  <script src="auth.js?v=32"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="receipt.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -220,86 +220,108 @@
                  class="w-full text-xs font-bold px-3 py-2 border border-slate-300 rounded-xl font-mono" />
         </div>
 
-        <!-- Pro-rated Rent Calculations (Both Editable) -->
-        <div class="bg-indigo-50/60 p-3.5 rounded-2xl border border-indigo-100 space-y-3">
-          <div class="text-[11px] font-bold text-indigo-900 flex items-center justify-between">
-            <span>Pro-Rated Rent Breakdown</span>
-            <span id="shiftSplitBadge" class="text-[10px] bg-indigo-100 px-2 py-0.5 rounded-md font-mono">--</span>
+        <!-- FUTURE-MONTH SHIFT NOTICE BANNER (AUTO-SHOWN WHEN SHIFT DATE IS IN NEXT/FUTURE MONTH) -->
+        <div id="shiftFutureNoticeBox" class="hidden p-3.5 rounded-2xl bg-purple-50 border border-purple-200 text-xs space-y-1.5">
+          <div class="flex items-center gap-2 font-black text-purple-800">
+            <i class="fa-solid fa-calendar-check text-purple-600"></i>
+            <span id="shiftFutureTitle">Scheduled Future-Month Shift</span>
+          </div>
+          <p id="shiftFutureDesc" class="text-[11px] text-purple-700 leading-relaxed">
+            Current month rent &amp; payments stay untouched. The new bed will be reserved immediately with ₹0 rent this month, and full rent starts automatically in the shift month.
+          </p>
+        </div>
+
+        <!-- SAME-MONTH PRO-RATE & CREDIT SECTION (HIDDEN AUTOMATICALLY FOR FUTURE-MONTH SHIFTS) -->
+        <div id="shiftSameMonthSection" class="space-y-3.5">
+          <!-- Pro-rated Rent Calculations (Both Editable) -->
+          <div class="bg-indigo-50/60 p-3.5 rounded-2xl border border-indigo-100 space-y-3">
+            <div class="text-[11px] font-bold text-indigo-900 flex items-center justify-between">
+              <span>Pro-Rated Rent Breakdown</span>
+              <span id="shiftSplitBadge" class="text-[10px] bg-indigo-100 px-2 py-0.5 rounded-md font-mono">--</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[10px] font-bold text-slate-600 mb-1">Old Room Rent (₹) *</label>
+                <input type="number" id="shiftOldProRatedRent" required oninput="recalculateRentCredit()"
+                       class="w-full text-xs font-bold px-3 py-2 border border-slate-300 bg-white rounded-xl font-mono text-slate-800" />
+                <span class="text-[9px] text-slate-400">Stayed till shift date</span>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-600 mb-1">New Room Rent (₹) *</label>
+                <input type="number" id="shiftNewProRatedRent" required oninput="recalculateRentCredit()"
+                       class="w-full text-xs font-bold px-3 py-2 border border-slate-300 bg-white rounded-xl font-mono text-indigo-700" />
+                <span class="text-[9px] text-slate-400">Shift date till month end</span>
+              </div>
+            </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-[10px] font-bold text-slate-600 mb-1">Old Room Rent (₹) *</label>
-              <input type="number" id="shiftOldProRatedRent" required oninput="recalculateRentCredit()"
-                     class="w-full text-xs font-bold px-3 py-2 border border-slate-300 bg-white rounded-xl font-mono text-slate-800" />
-              <span class="text-[9px] text-slate-400">Stayed till shift date</span>
+          <!-- RENT CREDIT & SETTLEMENT CALCULATION BOX -->
+          <div class="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-emerald-900">Already Paid in Old Room:</span>
+              <span id="shiftOldPaidDisplay" class="font-mono font-black text-slate-800">₹0</span>
             </div>
-            <div>
-              <label class="block text-[10px] font-bold text-slate-600 mb-1">New Room Rent (₹) *</label>
-              <input type="number" id="shiftNewProRatedRent" required oninput="recalculateRentCredit()"
-                     class="w-full text-xs font-bold px-3 py-2 border border-slate-300 bg-white rounded-xl font-mono text-indigo-700" />
-              <span class="text-[9px] text-slate-400">Shift date till month end</span>
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-emerald-900">Transferred Rent Credit:</span>
+              <span id="shiftCarriedCreditDisplay" class="font-mono font-black text-emerald-700">₹0</span>
+            </div>
+            <div class="pt-1 border-t border-emerald-200 flex items-center justify-between text-xs">
+              <span class="font-black text-slate-800">Net Balance Remaining to Collect:</span>
+              <span id="shiftNetDueDisplay" class="font-mono font-black text-rose-700 text-sm">₹0</span>
+            </div>
+          </div>
+
+          <!-- IMMEDIATE COLLECTION OF REMAINING RENT (OPTIONAL) -->
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+            <label class="block text-[11px] font-bold text-slate-700">Collect Remaining Rent Now? (₹)</label>
+            <input type="number" id="shiftCollectNowAmt" placeholder="0 if paying later" oninput="toggleCollectModeBox()"
+                   class="w-full text-xs font-bold px-3 py-2 border border-slate-300 rounded-xl font-mono text-emerald-700 bg-white" />
+            <p class="text-[10px] text-slate-400">If unpaid now, the ₹ credit is applied and the remainder will show under Dues.</p>
+
+            <div id="shiftCollectModeBox" class="grid grid-cols-2 gap-2 pt-1 hidden">
+              <div>
+                <span class="text-[10px] font-bold text-slate-500">Mode</span>
+                <select id="shiftCollectMode" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg bg-white">
+                  <option value="Cash">Cash</option>
+                  <option value="PPay">PPay (PhonePe)</option>
+                  <option value="GPay">GPay (Google Pay)</option>
+                  <option value="Paytm">Paytm</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                </select>
+              </div>
+              <div>
+                <span class="text-[10px] font-bold text-slate-500">Receiver</span>
+                <select id="shiftCollectReceiver" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg bg-white">
+                  <option value="None">None (Cash)</option>
+                  <option value="Manohar">Manohar</option>
+                  <option value="Sreekaran">Sreekaran</option>
+                  <option value="Sudheer">Sudheer</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- RENT CREDIT & SETTLEMENT CALCULATION BOX -->
-        <div class="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-2">
-          <div class="flex items-center justify-between text-xs">
-            <span class="font-bold text-emerald-900">Already Paid in Old Room:</span>
-            <span id="shiftOldPaidDisplay" class="font-mono font-black text-slate-800">₹0</span>
-          </div>
-          <div class="flex items-center justify-between text-xs">
-            <span class="font-bold text-emerald-900">Transferred Rent Credit:</span>
-            <span id="shiftCarriedCreditDisplay" class="font-mono font-black text-emerald-700">₹0</span>
-          </div>
-          <div class="pt-1 border-t border-emerald-200 flex items-center justify-between text-xs">
-            <span class="font-black text-slate-800">Net Balance Remaining to Collect:</span>
-            <span id="shiftNetDueDisplay" class="font-mono font-black text-rose-700 text-sm">₹0</span>
-          </div>
-        </div>
-
-        <!-- IMMEDIATE COLLECTION OF REMAINING RENT (OPTIONAL) -->
-        <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-          <label class="block text-[11px] font-bold text-slate-700">Collect Remaining Rent Now? (₹)</label>
-          <input type="number" id="shiftCollectNowAmt" placeholder="0 if paying later" oninput="toggleCollectModeBox()"
-                 class="w-full text-xs font-bold px-3 py-2 border border-slate-300 rounded-xl font-mono text-emerald-700 bg-white" />
-          <p class="text-[10px] text-slate-400">If unpaid now, the ₹ credit is applied and the remainder will show under Dues.</p>
-
-          <div id="shiftCollectModeBox" class="grid grid-cols-2 gap-2 pt-1 hidden">
+        <!-- Advance / Deposit Carry Forward & Upgrade Target -->
+        <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5">
+          <div class="grid grid-cols-2 gap-2.5">
             <div>
-              <span class="text-[10px] font-bold text-slate-500">Mode</span>
-              <select id="shiftCollectMode" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg bg-white">
-                <option value="Cash">Cash</option>
-                <option value="PPay">PPay (PhonePe)</option>
-                <option value="GPay">GPay (Google Pay)</option>
-                <option value="Paytm">Paytm</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-              </select>
+              <label class="block text-[10px] font-bold text-slate-600 mb-1">Carried Advance (₹)</label>
+              <input type="number" id="shiftCarriedAdvance" required min="0" oninput="syncShiftTargetAdvance()"
+                     class="w-full text-xs font-bold px-3 py-2 border border-slate-300 rounded-xl font-mono text-emerald-700 bg-white" />
             </div>
             <div>
-              <span class="text-[10px] font-bold text-slate-500">Receiver</span>
-              <select id="shiftCollectReceiver" class="w-full text-xs font-semibold p-2 border border-slate-300 rounded-lg bg-white">
-                <option value="None">None (Cash)</option>
-                <option value="Manohar">Manohar</option>
-                <option value="Sreekaran">Sreekaran</option>
-                <option value="Sudheer">Sudheer</option>
-              </select>
+              <label class="block text-[10px] font-bold text-slate-600 mb-1">New Room Target Adv (₹)</label>
+              <input type="number" id="shiftNewTargetAdvance" required min="0" oninput="onShiftTargetAdvManualEdit()"
+                     class="w-full text-xs font-bold px-3 py-2 border border-slate-300 rounded-xl font-mono text-indigo-700 bg-white" />
             </div>
           </div>
-        </div>
-
-        <!-- Advance / Deposit Carry Forward -->
-        <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-[10px] font-bold text-slate-600 mb-1">Carried Advance (₹)</label>
-            <input type="number" id="shiftCarriedAdvance" required
-                   class="w-full text-xs font-bold px-3 py-2 border border-slate-300 rounded-xl font-mono text-emerald-700" />
-          </div>
-          <div>
-            <label class="block text-[10px] font-bold text-slate-600 mb-1">Extra Advance (₹)</label>
-            <input type="number" id="shiftExtraAdvance" placeholder="0 if none" oninput="toggleShiftExtraAdvReceiver()"
-                   class="w-full text-xs font-bold px-3 py-2 border border-slate-300 rounded-xl font-mono" />
+            <label class="block text-[10px] font-bold text-slate-600 mb-1">Extra Advance Paid Today (₹) <span class="text-slate-400 font-normal">(optional)</span></label>
+            <input type="number" id="shiftExtraAdvance" min="0" placeholder="0 if paying on move-in" oninput="toggleShiftExtraAdvReceiver(); syncShiftTargetAdvance();"
+                   class="w-full text-xs font-bold px-3 py-2 border border-slate-300 rounded-xl font-mono bg-white" />
+            <p id="shiftAdvanceHint" class="text-[10px] text-slate-400 mt-1">If target advance is higher than carried &amp; unpaid today, the difference shows as Advance Due starting in the shift month.</p>
           </div>
         </div>
 
@@ -941,6 +963,7 @@
       }
 
       container.innerHTML = "";
+      const sheetMKeyCard = monthSortKey(month);
       activeResidents.forEach((r, idx) => {
         const expectedRent = (parseFloat(r.expectedRent) || 0) + (parseFloat(r.arrears) || 0);
         const rentPaid = parseFloat(r.rentPaid) || 0;
@@ -948,13 +971,28 @@
         const isFullyPaid = (expectedRent > 0 && rentPaid >= expectedRent);
         const isPartial = (rentPaid > 0 && rentPaid < expectedRent);
 
+        let isFutureJoinerCard = false;
+        if (r.joiningDate && /^\d{4}-\d{2}-\d{2}$/.test(r.joiningDate) && sheetMKeyCard >= 0) {
+          const jpC = r.joiningDate.split("-");
+          const jKeyC = parseInt(jpC[0], 10) * 12 + (parseInt(jpC[1], 10) - 1);
+          if (jKeyC > sheetMKeyCard) isFutureJoinerCard = true;
+        }
+        const remStrCard = String(r.stayingDates || "");
+        const isFutureShiftIn = isFutureJoinerCard && /shifted from room/i.test(remStrCard);
+        const shiftToCardMatch = remStrCard.match(/Shifted to Room\s+(\d+)/i);
+
         const key = `${selectedRoom}_${r.name}`;
         const isIgnored = Boolean(ignoredDuesKeys[key]);
 
         let cardBg = "bg-white border-slate-200";
         let badgeHtml = "";
 
-        if (isFullyPaid || isIgnored) {
+        if (isFutureJoinerCard) {
+          cardBg = "bg-purple-50/40 border-purple-200";
+          badgeHtml = `<span class="px-2.5 py-1 bg-purple-100 text-purple-800 text-[10px] font-black rounded-lg border border-purple-200">
+            ${isFutureShiftIn ? `Shifts In ${esc(r.joiningDate)}` : `Joins ${esc(r.joiningDate)}`}
+          </span>`;
+        } else if (isFullyPaid || isIgnored) {
           cardBg = "bg-emerald-50/40 border-emerald-200";
           badgeHtml = `<span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-black rounded-lg">
             ${isIgnored && !isFullyPaid ? '✓ Approved' : `Paid ₹${rentPaid}`}
@@ -981,6 +1019,8 @@
         let noticeTag = "";
         if (r.vacated) {
           noticeTag = `<span class="text-[10px] text-rose-600 font-bold ml-1.5">(Left on ${esc(r.vacatedOn)} - dues pending)</span>`;
+        } else if (r.vacatedOn && shiftToCardMatch) {
+          noticeTag = `<span class="text-[10px] text-indigo-600 font-bold ml-1.5">(Shifting to Rm ${esc(shiftToCardMatch[1])}: ${esc(r.vacatedOn)})</span>`;
         } else if (r.vacatedOn) {
           noticeTag = `<span class="text-[10px] text-amber-600 font-bold ml-1.5">(Leaving: ${esc(r.vacatedOn)})</span>`;
         }
@@ -989,7 +1029,7 @@
           <div class="flex items-start justify-between gap-2" onclick="chooseResident(${idx})">
             <div class="flex-1 min-w-0">
               <p class="text-sm font-black text-slate-800 flex items-center gap-1.5 flex-wrap">
-                <i class="fa-solid fa-user text-xs ${isFullyPaid || isIgnored ? 'text-emerald-600' : (isPartial ? 'text-amber-500' : 'text-slate-400')}"></i>
+                <i class="fa-solid fa-user text-xs ${isFutureJoinerCard ? 'text-purple-500' : (isFullyPaid || isIgnored ? 'text-emerald-600' : (isPartial ? 'text-amber-500' : 'text-slate-400'))}"></i>
                 <span class="break-words">${esc(r.name)}</span>
                 ${idBadge}
                 ${noticeTag}
@@ -1004,11 +1044,12 @@
           </div>
 
           <div class="flex items-center gap-1.5 flex-wrap pt-2 border-t border-slate-100">
+            ${!isFutureJoinerCard ? `
             <button type="button" onclick="event.stopPropagation(); openShiftFor(${idx})" 
                     class="px-2.5 py-1 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg transition flex items-center gap-1">
               <i class="fa-solid fa-arrows-split-up-and-left text-[10px]"></i>
               <span>Shift</span>
-            </button>
+            </button>` : ''}
 
             <button type="button" onclick="event.stopPropagation(); openCollectAdvanceModal(${idx})" 
                     class="px-2.5 py-1 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition flex items-center gap-1">
@@ -1016,11 +1057,12 @@
               <span>Collect Adv</span>
             </button>
 
+            ${!isFutureJoinerCard ? `
             <button type="button" onclick="event.stopPropagation(); openAdvanceFor(${idx})" 
                     class="px-2.5 py-1 text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition flex items-center gap-1">
               <i class="fa-solid fa-arrow-rotate-left text-[10px]"></i>
               <span>Return Adv</span>
-            </button>
+            </button>` : ''}
 
             ${String(r.mobile || '').replace(/\D/g, '').slice(-10).length === 10 ? `
             <a href="tel:${String(r.mobile).replace(/\D/g, '').slice(-10)}" onclick="event.stopPropagation();"
@@ -1037,8 +1079,9 @@
     function openShiftFor(idx) {
       const r = activeResidents[idx];
       if (!r) return;
-      const deposit = Number(r.advance || r.advancePaid || 3000);
-      openShiftModal(selectedRoom, r.name, r.mobile || "", r.standardRent || r.expectedRent, deposit, r.rentPaid || 0);
+      const hasAdv = (r.advance !== "" && r.advance !== null && r.advance !== undefined);
+      const deposit = hasAdv ? (Number(r.advance) || 0) : (Number(r.advancePaid) || 0);
+      openShiftModal(selectedRoom, r.name, r.mobile || "", r.standardRent || r.expectedRent, deposit, r.rentPaid || 0, r.rowIndex || "");
     }
     function openAdvanceFor(idx) {
       const r = activeResidents[idx];
@@ -1462,13 +1505,48 @@
     // ==========================================
     // ROOM SHIFT SYSTEM
     // ==========================================
-    function openShiftModal(fromRoom, residentName, mobile, currentRent, advance, alreadyPaid) {
+    let shiftTargetAdvManual = false;
+    let shiftRowIndexCurrent = "";
+
+    function isShiftFutureMonth() {
+      const shiftDateStr = document.getElementById("shiftDate").value;
+      const sheetMonth = document.getElementById("monthSelect").value;
+      if (!shiftDateStr || !sheetMonth) return { isFuture: false, shiftMonthName: sheetMonth, sheetMonth: sheetMonth };
+      const parts = shiftDateStr.split("-");
+      const sYear = parseInt(parts[0], 10);
+      const sMonIdx = parseInt(parts[1], 10) - 1;
+      const shiftKey = sYear * 12 + sMonIdx;
+      const sheetKey = monthSortKey(sheetMonth);
+      const shiftMonthName = MONTH_NAMES[sMonIdx] + " " + sYear;
+      return { isFuture: (sheetKey >= 0 && shiftKey > sheetKey), shiftMonthName: shiftMonthName, sheetMonth: sheetMonth };
+    }
+
+    function onShiftTargetAdvManualEdit() {
+      shiftTargetAdvManual = true;
+    }
+
+    function syncShiftTargetAdvance() {
+      const carried = parseFloat(document.getElementById("shiftCarriedAdvance").value) || 0;
+      const extra = parseFloat(document.getElementById("shiftExtraAdvance").value) || 0;
+      const targetInp = document.getElementById("shiftNewTargetAdvance");
+      if (!targetInp) return;
+      const minTarget = carried + extra;
+      if (!shiftTargetAdvManual || (parseFloat(targetInp.value) || 0) < minTarget) {
+        targetInp.value = minTarget;
+      }
+    }
+
+    function openShiftModal(fromRoom, residentName, mobile, currentRent, advance, alreadyPaid, rowIndex) {
+      shiftTargetAdvManual = false;
+      shiftRowIndexCurrent = rowIndex || "";
       document.getElementById("shiftFromRoom").value = fromRoom;
       document.getElementById("shiftResidentName").value = residentName;
       document.getElementById("shiftResidentMobile").value = mobile || "";
       document.getElementById("shiftOldFullRent").value = currentRent || 7000;
       document.getElementById("shiftOldPaidRent").value = alreadyPaid || 0;
-      document.getElementById("shiftCarriedAdvance").value = advance || 2000;
+      const advNum = (advance !== "" && advance !== null && advance !== undefined && !isNaN(Number(advance))) ? Number(advance) : 0;
+      document.getElementById("shiftCarriedAdvance").value = advNum;
+      document.getElementById("shiftNewTargetAdvance").value = advNum;
       document.getElementById("shiftExtraAdvance").value = "";
       document.getElementById("shiftNewFullRent").value = "";
       document.getElementById("shiftCollectNowAmt").value = "";
@@ -1493,6 +1571,36 @@
       const newFullRent = parseFloat(document.getElementById("shiftNewFullRent").value) || 0;
       if (!shiftDateStr) return;
 
+      const fut = isShiftFutureMonth();
+      const sameSec = document.getElementById("shiftSameMonthSection");
+      const futBox = document.getElementById("shiftFutureNoticeBox");
+      const oldProInp = document.getElementById("shiftOldProRatedRent");
+      const newProInp = document.getElementById("shiftNewProRatedRent");
+      const advHint = document.getElementById("shiftAdvanceHint");
+
+      if (fut.isFuture) {
+        if (sameSec) sameSec.classList.add("hidden");
+        if (futBox) futBox.classList.remove("hidden");
+        if (oldProInp) { oldProInp.required = false; oldProInp.value = oldFullRent; }
+        if (newProInp) { newProInp.required = false; newProInp.value = 0; }
+        const toRm = document.getElementById("shiftToRoom").value || "New Room";
+        const dayNum = parseInt(shiftDateStr.split("-")[2], 10) || 1;
+        document.getElementById("shiftFutureTitle").innerText = `Future-Month Shift (${fut.shiftMonthName})`;
+        document.getElementById("shiftFutureDesc").innerHTML =
+          `<b>${esc(fut.sheetMonth)}</b> rent &amp; payments will <b>NOT</b> be modified. Room ${esc(toRm)} will be reserved for <b>${esc(shiftDateStr)}</b> (₹0 rent in ${esc(fut.sheetMonth)}). ` +
+          (dayNum === 1
+            ? `During rollover to <b>${esc(fut.shiftMonthName)}</b>, the old room row drops automatically and full rent starts in Room ${esc(toRm)}.`
+            : `During rollover to <b>${esc(fut.shiftMonthName)}</b>, both rooms will auto pro-rate cleanly around ${esc(shiftDateStr)}.`);
+        if (advHint) advHint.innerText = `If New Room Target Adv is higher and unpaid today, the difference will appear under Advance Dues starting in ${fut.shiftMonthName} (not ${fut.sheetMonth}).`;
+        return;
+      }
+
+      if (sameSec) sameSec.classList.remove("hidden");
+      if (futBox) futBox.classList.add("hidden");
+      if (oldProInp) oldProInp.required = true;
+      if (newProInp) newProInp.required = true;
+      if (advHint) advHint.innerText = "If target advance is higher than carried & unpaid today, the difference shows under Advance Dues.";
+
       const dateObj = new Date(shiftDateStr + "T00:00:00");
       const day = dateObj.getDate();
       const totalDays = PG_CONFIG.prorateUseActualDays ? new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate() : 30;
@@ -1505,9 +1613,9 @@
       const oldPro = Math.round((oldFullRent / totalDays) * daysOld);
       const newPro = newFullRent > 0 ? Math.round((newFullRent / totalDays) * daysNew) : 0;
 
-      document.getElementById("shiftOldProRatedRent").value = oldPro;
+      oldProInp.value = oldPro;
       if (newFullRent > 0) {
-        document.getElementById("shiftNewProRatedRent").value = newPro;
+        newProInp.value = newPro;
       }
 
       recalculateRentCredit();
@@ -1557,11 +1665,12 @@
       statusBox.className = "p-2.5 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block";
       statusBox.innerText = "Executing room transfer in Google Sheet...";
 
+      const fut = isShiftFutureMonth();
       const alreadyPaid = parseFloat(document.getElementById("shiftOldPaidRent").value) || 0;
-      const oldProRated = parseFloat(document.getElementById("shiftOldProRatedRent").value) || 0;
-      const carriedCredit = Math.max(0, alreadyPaid - oldProRated);
+      const oldProRated = fut.isFuture ? (parseFloat(document.getElementById("shiftOldFullRent").value) || 0) : (parseFloat(document.getElementById("shiftOldProRatedRent").value) || 0);
+      const carriedCredit = fut.isFuture ? 0 : Math.max(0, alreadyPaid - oldProRated);
 
-      const collectNowAmt = parseFloat(document.getElementById("shiftCollectNowAmt").value) || 0;
+      const collectNowAmt = fut.isFuture ? 0 : (parseFloat(document.getElementById("shiftCollectNowAmt").value) || 0);
       let collectModeStr = "";
       let collectParts = [];
       if (collectNowAmt > 0) {
@@ -1575,26 +1684,32 @@
         collectParts = [{ mode: mode, receiver: rec, amount: collectNowAmt }];
       }
 
+      const carriedAdvAmt = parseFloat(document.getElementById("shiftCarriedAdvance").value) || 0;
       const extraAdvAmt = parseFloat(document.getElementById("shiftExtraAdvance").value) || 0;
+      const targetAdvAmt = Math.max(carriedAdvAmt + extraAdvAmt, parseFloat(document.getElementById("shiftNewTargetAdvance").value) || 0);
       const extraAdvRec = extraAdvAmt > 0 ? document.getElementById("shiftExtraAdvReceiver").value : "";
 
       const payload = {
         action: "shiftResident",
         month: document.getElementById("monthSelect").value,
+        rowIndex: shiftRowIndexCurrent || undefined,
         fromRoom: document.getElementById("shiftFromRoom").value,
         toRoom: document.getElementById("shiftToRoom").value,
         residentName: document.getElementById("shiftResidentName").value,
         mobile: document.getElementById("shiftResidentMobile").value,
         shiftDate: document.getElementById("shiftDate").value,
+        isFutureMonthShift: fut.isFuture,
+        shiftMonthName: fut.shiftMonthName,
         toSharing: document.getElementById("shiftToSharing").value,
         oldRoomRent: oldProRated,
         newRoomStandardRent: document.getElementById("shiftNewFullRent").value,
-        newRoomProRatedRent: document.getElementById("shiftNewProRatedRent").value,
+        newRoomProRatedRent: fut.isFuture ? 0 : document.getElementById("shiftNewProRatedRent").value,
         carriedRentCredit: carriedCredit,
         additionalRentPaidNow: collectNowAmt,
         additionalRentMode: collectModeStr,
         additionalRentParts: collectParts,
-        transferredAdvance: document.getElementById("shiftCarriedAdvance").value,
+        transferredAdvance: carriedAdvAmt,
+        newAgreedAdvance: targetAdvAmt,
         additionalAdvance: extraAdvAmt,
         additionalAdvanceReceiver: extraAdvRec
       };
