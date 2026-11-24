@@ -311,9 +311,9 @@
 
       <button type="button" onclick="switchTab('future')" class="text-left bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-amber-300 transition flex items-center justify-between gap-2">
         <div class="min-w-0">
-          <span class="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">Vacating PG</span>
+          <span class="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">Upcoming Open</span>
           <p id="metricFutureOpen" class="text-2xl sm:text-3xl font-black text-slate-900 mt-0.5">--</p>
-          <span id="metricFutureSub" class="text-[10px] text-slate-400 block truncate">Open after exit</span>
+          <span id="metricFutureSub" class="text-[10px] text-slate-400 block truncate">PG exits + freed shifts</span>
         </div>
         <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-base shrink-0">
           <i class="fa-solid fa-clock"></i>
@@ -686,9 +686,14 @@
       document.getElementById("metricFutureOpen").innerText = openExits.length;
       const futSub = document.getElementById("metricFutureSub");
       if (futSub) {
-        futSub.innerText = coveredExits.length > 0
-          ? `+ ${coveredExits.length} already covered`
-          : "Open after exit";
+        const shiftOpenCnt = openExits.filter(v => Boolean(v.isTransferRelease)).length;
+        if (coveredExits.length > 0) {
+          futSub.innerText = `+ ${coveredExits.length} already covered`;
+        } else if (shiftOpenCnt > 0) {
+          futSub.innerText = `Incl. ${shiftOpenCnt} via room shift`;
+        } else {
+          futSub.innerText = "PG exits + freed shifts";
+        }
       }
 
       const metricTr = document.getElementById("metricTransfersOpen");
@@ -843,41 +848,64 @@
         });
       }
 
-      // 3. Render Upcoming Departures (Strictly PG Exits; Auto-Nets Already-Covered Exits)
+      // 3. Render Upcoming Open Beds (PG Exits + Freed Transfer Beds; Auto-Nets Already-Covered Beds)
       const futureContainer = document.getElementById("futureCardsList");
       window.__filteredFutureList = filteredFuture;
 
       function buildExitCard(item, origIdx) {
         const isCovered = Boolean(item.coveredByIncoming);
+        const isDaily = item.stayType === "Daily";
+        const isTransferRelease = Boolean(!isDaily && item.isTransferRelease);
+
         const card = document.createElement("div");
         card.className = isCovered
           ? "p-4 bg-white rounded-2xl border border-slate-200 opacity-80 shadow-sm flex flex-wrap items-center justify-between gap-3"
-          : "p-4 bg-white rounded-2xl border border-amber-200 bg-amber-50/20 shadow-sm flex flex-wrap items-center justify-between gap-3";
+          : (isTransferRelease
+              ? "p-4 bg-white rounded-2xl border border-teal-200 bg-teal-50/20 shadow-sm flex flex-wrap items-center justify-between gap-3"
+              : "p-4 bg-white rounded-2xl border border-amber-200 bg-amber-50/20 shadow-sm flex flex-wrap items-center justify-between gap-3");
 
         const today = new Date();
         today.setHours(0,0,0,0);
         const vacDate = new Date(item.vacatingDate + "T00:00:00");
         const diffDays = Math.ceil((vacDate - today) / (1000 * 60 * 60 * 24));
-        const daysBadge = diffDays <= 0 ? "Leaves Today" : (diffDays === 1 ? "Leaves Tomorrow" : `Leaves in ${diffDays} days`);
+        const verb = isTransferRelease ? "Shifts" : "Leaves";
+        const daysBadge = diffDays <= 0 ? `${verb} Today` : (diffDays === 1 ? `${verb} Tomorrow` : `${verb} in ${diffDays} days`);
 
-        const isDaily = item.stayType === "Daily";
         const stayTypeTag = isDaily
           ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Short Stay</span>`
-          : `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">Leaving PG</span>`;
+          : (isTransferRelease
+              ? `<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200"><i class="fa-solid fa-arrows-split-up-and-left text-[9px] mr-1"></i>Opens via Shift &rarr; Rm ${esc(item.shiftToRoom)}</span>`
+              : `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Leaving PG</span>`);
 
         const coveredTag = isCovered
           ? `<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200"><i class="fa-solid fa-lock text-[9px] mr-1"></i>Already Covered</span>`
           : "";
 
-        const cancelNoticeBtn = isViewer ? "" : (isDaily
+        const actionBtn = isViewer ? "" : (isDaily
           ? `<a href="daily_staying.html" class="mt-2 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] rounded-lg transition inline-flex items-center gap-1 no-underline">
                <i class="fa-solid fa-calendar-plus text-[9px]"></i> Extend in Daily Stay
              </a>`
-          : `<button type="button" onclick="openCancelNoticeModal(${origIdx})"
-                     class="mt-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl shadow-sm transition inline-flex items-center gap-1.5">
-               <i class="fa-solid fa-rotate-left text-[10px]"></i>
-               <span>Cancel Notice (Continue Stay)</span>
-             </button>`);
+          : (isTransferRelease
+              ? `<button type="button" onclick="cancelScheduledShiftFromExit(${origIdx})"
+                         class="mt-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-[11px] rounded-xl shadow-sm transition inline-flex items-center gap-1.5">
+                   <i class="fa-solid fa-ban text-[10px]"></i>
+                   <span>Cancel Room Shift</span>
+                 </button>`
+              : `<button type="button" onclick="openCancelNoticeModal(${origIdx})"
+                         class="mt-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl shadow-sm transition inline-flex items-center gap-1.5">
+                   <i class="fa-solid fa-rotate-left text-[10px]"></i>
+                   <span>Cancel Notice (Continue Stay)</span>
+                 </button>`));
+
+        const rightBadgeBg = isCovered
+          ? "bg-slate-100 text-slate-600"
+          : (isTransferRelease ? "bg-teal-100 text-teal-800" : "bg-amber-100 text-amber-800");
+        const rightBadgePrefix = isCovered
+          ? (isTransferRelease ? "Shifts" : "Exits")
+          : (isTransferRelease ? "Opens on" : "Vacant on");
+        const daysColor = isCovered
+          ? "text-slate-400"
+          : (isTransferRelease ? "text-teal-700" : "text-amber-600");
 
         card.innerHTML = `
           <div>
@@ -889,18 +917,18 @@
               ${coveredTag}
             </div>
             <p class="text-xs font-bold text-slate-800 mt-1 flex items-center gap-1.5">
-              <i class="fa-solid fa-user ${isDaily ? 'text-emerald-500' : 'text-amber-500'} text-xs"></i> ${esc(item.residentName)}
+              <i class="fa-solid fa-user ${isDaily ? 'text-emerald-500' : (isTransferRelease ? 'text-indigo-500' : 'text-amber-500')} text-xs"></i> ${esc(item.residentName)}
               ${item.mobile ? `<span class="text-[11px] text-slate-400 font-normal">(${esc(item.mobile)})</span>` : ''}
             </p>
             ${isCovered && item.coveredByLabel ? `<p class="text-[11px] font-bold text-teal-700 mt-1"><i class="fa-solid fa-shield-check mr-1"></i>${esc(item.coveredByLabel)}</p>` : ''}
             ${item.remarks ? `<p class="text-[11px] text-slate-500 italic mt-0.5">${esc(item.remarks)}</p>` : ''}
           </div>
           <div class="text-right flex flex-col items-end">
-            <span class="inline-block px-3 py-1 ${isCovered ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-800'} font-black text-xs rounded-xl">
-              ${isCovered ? 'Exits' : 'Vacant on'}: ${esc(item.vacatingDate)}
+            <span class="inline-block px-3 py-1 ${rightBadgeBg} font-black text-xs rounded-xl">
+              ${rightBadgePrefix}: ${esc(item.vacatingDate)}
             </span>
-            <p class="text-[11px] font-bold ${isCovered ? 'text-slate-400' : 'text-amber-600'} mt-1">${daysBadge}</p>
-            ${cancelNoticeBtn}
+            <p class="text-[11px] font-bold ${daysColor} mt-1">${daysBadge}</p>
+            ${actionBtn}
           </div>
         `;
         return card;
@@ -909,14 +937,14 @@
       if (filteredFuture.length === 0) {
         futureContainer.innerHTML = `
           <div class="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-semibold">
-            No residents leaving the PG match the selected filters.${filteredTransfers.length > 0 ? ` Check the <b>Transfers (${filteredTransfers.length})</b> tab for scheduled room shifts.` : ''}
+            No upcoming vacancies or freed room-shift beds match the selected filters.
           </div>`;
       } else {
         futureContainer.innerHTML = "";
         if (openExits.length === 0) {
           futureContainer.innerHTML = `
             <div class="p-5 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-semibold">
-              All upcoming PG exits in this view are already covered by incoming transfers or bookings.
+              All upcoming vacated &amp; shifted-out beds in this view are already covered by incoming transfers or bookings.
             </div>`;
         } else {
           openExits.forEach(item => {
@@ -931,7 +959,7 @@
           toggleRow.innerHTML = `
             <button type="button" onclick="toggleCoveredExitsView()"
                     class="w-full py-2.5 px-4 rounded-xl bg-slate-200/70 hover:bg-slate-200 text-slate-600 font-bold text-xs flex items-center justify-between transition">
-              <span><i class="fa-solid fa-lock text-teal-600 mr-1.5"></i>Already Covered Exits (${coveredExits.length}) — Not counted as open vacancies</span>
+              <span><i class="fa-solid fa-lock text-teal-600 mr-1.5"></i>Already Covered Beds (${coveredExits.length}) — Not counted as open vacancies</span>
               <i class="fa-solid ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-[10px]"></i>
             </button>`;
           futureContainer.appendChild(toggleRow);
@@ -944,7 +972,7 @@
         }
       }
 
-      // 4. Render Scheduled Room Transfers (Paired From -> To Cards)
+      // 4. Render Scheduled Room Transfers (Paired From -> To Cards with Live Coverage Status)
       const transfersContainer = document.getElementById("transfersCardsList");
       window.__filteredTransfersList = filteredTransfers;
       if (transfersContainer) {
@@ -972,6 +1000,14 @@
               ? `₹${Number(t.oldRent).toLocaleString("en-IN")} &rarr; ₹${Number(t.newRent).toLocaleString("en-IN")}/mo`
               : (t.newRent > 0 ? `New Rent: ₹${Number(t.newRent).toLocaleString("en-IN")}/mo` : "");
 
+            const fromStatusPill = t.fromBedCovered
+              ? `<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                   <i class="fa-solid fa-lock text-[9px] mr-1 text-teal-600"></i>Rm ${esc(t.fromRoom)} Already Covered
+                 </span>`
+              : `<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200">
+                   <i class="fa-solid fa-door-open text-[9px] mr-1"></i>Opens Rm ${esc(t.fromRoom)} on ${esc(t.shiftDate)}
+                 </span>`;
+
             card.innerHTML = `
               <div class="space-y-1.5 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
@@ -980,9 +1016,7 @@
                     <i class="fa-solid fa-arrow-right text-[11px] text-indigo-500"></i>
                     <span>Rm ${esc(t.toRoom)}</span>
                   </span>
-                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200">
-                    <i class="fa-solid fa-door-open text-[9px] mr-1"></i>Opens Rm ${esc(t.fromRoom)} on ${esc(t.shiftDate)}
-                  </span>
+                  ${fromStatusPill}
                 </div>
 
                 <p class="text-xs font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
@@ -990,6 +1024,8 @@
                   <span>${esc(t.residentName)}</span>
                   ${t.mobile ? `<span class="text-[11px] text-slate-400 font-normal font-mono">(${esc(t.mobile)})</span>` : ''}
                 </p>
+
+                ${t.fromBedCovered && t.fromBedCoveredLabel ? `<p class="text-[11px] font-bold text-teal-700"><i class="fa-solid fa-shield-check mr-1"></i>${esc(t.fromBedCoveredLabel)}</p>` : ''}
 
                 <div class="flex items-center gap-2.5 text-[11px] text-slate-500 font-semibold flex-wrap">
                   ${sharingLine ? `<span><i class="fa-solid fa-bed text-[10px] text-slate-400 mr-1"></i>${sharingLine}</span>` : ''}
@@ -1307,25 +1343,42 @@
     }
 
 
-    async function cancelScheduledShift(tIdx) {
-      const item = (window.__filteredTransfersList || [])[tIdx];
-      if (!item) return;
-      const month = document.getElementById("monthSelect").value;
+    async function cancelScheduledShiftPayload(payload) {
       try {
-        await apiPost({
-          action: "cancelFutureShift",
-          month: month,
-          rowIndex: item.fromRowIndex || undefined,
-          fromRoom: item.fromRoom,
-          toRoom: item.toRoom || "",
-          residentName: item.residentName,
-          shiftDate: item.shiftDate
-        });
+        await apiPost(payload);
         loadVacancies(2);
       } catch (err) {
         if (err && (err.cancelled || err.modalShown)) return;
         alert("Failed cancelling room shift: " + err.message);
       }
+    }
+
+    async function cancelScheduledShift(tIdx) {
+      const item = (window.__filteredTransfersList || [])[tIdx];
+      if (!item) return;
+      await cancelScheduledShiftPayload({
+        action: "cancelFutureShift",
+        month: document.getElementById("monthSelect").value,
+        rowIndex: item.fromRowIndex || undefined,
+        fromRoom: item.fromRoom,
+        toRoom: item.toRoom || "",
+        residentName: item.residentName,
+        shiftDate: item.shiftDate
+      });
+    }
+
+    async function cancelScheduledShiftFromExit(fIdx) {
+      const item = (window.__filteredFutureList || [])[fIdx];
+      if (!item) return;
+      await cancelScheduledShiftPayload({
+        action: "cancelFutureShift",
+        month: document.getElementById("monthSelect").value,
+        rowIndex: item.rowIndex || undefined,
+        fromRoom: item.roomNumber,
+        toRoom: item.shiftToRoom || "",
+        residentName: item.residentName,
+        shiftDate: item.vacatingDate
+      });
     }
   </script>
 </body>
